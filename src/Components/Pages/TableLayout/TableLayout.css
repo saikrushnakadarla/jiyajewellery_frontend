@@ -1,0 +1,80 @@
+/* Card styling for the table */
+.table-card {
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-card .card-body {
+  padding: 1rem;
+  padding-top: 0px;
+}
+
+/* Table header styling */
+.dataTable_headerRow {
+  background-color: #f8f9fa;
+}
+
+.dataTable_headerCell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #343a40;
+  border-bottom: 2px solid #dee2e6;
+}
+
+/* Table cell styling */
+.dataTable_cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Table row hover effect */
+.dataTable_row:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Pagination styling */
+.dataTable_pageInfo {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* Button styling */
+.btn1 {
+  min-width: 70px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .table-card .card-body {
+    padding: 1rem;
+  }
+
+  .dataTable_headerCell,
+  .dataTable_cell {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .dataTable_pageInfo {
+    font-size: 0.8rem;
+  }
+}
+
+/* Ensure proper spacing on mobile */
+.container-fluid {
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+/* Checkmark styling */
+.text-success {
+  color: #28a745 !important;
+}

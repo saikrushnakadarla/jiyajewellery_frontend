@@ -1,0 +1,175 @@
+.customerregistration-main-container {
+  padding: 10px;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.customerregistration-form-container {
+  max-width: 1345px;
+  width: 100%;
+  margin: 30px auto 0;
+  background-color: rgba(163, 110, 41, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 30px 25px;
+}
+
+.customerregistration-form-container h2 {
+  text-align: center;
+  margin-bottom: 35px;
+  color: #333;
+  font-weight: 600;
+  font-size: 28px;
+}
+
+/* Form Grid Layout */
+.customerregistration-form {
+  display: grid;
+  grid-template-columns: 1fr; /* Default to single column for mobile and below */
+  gap: 15px;
+  width: 100%;
+}
+
+/* Gender Field */
+.customerregistration-gender-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customerregistration-gender-options {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.customerregistration-gender-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.customerregistration-gender-options input[type="radio"] {
+  accent-color: #a26d2b;
+}
+
+/* Country & Password Containers */
+.customerregistration-country-container,
+.customerregistration-password-container {
+  position: relative;
+}
+
+.customerregistration-eye-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #666;
+  font-size: 18px;
+}
+
+/* Buttons */
+.customerregistration-button-container {
+  grid-column: 1 / -1; /* Span all columns */
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.customerregistration-back-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  color: #333;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.customerregistration-back-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.customerregistration-submit-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  color: #fff;
+  background-color: #a36e29;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.customerregistration-submit-btn:hover {
+  background-color: #8c5d20;
+  transform: scale(1.05);
+}
+
+/* Required field red star */
+.input-label::after {
+  content: " *";
+  color: red;
+}
+
+/* Responsive Design */
+
+/* 📱 Mobile: up to 740px */
+@media (max-width: 740px) {
+  .customerregistration-form {
+    grid-template-columns: 1fr; /* Single column */
+    gap: 15px;
+  }
+  .customerregistration-button-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .customerregistration-back-btn,
+  .customerregistration-submit-btn {
+    width: 100%;
+    text-align: center;
+  }
+  .customerregistration-form-container {
+    padding: 20px 15px;
+    margin: 20px 10px;
+  }
+}
+
+/* iPad Mini: 741px–1024px */
+@media (min-width: 741px) and (max-width: 1024px) {
+  .customerregistration-form {
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
+    gap: 20px;
+  }
+  .customerregistration-button-container {
+    grid-column: span 2;
+    justify-content: flex-end;
+    gap: 15px;
+  }
+  .customerregistration-form-container {
+    padding: 25px 20px;
+    margin: 20px;
+  }
+}
+
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
+  .customerregistration-form {
+    grid-template-columns: repeat(3, 1fr); /* Three columns */
+    gap: 20px;
+  }
+  .customerregistration-button-container {
+    grid-column: span 3;
+    justify-content: flex-end;
+  }
+  .customerregistration-form-container {
+    padding: 30px 25px;
+    margin: 30px auto;
+  }
+}

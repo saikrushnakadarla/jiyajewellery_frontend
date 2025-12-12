@@ -1,0 +1,27 @@
+.input-field-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.input-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.styled-input {
+  border: none;
+  border-bottom: 1px solid #A26D2B; /* underline only */
+  padding: 6px 2px;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  transition: border-bottom 0.2s ease;
+}
+
+.styled-input:focus {
+  border-bottom: 2px solid #8c5d20; /* darker underline when typing */
+}

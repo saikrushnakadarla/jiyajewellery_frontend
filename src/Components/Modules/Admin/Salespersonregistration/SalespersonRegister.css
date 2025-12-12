@@ -1,0 +1,96 @@
+.salesperson-container {
+  padding: 20px;
+}
+
+
+.salesperson-card {
+  padding: 20px;
+  max-width: 1500px;
+  margin: auto;
+  background-color: rgba(163, 110, 41, 0.08) !important;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 75px;
+}
+
+.salesperson-card h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+}
+.salesperson-title {
+  color: #6b4c1a;
+}
+
+.inputfield-input,
+.inputfield-select {
+  background-color: #faf7f0;
+  border-color: #a36e29;
+}
+
+.inputfield-input:focus,
+.inputfield-select:focus {
+  border-color: #a36e29;
+  box-shadow: 0 0 0 0.25rem rgba(163, 110, 41, 0.25);
+}
+
+.inputfield-label {
+  color: #6b4c1a;
+}
+
+.cus-back-btn {
+  background-color: #f0f0f0;
+  color: #a36e29;
+  border: 1px solid #a36e29;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 5px;
+}
+
+.cus-submit-btn {
+  background-color: #a36e29;
+  color: white;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 5px;
+  border: 1px solid #a36e29;
+}
+
+
+@media (max-width: 740px) {
+  .salesperson-card {
+    margin: 10px;
+    padding: 15px;
+  }
+  .salesperson-title {
+    font-size: 1.5rem;
+  }
+  
+  /* Stack buttons vertically on mobile */
+  .salesperson-button-container {
+    flex-direction: column;
+  }
+  
+  .cus-back-btn,
+  .cus-submit-btn {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+}
+
+/* iPad Mini: 577px–1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .salesperson-card {
+    padding: 20px;
+  }
+  .col-sm-6 {
+    margin-bottom: 15px;
+  }
+}
+
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
+  .salesperson-card {
+    padding: 30px;
+  }
+}
