@@ -10,6 +10,8 @@ import Swal from 'sweetalert2';
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mastersDropdownOpen, setMastersDropdownOpen] = useState(false);
+  const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
+   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -19,6 +21,14 @@ function Navbar() {
 
   const toggleDropdown = () => {
     setMastersDropdownOpen(!mastersDropdownOpen);
+  };
+
+  const toggletransactionDropdown = () => {
+    setTransactionsDropdownOpen(!transactionsDropdownOpen);
+  };
+
+  const togglereportsDropdown = () => {
+    setReportsDropdownOpen(!reportsDropdownOpen);
   };
 
   const handleItemClick = () => {
@@ -83,7 +93,7 @@ function Navbar() {
             </Link>
           </span>
         </div>
-        
+
         <div
           className="navbar-dropdown"
           onMouseEnter={toggleDropdown}
@@ -107,17 +117,60 @@ function Navbar() {
               <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
                 Purity Master
               </Link>
-               <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
+              <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
                 Design Master
               </Link>
-               <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
+              <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
                 Metaltype Master
               </Link>
             </div>
           )}
         </div>
+
+
+        <div
+          className="navbar-dropdown"
+          onMouseEnter={toggletransactionDropdown}
+          onMouseLeave={toggletransactionDropdown}
+        >
+          <span className="navbar-dropdown-title">
+            TRANSACTIONS{' '}
+            <FontAwesomeIcon
+              icon={transactionsDropdownOpen ? faChevronUp : faChevronDown}
+              className="dropdown-arrow-icon"
+            />
+          </span>
+          {transactionsDropdownOpen && (
+            <div className="navbar-dropdown-content">
+              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
+                Estimation
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="navbar-dropdown"
+          onMouseEnter={togglereportsDropdown}
+          onMouseLeave={togglereportsDropdown}
+        >
+          <span className="navbar-dropdown-title">
+            REPORTS{' '}
+            <FontAwesomeIcon
+              icon={reportsDropdownOpen ? faChevronUp : faChevronDown}
+              className="dropdown-arrow-icon"
+            />
+          </span>
+          {reportsDropdownOpen && (
+            <div className="navbar-dropdown-content">
+              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
+                Sales Reports
+              </Link>
+            </div>
+          )}
+        </div>
       </nav>
-      
+
       <div className="navbar-logout">
         <button className="logout-button" onClick={handleLogout}>
           <FaSignOutAlt size={18} /> Logout
