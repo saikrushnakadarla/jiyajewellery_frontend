@@ -8,6 +8,12 @@ import AdminHome from './Components/Modules/Admin/AdminHome/AdminHome';
 import SalesPersonTable from './Components/Modules/Admin/Salespersonregistration/SalesPersonTable';
 import Customers from './Components/Modules/Admin/Customers/Customers';
 import Dashboard from './Components/Modules/Admin/Dashboard/Dashboard';
+import Purity from './Components/Modules/Admin/Masters/Puritymaster/Purity';
+import Metaltype from './Components/Modules/Admin/Masters/Metaltypemaster/Metaltype';
+import Designmaster from './Components/Modules/Admin/Masters/Designmaster/Designmaster';
+import PurityForm from './Components/Modules/Admin/Masters/Puritymaster/PurityForm';
+import Designmasterform from './Components/Modules/Admin/Masters/Designmaster/Designmasterform';
+import Metaltypeform from './Components/Modules/Admin/Masters/Metaltypemaster/Metaltypeform';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -22,6 +28,14 @@ function App() {
           <Route path='/customers' element={<Customers />} /> 
            <Route path='/dashboard' element={<Dashboard />} /> 
           <Route path='/salespersontable' element={<SalesPersonTable />} />
+
+          <Route path='/purity' element={<Purity />} />
+          <Route path='/purityform' element={<PurityForm />} />
+          <Route path='/metaltype' element={<Metaltype />} />
+          <Route path='/metaltypeform' element={<Metaltypeform />} />
+          <Route path='/designmaster' element={<Designmaster />} />
+           <Route path='/designmasterform' element={<Designmasterform />} />
+
       </Routes>
     </Router>
   );

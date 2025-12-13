@@ -104,6 +104,15 @@ function Navbar() {
               <Link to="/salespersontable" onClick={handleItemClick} className={isActive('/salespersontable')}>
                 Salesperson Master
               </Link>
+              <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
+                Purity Master
+              </Link>
+               <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
+                Design Master
+              </Link>
+               <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
+                Metaltype Master
+              </Link>
             </div>
           )}
         </div>

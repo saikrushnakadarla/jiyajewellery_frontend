@@ -1,0 +1,178 @@
+/* PurityForm.css */
+.purity-container {
+  padding: 20px;
+  min-height: calc(100vh - 90px);
+}
+
+.purity-card {
+  padding: 30px;
+  max-width: 800px;
+  margin: auto;
+  background-color: rgba(163, 110, 41, 0.08) !important;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 90px;
+}
+
+.purity-card h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.purity-title {
+  color: #6b4c1a;
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 30px !important;
+}
+
+.purity-form .inputfield-input,
+.purity-form .inputfield-select {
+  background-color: #faf7f0;
+  border-color: #a36e29;
+  border-radius: 5px;
+  padding: 8px 12px;
+  width: 100%;
+  font-size: 14px;
+}
+
+.purity-form .inputfield-input:focus,
+.purity-form .inputfield-select:focus {
+  border-color: #a36e29;
+  box-shadow: 0 0 0 0.25rem rgba(163, 110, 41, 0.25);
+  outline: none;
+}
+
+.purity-form .inputfield-label {
+  color: #6b4c1a;
+  font-weight: 500;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.purity-button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(163, 110, 41, 0.2);
+}
+
+.purity-back-btn {
+  background-color: #f0f0f0;
+  color: #a36e29;
+  border: 1px solid #a36e29;
+  font-weight: 600;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.purity-back-btn:hover:not(:disabled) {
+  background-color: #e6e6e6;
+}
+
+.purity-back-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.purity-submit-btn {
+  background-color: #a36e29;
+  color: white;
+  font-weight: 600;
+  padding: 10px 25px;
+  border-radius: 5px;
+  border: 1px solid #a36e29;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.purity-submit-btn:hover:not(:disabled) {
+  background-color: #8a5c23;
+  border-color: #8a5c23;
+}
+
+.purity-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Message Styling */
+.inputfield-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+/* Responsive Design */
+@media (max-width: 767px) {
+  .purity-container {
+    padding: 10px;
+  }
+  
+  .purity-card {
+    margin: 20px 10px;
+    padding: 20px;
+    margin-top: 80px;
+  }
+  
+  .purity-title {
+    font-size: 1.5rem;
+  }
+  
+  .purity-button-container {
+    flex-direction: column;
+  }
+  
+  .purity-back-btn,
+  .purity-submit-btn {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+}
+
+/* Tablet: 768px–1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .purity-card {
+    padding: 25px;
+    max-width: 700px;
+    margin-top: 85px;
+  }
+  
+  .col-md-6 {
+    margin-bottom: 20px;
+  }
+}
+
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
+  .purity-card {
+    padding: 40px;
+    max-width: 100%;
+  }
+  
+  .purity-title {
+    font-size: 2rem;
+  }
+}
+
+/* Animation for form */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.purity-card {
+  animation: fadeIn 0.5s ease-out;
+}

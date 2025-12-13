@@ -1,0 +1,33 @@
+.purity-table-container {
+    max-width: 1500px;
+    margin: auto;
+    padding: 20px;
+    margin-top: 80px;
+    border-radius: 10px;
+    background-color: rgba(163, 110, 41, 0.08);
+}
+
+.dataTable_cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-size: 14px;
+}
+
+.dataTable_headerCell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-size: 14px;
+}
+
+.main-container {
+    padding: 20px;
+}
+
+.create_but {
+    background-color: #a36e29 !important;
+    border-color: #a36e29 !important;
+}

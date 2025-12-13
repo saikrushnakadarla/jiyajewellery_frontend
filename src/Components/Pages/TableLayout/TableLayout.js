@@ -1,12 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import './TableLayout.css';
 
 // Global Search Filter Component
-function GlobalFilter({ globalFilter, setGlobalFilter }) {
+function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  const applyDateFilter = () => {
+    handleDateFilter(fromDate, toDate);
+  };
+
   return (
-    <div className="dataTable_search mb-3">
+    <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
       <input
         value={globalFilter || ''}
         onChange={(e) => setGlobalFilter(e.target.value)}
@@ -14,30 +20,48 @@ function GlobalFilter({ globalFilter, setGlobalFilter }) {
         placeholder="Search..."
         style={{ maxWidth: '200px' }}
       />
+      <input
+        type="date"
+        value={fromDate}
+        onChange={(e) => setFromDate(e.target.value)}
+        className="form-control"
+        style={{ maxWidth: '150px' }}
+      />
+      <input
+        type="date"
+        value={toDate}
+        onChange={(e) => setToDate(e.target.value)}
+        className="form-control"
+        style={{ maxWidth: '150px' }}
+      />
+      <button onClick={applyDateFilter} className="btn btn-primary">
+        OK
+      </button>
     </div>
   );
 }
 
 // Reusable DataTable Component
-export default function DataTable({ columns, data, initialSearchValue }) {
-  const [tableData, setTableData] = useState(data);
-  
-  // Update table data when props change
+export default function DataTable({ columns, data }) {
+  const [filteredData, setFilteredData] = useState(data);
+
   useEffect(() => {
-    setTableData(data);
+    setFilteredData(data); // Sync filteredData with data whenever data changes
   }, [data]);
 
-  const filterAllColumns = (rows, id, filterValue) => {
-    if (!filterValue) return rows;
-    const lowercasedFilter = filterValue.toLowerCase();
-    
-    return rows.filter((row) => {
-      return Object.values(row.original).some(
-        (value) =>
-          value &&
-          value.toString().toLowerCase().includes(lowercasedFilter)
-      );
-    });
+  const handleDateFilter = (fromDate, toDate) => {
+    if (fromDate || toDate) {
+      const filtered = data.filter((item) => {
+        const itemDate = new Date(item.date).setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
+        const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
+        const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
+
+        return (!from || itemDate >= from) && (!to || itemDate <= to);
+      });
+      setFilteredData(filtered);
+    } else {
+      setFilteredData(data); // Reset to original data if no date filters
+    }
   };
 
   const {
@@ -57,115 +81,89 @@ export default function DataTable({ columns, data, initialSearchValue }) {
   } = useTable(
     {
       columns,
-      data: tableData,
-      initialState: { pageIndex: 0, globalFilter: initialSearchValue },
-      globalFilter: filterAllColumns,
+      data: filteredData,
+      initialState: { pageIndex: 0 },
     },
     useGlobalFilter,
     useSortBy,
     usePagination
   );
 
-  // Set the global filter to the initial value when the component mounts
-  useEffect(() => {
-    if (initialSearchValue) {
-      setGlobalFilter(initialSearchValue);
-    }
-  }, [initialSearchValue, setGlobalFilter]);
-
   return (
-    <div className="container-fluid py-4">
-      <div className="card shadow-sm table-card">
-        <div className="card-body">
-          <div className="card-title d-flex justify-content-between align-items-center mb-4">
-            {/* <h5 className="m-0">Categories List</h5> */}
-            <GlobalFilter globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} />
-          </div>
+    <div className="dataTable_wrapper container-fluid">
+      <GlobalFilter globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} handleDateFilter={handleDateFilter} />
 
-          {/* Table */}
-          <div className="table-responsive">
-            <table {...getTableProps()} className="table table-striped mb-0">
-              <thead>
-                {headerGroups.map((headerGroup) => (
-                  <tr {...headerGroup.getHeaderGroupProps()} className="dataTable_headerRow">
-                    {headerGroup.headers.map((column) => (
-                      <th
-                        {...column.getHeaderProps(column.getSortByToggleProps())}
-                        className="dataTable_headerCell"
-                      >
-                        {column.render('Header')}
-                        <span>
-                          {column.isSorted ? (column.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
+      <div className="table-responsive">
+        <table {...getTableProps()} className="table table-striped">
+          <thead>
+            {headerGroups.map((headerGroup) => (
+              <tr {...headerGroup.getHeaderGroupProps()} className="dataTable_headerRow">
+                {headerGroup.headers.map((column) => (
+                  <th
+                    {...column.getHeaderProps(column.getSortByToggleProps())}
+                    className="dataTable_headerCell"
+                  >
+                    {column.render('Header')}
+                    <span>
+                      {column.isSorted ? (column.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
+                    </span>
+                  </th>
                 ))}
-              </thead>
-              <tbody {...getTableBodyProps()} className="dataTable_body">
-                {page.length > 0 ? (
-                  page.map((row) => {
-                    prepareRow(row);
-                    return (
-                      <tr {...row.getRowProps()} className="dataTable_row">
-                        {row.cells.map((cell) => (
-                          <td {...cell.getCellProps()} className="dataTable_cell">
-                            {cell.render('Cell')}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={columns.length} className="text-center py-4">
-                      No records found
+              </tr>
+            ))}
+          </thead>
+          <tbody {...getTableBodyProps()} className="dataTable_body">
+            {page.map((row) => {
+              prepareRow(row);
+              return (
+                <tr {...row.getRowProps()} className="dataTable_row">
+                  {row.cells.map((cell) => (
+                    <td {...cell.getCellProps()} className="dataTable_cell">
+                      {cell.render('Cell')}
                     </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-          {/* Pagination Controls */}
-          <div className="d-flex align-items-center justify-content-between mt-3 pt-3 border-top">
-            <div className="dataTable_pageInfo">
-              Page{' '}
-              <strong>
-                {pageIndex + 1} of {pageOptions.length || 1}
-              </strong>
-            </div>
-            <div className="pagebuttons">
-              <button
-                className="btn btn-outline-primary me-2 btn-sm"
-                onClick={() => previousPage()}
-                disabled={!canPreviousPage}
-              >
-                Prev
-              </button>
-              <button
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => nextPage()}
-                disabled={!canNextPage}
-              >
-                Next
-              </button>
-            </div>
-            <div>
-              <select
-                className="form-select form-select-sm"
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                style={{ width: 'auto', display: 'inline-block' }}
-              >
-                {[5, 10, 20].map((size) => (
-                  <option key={size} value={size}>
-                    Show {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+      <div className="d-flex align-items-center justify-content-between mt-3">
+        <div className="dataTable_pageInfo">
+          Page{' '}
+          <strong>
+            {pageIndex + 1} of {pageOptions.length}
+          </strong>
+        </div>
+        <div className="pagebuttons">
+          <button
+            className="btn btn-primary me-2 btn1"
+            onClick={() => previousPage()}
+            disabled={!canPreviousPage}
+          >
+            Prev
+          </button>
+          <button
+            className="btn btn-primary btn1"
+            onClick={() => nextPage()}
+            disabled={!canNextPage}
+          >
+            Next
+          </button>
+        </div>
+        <div>
+          <select
+            className="form-select form-select-sm"
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+          >
+            {[5, 10, 20].map((size) => (
+              <option key={size} value={size}>
+                Show {size}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
