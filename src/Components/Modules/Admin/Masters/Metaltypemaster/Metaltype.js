@@ -61,11 +61,6 @@ function Metaltype() {
       width: 80,
     },
     {
-      Header: 'ID',
-      accessor: 'id',
-      width: 80,
-    },
-    {
       Header: 'Metal Name',
       accessor: 'metal_name',
       Cell: ({ value }) => (
@@ -78,18 +73,6 @@ function Metaltype() {
       Cell: ({ value }) => (
         <span>{value ? `${value}%` : 'N/A'}</span>
       ),
-    },
-    {
-      Header: 'Created Date',
-      accessor: 'created_at',
-      Cell: ({ value }) => {
-        const date = new Date(value);
-        return date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        });
-      },
     },
     {
       Header: 'Actions',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import Navbar from "../../../../Pages/Navbar/Navbar";
@@ -7,21 +7,22 @@ import "./PurityForm.css";
 
 function PurityForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [metalTypes, setMetalTypes] = useState([]); // Add state for metal types
+  const [metalTypes, setMetalTypes] = useState([]);
   const [loadingMetals, setLoadingMetals] = useState(true);
+  
+  // Get editing record if exists
+  const editingRecord = location.state?.editingRecord || null;
+
   const [formData, setFormData] = useState({
     name: "",
     metal: "",
     purity_percentage: "",
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
+  // Fetch metal types
   useEffect(() => {
     const fetchMetalTypes = async () => {
       try {
@@ -41,6 +42,28 @@ function PurityForm() {
 
     fetchMetalTypes();
   }, []);
+
+  // Initialize form with editing data if available
+  useEffect(() => {
+    if (editingRecord) {
+      setFormData({
+        name: editingRecord.name || "",
+        metal: editingRecord.metal || "",
+        purity_percentage: editingRecord.purity_percentage || "",
+      });
+    } else {
+      setFormData({
+        name: "",
+        metal: "",
+        purity_percentage: "",
+      });
+    }
+  }, [editingRecord]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,8 +103,19 @@ function PurityForm() {
     };
 
     try {
-      const response = await fetch("http://localhost:5000/purity", {
-        method: "POST",
+      let url = "http://localhost:5000/purity";
+      let method = "POST";
+      let successMessage = 'Purity Added Successfully!';
+      
+      // If editing, use PUT request
+      if (editingRecord) {
+        url = `http://localhost:5000/purity/${editingRecord.id}`;
+        method = "PUT";
+        successMessage = 'Purity Updated Successfully!';
+      }
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -91,23 +125,25 @@ function PurityForm() {
       if (response.ok) {
         const result = await response.json();
         console.log("Success:", result);
-
+        
         // Show success alert
         Swal.fire({
           icon: 'success',
-          title: 'Purity Added Successfully!',
-          text: 'Purity details have been saved successfully.',
+          title: successMessage,
+          text: editingRecord 
+            ? 'Purity details have been updated successfully.'
+            : 'Purity details have been saved successfully.',
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
-            // Reset form
-            setFormData({
-              name: "",
-              metal: "",
-              purity_percentage: "",
+            // Navigate back to purity list with success message
+            navigate('/purity', { 
+              state: { 
+                successMessage: editingRecord 
+                  ? 'Purity updated successfully!' 
+                  : 'Purity added successfully!' 
+              } 
             });
-            // Optionally navigate to another page
-            // navigate("/purity-list");
           }
         });
       } else {
@@ -115,7 +151,7 @@ function PurityForm() {
         Swal.fire({
           icon: 'error',
           title: 'Submission Failed',
-          text: errorData.message || 'Failed to save purity details. Please try again.',
+          text: errorData.message || `Failed to ${editingRecord ? 'update' : 'save'} purity details. Please try again.`,
           confirmButtonColor: '#3085d6',
         });
       }
@@ -141,15 +177,16 @@ function PurityForm() {
       <Navbar />
       <div className="purity-container">
         <div className="purity-card">
-          <h2 className="purity-title">Add Purity</h2>
-
+          <h2 className="purity-title">
+            {editingRecord ? 'Edit Purity' : 'Add Purity'}
+          </h2>
+          
           {errorMessage && <div className="purity-error">{errorMessage}</div>}
-
+          
           <form className="purity-form" onSubmit={handleSubmit}>
             <div className="row">
               {/* First Column */}
               <div className="col-md-4 col-sm-6">
-                {/* Purity Name */}
                 <InputField
                   label="Purity Name"
                   placeholder="Enter purity name (e.g., 22K, 24K)"
@@ -183,7 +220,6 @@ function PurityForm() {
 
               {/* Third Column */}
               <div className="col-md-4 col-sm-6">
-                {/* Purity Percentage */}
                 <InputField
                   label="Purity Percentage"
                   placeholder="Enter purity percentage (e.g., 91.6)"
@@ -214,7 +250,10 @@ function PurityForm() {
                 className="purity-submit-btn"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Saving..." : "Save Purity"}
+                {isSubmitting 
+                  ? (editingRecord ? "Updating..." : "Saving...") 
+                  : (editingRecord ? "Update Purity" : "Save Purity")
+                }
               </button>
             </div>
           </form>

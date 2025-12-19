@@ -61,11 +61,6 @@ function Designmaster() {
       width: 80,
     },
     {
-      Header: 'ID',
-      accessor: 'id',
-      width: 80,
-    },
-    {
       Header: 'Metal',
       accessor: 'metal',
       Cell: ({ value }) => (
@@ -75,18 +70,6 @@ function Designmaster() {
     {
       Header: 'Design Name',
       accessor: 'design_name',
-    },
-    {
-      Header: 'Created Date',
-      accessor: 'created_at',
-      Cell: ({ value }) => {
-        const date = new Date(value);
-        return date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        });
-      },
     },
     {
       Header: 'Actions',

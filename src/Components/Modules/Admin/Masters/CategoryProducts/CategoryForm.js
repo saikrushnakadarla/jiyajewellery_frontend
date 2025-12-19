@@ -12,7 +12,8 @@ function CategoryForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [metalTypes, setMetalTypes] = useState([]); // State for metal types
   const [loadingMetals, setLoadingMetals] = useState(true); // Loading state for metals
-  
+  const [loadingBarcode, setLoadingBarcode] = useState(true);
+
   // Get editing record if exists
   const editingRecord = location.state?.editingRecord || null;
 
@@ -62,6 +63,36 @@ function CategoryForm() {
     fetchMetalTypes();
   }, []);
 
+  useEffect(() => {
+    const fetchBarcode = async () => {
+      if (!editingRecord) {
+        try {
+          const response = await fetch("http://localhost:5000/last-rbarcode");
+          if (response.ok) {
+            const data = await response.json();
+            // Use the lastrbNumbers from the response
+            if (data.lastrbNumbers) {
+              setFormData(prev => ({
+                ...prev,
+                rbarcode: data.lastrbNumbers
+              }));
+            }
+          } else {
+            console.error("Failed to fetch barcode");
+          }
+        } catch (error) {
+          console.error("Error fetching barcode:", error);
+        } finally {
+          setLoadingBarcode(false);
+        }
+      } else {
+        setLoadingBarcode(false);
+      }
+    };
+
+    fetchBarcode();
+  }, [editingRecord]);
+
   // Initialize form with editing data if available
   useEffect(() => {
     if (editingRecord) {
@@ -96,7 +127,7 @@ function CategoryForm() {
     const baseOptions = [
       { value: "", label: loadingMetals ? "Loading metal types..." : "Select metal type", disabled: true }
     ];
-    
+
     // If metals are loaded, use them
     if (metalTypes.length > 0) {
       const metalOptions = metalTypes.map(metal => ({
@@ -105,7 +136,7 @@ function CategoryForm() {
       }));
       return [...baseOptions, ...metalOptions];
     }
-    
+
     // If no metals loaded, show default options
     if (!loadingMetals && metalTypes.length === 0) {
       const defaultOptions = [
@@ -116,7 +147,7 @@ function CategoryForm() {
       ];
       return [...baseOptions, ...defaultOptions];
     }
-    
+
     return baseOptions;
   };
 
@@ -132,9 +163,9 @@ function CategoryForm() {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    
+
     // Handle number inputs
-    const processedValue = (name.includes('_qty') || type === 'number') 
+    const processedValue = (name.includes('_qty') || type === 'number')
       ? (value === '' ? 0 : parseFloat(value) || 0)
       : value;
 
@@ -186,8 +217,8 @@ function CategoryForm() {
     setErrorMessage("");
 
     // Validation
-    if (!formData.category_name || !formData.rbarcode || !formData.prefix || 
-        !formData.metal_type_id || !formData.tax_slab_id || !formData.hsn_code) {
+    if (!formData.category_name || !formData.rbarcode || !formData.prefix ||
+      !formData.metal_type_id || !formData.tax_slab_id || !formData.hsn_code) {
       Swal.fire({
         icon: 'error',
         title: 'Validation Error',
@@ -226,10 +257,10 @@ function CategoryForm() {
     try {
       let url = "http://localhost:5000/post/category";
       let method = "POST";
-      
+
       // If editing, update the record
       if (editingRecord) {
-        url = `http://localhost:5000/update/category/${editingRecord.category_id}`;
+        url = `http://localhost:5000/put/category/${editingRecord.category_id}`;
         method = "PUT";
       }
 
@@ -244,12 +275,12 @@ function CategoryForm() {
       if (response.ok) {
         const result = await response.json();
         console.log("Success:", result);
-        
+
         // Show success alert
         Swal.fire({
           icon: 'success',
           title: editingRecord ? 'Category Updated Successfully!' : 'Category Added Successfully!',
-          text: editingRecord 
+          text: editingRecord
             ? 'Category details have been updated successfully.'
             : 'Category details have been saved successfully.',
           confirmButtonColor: '#3085d6',
@@ -293,9 +324,9 @@ function CategoryForm() {
           <h2 className="category-form-title">
             {editingRecord ? 'Edit Category' : 'Add Category'}
           </h2>
-          
+
           {errorMessage && <div className="category-form-error">{errorMessage}</div>}
-          
+
           <form className="category-form" onSubmit={handleSubmit}>
             <div className="row">
               {/* First Row */}
@@ -312,14 +343,15 @@ function CategoryForm() {
               <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Barcode *"
-                  placeholder="Enter barcode"
+                  placeholder={loadingBarcode ? "Loading barcode..." : "Enter barcode"}
                   name="rbarcode"
                   value={formData.rbarcode}
                   onChange={handleChange}
                   required
+                  disabled={loadingBarcode}
                 />
               </div>
-               <div className="col-md-4 col-sm-6 mb-3">
+              <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Prefix *"
                   placeholder="Enter prefix"
@@ -346,7 +378,7 @@ function CategoryForm() {
                   options={getMetalOptions()}
                 />
               </div>
-               <div className="col-md-3 col-sm-6 mb-3">
+              <div className="col-md-3 col-sm-6 mb-3">
                 <InputField
                   label="Tax Slab *"
                   type="select"
@@ -358,7 +390,7 @@ function CategoryForm() {
                   options={taxSlabOptions}
                 />
               </div>
-                <div className="col-md-3 col-sm-6 mb-3">
+              <div className="col-md-3 col-sm-6 mb-3">
                 <InputField
                   label="HSN Code *"
                   placeholder="Enter HSN code"
@@ -368,7 +400,7 @@ function CategoryForm() {
                   required
                 />
               </div>
-               <div className="col-md-3 mb-3">
+              <div className="col-md-3 mb-3">
                 <InputField
                   label="Opening Quantity"
                   type="number"
@@ -392,8 +424,8 @@ function CategoryForm() {
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="category-form-submit-btn"
                 disabled={isSubmitting}
               >

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Swal from 'sweetalert2';
 import './Purity.css';
@@ -49,20 +49,30 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
 
 function Purity() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [purityData, setPurityData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filteredData, setFilteredData] = useState([]);
+
+  // Check for success message from form submission
+  useEffect(() => {
+    if (location.state?.successMessage) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: location.state.successMessage,
+        confirmButtonColor: '#3085d6',
+      });
+      // Clear the state to prevent showing the message again
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   // Table columns definition
   const columns = useMemo(() => [
     {
       Header: 'Sr. No.',
       Cell: ({ row }) => row.index + 1,
-      width: 80,
-    },
-    {
-      Header: 'ID',
-      accessor: 'id',
       width: 80,
     },
     {
@@ -86,16 +96,18 @@ function Purity() {
     {
       Header: 'Actions',
       Cell: ({ row }) => (
-        <>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <FaEdit
-            style={{ cursor: 'pointer', color: 'blue', marginRight: '10px' }}
+            style={{ cursor: 'pointer', color: 'blue' }}
             onClick={() => handleEditClick(row.original)}
+            title="Edit"
           />
           <FaTrash
             style={{ cursor: 'pointer', color: 'red' }}
             onClick={() => handleDelete(row.original.id)}
+            title="Delete"
           />
-        </>
+        </div>
       ),
       width: 100,
     },
@@ -148,24 +160,40 @@ function Purity() {
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
     });
 
     if (result.isConfirmed) {
       try {
         const response = await fetch(`http://localhost:5000/purity/${id}`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
 
         if (response.ok) {
-          Swal.fire('Deleted!', 'Purity record has been deleted.', 'success');
+          Swal.fire({
+            title: 'Deleted!',
+            text: 'Purity record has been deleted.',
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+          });
+          // Refresh the data
           fetchPurityData();
         } else {
-          throw new Error('Failed to delete');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to delete record');
         }
       } catch (error) {
         console.error('Error deleting record:', error);
-        Swal.fire('Error!', 'Failed to delete record.', 'error');
+        Swal.fire({
+          title: 'Error!',
+          text: error.message || 'Failed to delete record.',
+          icon: 'error',
+          confirmButtonColor: '#3085d6',
+        });
       }
     }
   };
@@ -175,7 +203,7 @@ function Purity() {
   };
 
   const handleEditClick = (record) => {
-    navigate(`/purityform`, { state: { editingRecord: record } });
+    navigate('/purityform', { state: { editingRecord: record } });
   };
 
   useEffect(() => {
@@ -214,11 +242,14 @@ function Purity() {
 
   if (loading) {
     return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
+      <>
+        <Navbar />
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -270,18 +301,26 @@ function Purity() {
                   ))}
                 </thead>
                 <tbody {...getTableBodyProps()} className="dataTable_body">
-                  {page.map((row) => {
-                    prepareRow(row);
-                    return (
-                      <tr {...row.getRowProps()} className="dataTable_row">
-                        {row.cells.map((cell) => (
-                          <td {...cell.getCellProps()} className="dataTable_cell">
-                            {cell.render('Cell')}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                  {page.length === 0 ? (
+                    <tr>
+                      <td colSpan={columns.length} className="text-center py-4">
+                        No purity records found
+                      </td>
+                    </tr>
+                  ) : (
+                    page.map((row) => {
+                      prepareRow(row);
+                      return (
+                        <tr {...row.getRowProps()} className="dataTable_row">
+                          {row.cells.map((cell) => (
+                            <td {...cell.getCellProps()} className="dataTable_cell">
+                              {cell.render('Cell')}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -292,7 +331,8 @@ function Purity() {
                 Page{' '}
                 <strong>
                   {pageIndex + 1} of {pageOptions.length}
-                </strong>
+                </strong>{' '}
+                | Showing {filteredData.length} records
               </div>
               <div className="pagebuttons">
                 <button
@@ -316,7 +356,7 @@ function Purity() {
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
                 >
-                  {[5, 10, 20].map((size) => (
+                  {[5, 10, 20, 50].map((size) => (
                     <option key={size} value={size}>
                       Show {size}
                     </option>
