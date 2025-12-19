@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
@@ -9,7 +9,8 @@ function PurityForm() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
+  const [metalTypes, setMetalTypes] = useState([]); // Add state for metal types
+  const [loadingMetals, setLoadingMetals] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     metal: "",
@@ -20,6 +21,26 @@ function PurityForm() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  useEffect(() => {
+    const fetchMetalTypes = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/metaltype");
+        if (response.ok) {
+          const data = await response.json();
+          setMetalTypes(data);
+        } else {
+          console.error("Failed to fetch metal types");
+        }
+      } catch (error) {
+        console.error("Error fetching metal types:", error);
+      } finally {
+        setLoadingMetals(false);
+      }
+    };
+
+    fetchMetalTypes();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,7 +91,7 @@ function PurityForm() {
       if (response.ok) {
         const result = await response.json();
         console.log("Success:", result);
-        
+
         // Show success alert
         Swal.fire({
           icon: 'success',
@@ -121,9 +142,9 @@ function PurityForm() {
       <div className="purity-container">
         <div className="purity-card">
           <h2 className="purity-title">Add Purity</h2>
-          
+
           {errorMessage && <div className="purity-error">{errorMessage}</div>}
-          
+
           <form className="purity-form" onSubmit={handleSubmit}>
             <div className="row">
               {/* First Column */}
@@ -141,7 +162,6 @@ function PurityForm() {
 
               {/* Second Column */}
               <div className="col-md-4 col-sm-6">
-                {/* Metal Type */}
                 <InputField
                   label="Metal Type"
                   type="select"
@@ -150,13 +170,13 @@ function PurityForm() {
                   value={formData.metal}
                   onChange={handleChange}
                   required
+                  disabled={loadingMetals}
                   options={[
-                    { value: "", label: "Select metal type", disabled: true },
-                    { value: "Gold", label: "Gold" },
-                    { value: "Silver", label: "Silver" },
-                    { value: "Platinum", label: "Platinum" },
-                    { value: "Diamond", label: "Diamond" },
-                    { value: "Other", label: "Other" },
+                    { value: "", label: loadingMetals ? "Loading..." : "Select metal type", disabled: true },
+                    ...metalTypes.map(metal => ({
+                      value: metal.metal_name,
+                      label: metal.metal_name
+                    }))
                   ]}
                 />
               </div>
@@ -189,8 +209,8 @@ function PurityForm() {
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="purity-submit-btn"
                 disabled={isSubmitting}
               >

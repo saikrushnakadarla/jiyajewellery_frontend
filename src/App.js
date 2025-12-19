@@ -14,6 +14,10 @@ import Designmaster from './Components/Modules/Admin/Masters/Designmaster/Design
 import PurityForm from './Components/Modules/Admin/Masters/Puritymaster/PurityForm';
 import Designmasterform from './Components/Modules/Admin/Masters/Designmaster/Designmasterform';
 import Metaltypeform from './Components/Modules/Admin/Masters/Metaltypemaster/Metaltypeform';
+import CategoryProducts from './Components/Modules/Admin/Masters/CategoryProducts/CategoryProducts';
+import CategoryForm from './Components/Modules/Admin/Masters/CategoryProducts/CategoryForm';
+import ProductMaster from './Components/Modules/Admin/Masters/ProductMaster/ProductMaster';
+import ProductForm from './Components/Modules/Admin/Masters/ProductMaster/ProductForm';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -24,17 +28,21 @@ function App() {
         <Route path="/customerregistration" element={<CustomerRegistration />} />
         <Route path="/login" element={<Login />} />
         <Route path='/salepersonregister' element={<SalespersonRegister />} />
-         <Route path='/adminhome' element={<AdminHome />} /> 
-          <Route path='/customers' element={<Customers />} /> 
-           <Route path='/dashboard' element={<Dashboard />} /> 
-          <Route path='/salespersontable' element={<SalesPersonTable />} />
+        <Route path='/adminhome' element={<AdminHome />} />
+        <Route path='/customers' element={<Customers />} />
+        <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/salespersontable' element={<SalesPersonTable />} />
 
-          <Route path='/purity' element={<Purity />} />
-          <Route path='/purityform' element={<PurityForm />} />
-          <Route path='/metaltype' element={<Metaltype />} />
-          <Route path='/metaltypeform' element={<Metaltypeform />} />
-          <Route path='/designmaster' element={<Designmaster />} />
-           <Route path='/designmasterform' element={<Designmasterform />} />
+        <Route path='/purity' element={<Purity />} />
+        <Route path='/purityform' element={<PurityForm />} />
+        <Route path='/metaltype' element={<Metaltype />} />
+        <Route path='/metaltypeform' element={<Metaltypeform />} />
+        <Route path='/designmaster' element={<Designmaster />} />
+        <Route path='/designmasterform' element={<Designmasterform />} />
+        <Route path='/c-products' element={<CategoryProducts />} />
+        <Route path='/categoryform' element={<CategoryForm />} />
+        <Route path='/productmaster' element={<ProductMaster />} />
+        <Route path='/productform' element={<ProductForm />} />
 
       </Routes>
     </Router>

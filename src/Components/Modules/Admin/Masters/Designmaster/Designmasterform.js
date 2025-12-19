@@ -10,6 +10,8 @@ function Designmasterform() {
   const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [metalTypes, setMetalTypes] = useState([]); // State for metal types
+  const [loadingMetals, setLoadingMetals] = useState(true); // Loading state for metals
   
   // Get editing record if exists
   const editingRecord = location.state?.editingRecord || null;
@@ -18,6 +20,39 @@ function Designmasterform() {
     metal: "",
     design_name: "",
   });
+
+  // Fetch metal types from API
+  useEffect(() => {
+    const fetchMetalTypes = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/metaltype");
+        if (response.ok) {
+          const data = await response.json();
+          setMetalTypes(data);
+        } else {
+          console.error("Failed to fetch metal types");
+          Swal.fire({
+            icon: 'warning',
+            title: 'Unable to Load Metals',
+            text: 'Could not load metal types. Using default options.',
+            confirmButtonColor: '#3085d6',
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching metal types:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Network Error',
+          text: 'Failed to load metal types. Please check your connection.',
+          confirmButtonColor: '#3085d6',
+        });
+      } finally {
+        setLoadingMetals(false);
+      }
+    };
+
+    fetchMetalTypes();
+  }, []);
 
   // Initialize form with editing data if available
   useEffect(() => {
@@ -124,15 +159,35 @@ function Designmasterform() {
     navigate(-1); // Go back to previous page
   };
 
-  // Metal options for dropdown
-  const metalOptions = [
-    { value: "", label: "Select metal type", disabled: true },
-    { value: "Gold", label: "Gold" },
-    { value: "Silver", label: "Silver" },
-    { value: "Platinum", label: "Platinum" },
-    { value: "Diamond", label: "Diamond" },
-    { value: "Other", label: "Other" },
-  ];
+  // Prepare metal options for dropdown
+  const getMetalOptions = () => {
+    const baseOptions = [
+      { value: "", label: loadingMetals ? "Loading metal types..." : "Select metal type", disabled: true }
+    ];
+    
+    // If metals are loaded, use them
+    if (metalTypes.length > 0) {
+      const metalOptions = metalTypes.map(metal => ({
+        value: metal.metal_name,
+        label: metal.metal_name
+      }));
+      return [...baseOptions, ...metalOptions];
+    }
+    
+    // If no metals loaded, show default options
+    if (!loadingMetals && metalTypes.length === 0) {
+      const defaultOptions = [
+        { value: "Gold", label: "Gold" },
+        { value: "Silver", label: "Silver" },
+        { value: "Platinum", label: "Platinum" },
+        { value: "Diamond", label: "Diamond" },
+        { value: "Other", label: "Other" },
+      ];
+      return [...baseOptions, ...defaultOptions];
+    }
+    
+    return baseOptions;
+  };
 
   return (
     <>
@@ -157,7 +212,8 @@ function Designmasterform() {
                   value={formData.metal}
                   onChange={handleChange}
                   required
-                  options={metalOptions}
+                  disabled={loadingMetals}
+                  options={getMetalOptions()}
                 />
               </div>
 

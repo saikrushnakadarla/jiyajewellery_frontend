@@ -123,6 +123,12 @@ function Navbar() {
               <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
                 Metaltype Master
               </Link>
+               <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
+                Category products
+              </Link>
+               <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
+                Products Master
+              </Link>
             </div>
           )}
         </div>

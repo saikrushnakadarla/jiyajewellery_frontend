@@ -1,0 +1,237 @@
+.category-form-container {
+  padding: 20px;
+  min-height: calc(100vh - 90px);
+}
+
+.category-form-card {
+  padding: 30px;
+  max-width: 800px;
+  margin: auto;
+  background-color: rgba(163, 110, 41, 0.08) !important;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 90px;
+}
+
+.category-form-card h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.category-form-title {
+  color: #6b4c1a;
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 30px !important;
+}
+
+.category-form .inputfield-input,
+.category-form .inputfield-select {
+  background-color: #faf7f0;
+  border-color: #a36e29;
+  border-radius: 5px;
+  padding: 8px 12px;
+  width: 100%;
+  font-size: 14px;
+}
+
+.category-form .inputfield-input:focus,
+.category-form .inputfield-select:focus {
+  border-color: #a36e29;
+  box-shadow: 0 0 0 0.25rem rgba(163, 110, 41, 0.25);
+  outline: none;
+}
+
+.category-form .inputfield-label {
+  color: #6b4c1a;
+  font-weight: 500;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.category-form-button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(163, 110, 41, 0.2);
+  margin-top: 30px;
+}
+
+.category-form-back-btn {
+  background-color: #f0f0f0;
+  color: #a36e29;
+  border: 1px solid #a36e29;
+  font-weight: 600;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.category-form-back-btn:hover:not(:disabled) {
+  background-color: #e6e6e6;
+}
+
+.category-form-back-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.category-form-submit-btn {
+  background-color: #a36e29;
+  color: white;
+  font-weight: 600;
+  padding: 10px 25px;
+  border-radius: 5px;
+  border: 1px solid #a36e29;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.category-form-submit-btn:hover:not(:disabled) {
+  background-color: #8a5c23;
+  border-color: #8a5c23;
+}
+
+.category-form-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Message Styling */
+.inputfield-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.category-form-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+}
+
+/* Form Row Spacing */
+.category-form .row {
+  margin-bottom: 15px;
+}
+
+.category-form .mb-3 {
+  margin-bottom: 1rem !important;
+}
+
+/* Responsive Design */
+@media (max-width: 767px) {
+  .category-form-container {
+    padding: 10px;
+  }
+  
+  .category-form-card {
+    margin: 20px 10px;
+    padding: 20px;
+    margin-top: 80px;
+  }
+  
+  .category-form-title {
+    font-size: 1.5rem;
+  }
+  
+  .category-form-button-container {
+    flex-direction: column;
+  }
+  
+  .category-form-back-btn,
+  .category-form-submit-btn {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+  .category-form .col-md-6 {
+    width: 100%;
+  }
+}
+
+/* Tablet: 768px–1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .category-form-card {
+    padding: 25px;
+    max-width: 700px;
+    margin-top: 85px;
+  }
+  
+  .col-md-6 {
+    margin-bottom: 20px;
+  }
+}
+
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
+  .category-form-card {
+    padding: 40px;
+    max-width: 100%;
+  }
+  
+  .category-form-title {
+    font-size: 2rem;
+  }
+}
+
+/* Animation for form */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.category-form-card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Input Field Styling */
+.category-form input,
+.category-form select {
+  height: 40px;
+}
+
+.category-form .form-group {
+  margin-bottom: 20px;
+}
+
+/* Label styling */
+.category-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* Placeholder styling */
+.category-form ::placeholder {
+  color: #999;
+  font-size: 14px;
+}
+
+/* Required field indicator */
+.category-form .required::after {
+  content: " *";
+  color: #dc3545;
+}
+
+/* Readonly field styling */
+.category-form input[readonly] {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
