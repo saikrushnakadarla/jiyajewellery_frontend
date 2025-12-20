@@ -18,6 +18,8 @@ import CategoryProducts from './Components/Modules/Admin/Masters/CategoryProduct
 import CategoryForm from './Components/Modules/Admin/Masters/CategoryProducts/CategoryForm';
 import ProductMaster from './Components/Modules/Admin/Masters/ProductMaster/ProductMaster';
 import ProductForm from './Components/Modules/Admin/Masters/ProductMaster/ProductForm';
+import EstimateTable from './Components/Modules/Admin/Transactions/EstimateTable';
+import EstimateForm from './Components/Modules/Admin/Transactions/EstimateForm';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -43,6 +45,9 @@ function App() {
         <Route path='/categoryform' element={<CategoryForm />} />
         <Route path='/productmaster' element={<ProductMaster />} />
         <Route path='/productform' element={<ProductForm />} />
+
+        <Route path='/estimation' element={<EstimateTable />} />
+        <Route path='/estimates' element={<EstimateForm />} />
 
       </Routes>
     </Router>

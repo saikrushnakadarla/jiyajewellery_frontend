@@ -109,25 +109,25 @@ function Navbar() {
           {mastersDropdownOpen && (
             <div className="navbar-dropdown-content">
               <Link to="/customers" onClick={handleItemClick} className={isActive('/customers')}>
-                Customer Master
+                Customer 
               </Link>
               <Link to="/salespersontable" onClick={handleItemClick} className={isActive('/salespersontable')}>
-                Salesperson Master
+                Salesperson 
               </Link>
               <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
-                Purity Master
+                Purity 
               </Link>
               <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
                 Design Master
               </Link>
               <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
-                Metaltype Master
+                Metaltype 
               </Link>
                <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
-                Category products
+                Category 
               </Link>
                <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
-                Products Master
+                Products 
               </Link>
             </div>
           )}

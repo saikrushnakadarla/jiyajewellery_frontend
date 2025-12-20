@@ -114,41 +114,8 @@ function ProductForm() {
       }
       setLoading(prev => ({ ...prev, productNames: false }));
 
-      // Fetch last barcode (only for new records)
-      if (!editingRecord) {
-        try {
-          const barcodeResponse = await fetch('http://localhost:5000/last-rbarcode');
-          if (barcodeResponse.ok) {
-            const barcodeData = await barcodeResponse.json();
-            // Extract the lastrbNumbers value from the response
-            if (barcodeData.lastrbNumbers) {
-              setFormData(prev => ({
-                ...prev,
-                barcode: barcodeData.lastrbNumbers
-              }));
-            } else {
-              // If the response structure is different, try to find the barcode
-              console.log('Barcode API Response:', barcodeData);
-              // You might need to adjust this based on actual response
-              const barcodeValue = barcodeData.last_barcode || barcodeData.barcode || '';
-              if (barcodeValue) {
-                setFormData(prev => ({
-                  ...prev,
-                  barcode: barcodeValue
-                }));
-              }
-            }
-          } else {
-            console.error('Failed to fetch barcode:', barcodeResponse.status);
-          }
-        } catch (error) {
-          console.error('Error fetching barcode:', error);
-        } finally {
-          setLoading(prev => ({ ...prev, barcode: false }));
-        }
-      } else {
-        setLoading(prev => ({ ...prev, barcode: false }));
-      }
+      // Don't fetch barcode initially - it will be fetched when product name is selected
+      setLoading(prev => ({ ...prev, barcode: false }));
 
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
@@ -170,7 +137,79 @@ function ProductForm() {
     }
   };
 
-  const handleChange = (e) => {
+  // Fetch next barcode when product name is selected
+  const fetchNextBarcode = async (categoryId, productName) => {
+    setLoading(prev => ({ ...prev, barcode: true }));
+    
+    try {
+      // First get the category details to get the prefix
+      const categoryResponse = await fetch(`http://localhost:5000/get/category-by-name/${encodeURIComponent(productName)}`);
+      
+      if (categoryResponse.ok) {
+        const categoryData = await categoryResponse.json();
+        const prefix = categoryData.prefix;
+        
+        if (prefix) {
+          // Now get the next barcode using the prefix
+          const barcodeResponse = await fetch(`http://localhost:5000/getNextBarcodeByPrefix?prefix=${prefix}`);
+          
+          if (barcodeResponse.ok) {
+            const barcodeData = await barcodeResponse.json();
+            
+            if (barcodeData.nextBarcode) {
+              setFormData(prev => ({
+                ...prev,
+                barcode: barcodeData.nextBarcode
+              }));
+            } else {
+              // If no existing barcode, create first one
+              setFormData(prev => ({
+                ...prev,
+                barcode: `${prefix}001`
+              }));
+            }
+          } else {
+            // Fallback: create first barcode with prefix
+            setFormData(prev => ({
+              ...prev,
+              barcode: `${prefix}001`
+            }));
+          }
+        } else {
+          // If no prefix in category, use old method
+          fetchOldBarcode();
+        }
+      } else {
+        // If category not found, use old method
+        fetchOldBarcode();
+      }
+    } catch (error) {
+      console.error('Error fetching barcode:', error);
+      fetchOldBarcode();
+    } finally {
+      setLoading(prev => ({ ...prev, barcode: false }));
+    }
+  };
+
+  // Old method for backward compatibility
+  const fetchOldBarcode = async () => {
+    try {
+      const barcodeResponse = await fetch('http://localhost:5000/last-rbarcode');
+      if (barcodeResponse.ok) {
+        const barcodeData = await barcodeResponse.json();
+        if (barcodeData.lastrbNumbers) {
+          setFormData(prev => ({
+            ...prev,
+            barcode: barcodeData.lastrbNumbers
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching old barcode:', error);
+    }
+  };
+
+  const handleChange = async (e) => {
     const { name, value } = e.target;
 
     // Handle weight fields to keep 3 decimal places
@@ -189,14 +228,20 @@ function ProductForm() {
       }));
     }
 
-    // When product name is selected, extract category_id
+    // When product name is selected, extract category_id and fetch barcode
     if (name === 'product_name') {
       const selectedProduct = productNames.find(p => p.category_name === value);
       if (selectedProduct) {
         setFormData(prev => ({
           ...prev,
-          category_id: selectedProduct.category_id
+          category_id: selectedProduct.category_id,
+          product_name: value
         }));
+        
+        // Fetch next barcode for this category
+        if (!editingRecord) { // Only fetch new barcode for new records
+          await fetchNextBarcode(selectedProduct.category_id, value);
+        }
       }
     }
 
@@ -261,6 +306,18 @@ function ProductForm() {
       return;
     }
 
+    // Validate barcode format (should be prefix + 3 digits)
+    if (!/^[A-Z]{2,}\d{3}$/.test(formData.barcode)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Barcode Format',
+        text: 'Barcode should be in format: Prefix + 3 digits (e.g., GC001)',
+        confirmButtonColor: '#3085d6',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     // Prepare data for API
     const apiData = {
       product_name: formData.product_name,
@@ -305,7 +362,7 @@ function ProductForm() {
           title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
           text: editingRecord
             ? 'Product details have been updated successfully.'
-            : 'Product details have been saved successfully.',
+            : `Product added with barcode: ${formData.barcode}`,
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
@@ -336,7 +393,7 @@ function ProductForm() {
   };
 
   const handleBack = () => {
-    navigate(-1); // Go back to previous page
+    navigate(-1);
   };
 
   // Product Name options (from categories)
@@ -344,7 +401,7 @@ function ProductForm() {
     { value: "", label: loading.productNames ? "Loading product names..." : "Select product name", disabled: true },
     ...productNames.map(product => ({
       value: product.category_name,
-      label: product.category_name
+      label: `${product.category_name} (${product.prefix || 'No Prefix'})`
     }))
   ];
 
@@ -406,15 +463,20 @@ function ProductForm() {
               <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Barcode *"
-                  placeholder={loading.barcode ? "Loading barcode..." : "Enter barcode"}
+                  placeholder={loading.barcode ? "Generating barcode..." : "Barcode will auto-generate"}
                   name="barcode"
                   value={formData.barcode}
                   onChange={handleChange}
                   required
-                  disabled={loading.barcode}
+                  disabled={loading.barcode || editingRecord}
+                  readOnly={!editingRecord}
                 />
+                <small className="text-muted">
+                  {formData.barcode ? `Format: ${formData.barcode.substring(0, formData.barcode.length-3)} + ${formData.barcode.substring(formData.barcode.length-3)}` : 'Select a product name to generate barcode'}
+                </small>
               </div>
-               <div className="col-md-4 col-sm-6 mb-3">
+              
+              <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Metal Type *"
                   type="select"
@@ -430,9 +492,7 @@ function ProductForm() {
             </div>
 
             <div className="row">
-              {/* Second Row - Metal Type and Purity */}
-             
-
+              {/* Second Row */}
               <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Purity *"
@@ -446,7 +506,8 @@ function ProductForm() {
                   options={purityOptions}
                 />
               </div>
-               <div className="col-md-4 col-sm-6 mb-3">
+              
+              <div className="col-md-4 col-sm-6 mb-3">
                 <InputField
                   label="Design *"
                   type="select"
@@ -459,7 +520,8 @@ function ProductForm() {
                   options={designOptions}
                 />
               </div>
-               <div className="col-md-4 mb-3">
+              
+              <div className="col-md-4 mb-3">
                 <InputField
                   label="Gross Weight (g)"
                   type="text"
@@ -473,12 +535,8 @@ function ProductForm() {
               </div>
             </div>
 
-         
-
             <div className="row">
               {/* Weight Row */}
-             
-
               <div className="col-md-4 mb-3">
                 <InputField
                   label="Stone Weight (g)"
