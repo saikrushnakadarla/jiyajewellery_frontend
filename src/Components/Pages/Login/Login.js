@@ -95,7 +95,7 @@ const handleSubmit = async (e) => {
         <div className="col-12 col-md-6 d-flex flex-column justify-content-center align-items-center saleslogin-right">
           <div className="card saleslogin-card shadow-lg border-0 rounded-4">
             <div className="card-body saleslogin-card-body">
-              <h2 className="text-center mb-4">Welcome Back</h2>
+              <h2 className=" mb-4">Welcome Back</h2>
 
               <form onSubmit={handleSubmit}>
                 {/* Email Field */}
@@ -153,7 +153,7 @@ const handleSubmit = async (e) => {
                 </div>
 
                 {/* Registration Link */}
-                <div className="text-center mt-3">
+                <div className=" mt-3">
                   <p className="saleslogin-register-text">
                     Don't have an account?{" "}
                     <span 
@@ -166,7 +166,7 @@ const handleSubmit = async (e) => {
                 </div>
 
                 {/* Forgot Password */}
-                <div className="text-center mt-3">
+                <div className=" mt-3">
                   <a href="/forgot-password" className="saleslogin-forgot">
                     Forgot Password?
                   </a>
