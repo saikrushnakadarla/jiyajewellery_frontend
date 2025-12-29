@@ -8,7 +8,10 @@ import AdminHome from './Components/Modules/Admin/AdminHome/AdminHome';
 import SalesPersonTable from './Components/Modules/Admin/Salespersonregistration/SalesPersonTable';
 import Customers from './Components/Modules/Admin/Customers/Customers';
 import Dashboard from './Components/Modules/Admin/Dashboard/Dashboard';
+import CustomerDashboard from './Components/Modules/Customer/CustomerDashboard';
+import SalesPersonDashboard from './Components/Modules/SalesPerson/SalesPersonDashboard';
 import Purity from './Components/Modules/Admin/Masters/Puritymaster/Purity';
+import Rates from "./Components/Modules/Admin/Masters/RatesMaster/RatesForm"
 import Metaltype from './Components/Modules/Admin/Masters/Metaltypemaster/Metaltype';
 import Designmaster from './Components/Modules/Admin/Masters/Designmaster/Designmaster';
 import PurityForm from './Components/Modules/Admin/Masters/Puritymaster/PurityForm';
@@ -20,6 +23,7 @@ import ProductMaster from './Components/Modules/Admin/Masters/ProductMaster/Prod
 import ProductForm from './Components/Modules/Admin/Masters/ProductMaster/ProductForm';
 import EstimateTable from './Components/Modules/Admin/Transactions/EstimateTable';
 import EstimateForm from './Components/Modules/Admin/Transactions/EstimateForm';
+import RatesForm from './Components/Modules/Admin/Masters/RatesMaster/RatesForm';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -33,10 +37,14 @@ function App() {
         <Route path='/adminhome' element={<AdminHome />} />
         <Route path='/customers' element={<Customers />} />
         <Route path='/dashboard' element={<Dashboard />} />
+        <Route path="/customer-dashboard" element={<CustomerDashboard />} />
+        <Route path="/salesperson-dashboard" element={<SalesPersonDashboard />} />
         <Route path='/salespersontable' element={<SalesPersonTable />} />
 
         <Route path='/purity' element={<Purity />} />
         <Route path='/purityform' element={<PurityForm />} />
+        <Route path='/rates' element={<Rates />} />
+        <Route path='/ratesform' element={<RatesForm />} />
         <Route path='/metaltype' element={<Metaltype />} />
         <Route path='/metaltypeform' element={<Metaltypeform />} />
         <Route path='/designmaster' element={<Designmaster />} />

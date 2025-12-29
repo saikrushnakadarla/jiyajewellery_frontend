@@ -192,7 +192,7 @@ const EstimateForm = () => {
     fetchPurities();
   }, []);
 
-  // Handle product name selection
+  // Handle product name selection - FIXED VERSION
   const handleProductNameChange = async (productName) => {
     try {
       if (!productName) {
@@ -209,19 +209,45 @@ const EstimateForm = () => {
         if (response.ok) {
           const productDetails = await response.json();
           
+          // Use the rate from productDetails instead of calculating from current rates
+          const productRate = productDetails.rate || "";
+          
           // Update form with product details
           setFormData(prev => ({
             ...prev,
             product_id: productDetails.product_id,
+            category_id: productDetails.category_id,
             product_name: productDetails.product_name,
             barcode: productDetails.barcode,
+            metal_type_id: productDetails.metal_type_id,
             metal_type: productDetails.metal_type,
-            design_name: productDetails.design,
+            purity_id: productDetails.purity_id,
             purity: productDetails.purity,
+            design_id: productDetails.design_id,
+            design_name: productDetails.design,
             gross_weight: productDetails.gross_wt,
             stone_weight: productDetails.stone_wt,
+            net_weight: productDetails.net_wt,
+            stone_price: productDetails.stone_price,
             weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
-            pricing: "By Weight"
+            pricing: productDetails.pricing || "By Weight",
+            va_on: productDetails.va_on || "Gross Weight",
+            va_percent: productDetails.va_percent || "",
+            wastage_weight: productDetails.wastage_weight || "",
+            total_weight_av: productDetails.total_weight_av || "",
+            mc_on: productDetails.mc_on || "MC %",
+            mc_per_gram: productDetails.mc_per_gram || "",
+            making_charges: productDetails.making_charges || "",
+            rate: productRate, // Use the rate from product details
+            rate_amt: productDetails.rate_amt || "",
+            hm_charges: productDetails.hm_charges || "60.00",
+            tax_percent: productDetails.tax_percent || "03% GST",
+            tax_amt: productDetails.tax_amt || "",
+            total_price: productDetails.total_price || "",
+            pieace_cost: productDetails.pieace_cost || "",
+            disscount_percentage: productDetails.disscount_percentage || "",
+            disscount: productDetails.disscount || "",
+            qty: productDetails.qty || 1
           }));
         }
       }
@@ -230,7 +256,7 @@ const EstimateForm = () => {
     }
   };
 
-  // Handle barcode selection
+  // Handle barcode selection - FIXED VERSION
   const handleBarcodeChange = async (barcode) => {
     try {
       if (!barcode) {
@@ -247,18 +273,44 @@ const EstimateForm = () => {
         if (response.ok) {
           const productDetails = await response.json();
           
+          // Use the rate from productDetails
+          const productRate = productDetails.rate || "";
+          
           setFormData(prev => ({
             ...prev,
             product_id: productDetails.product_id,
+            category_id: productDetails.category_id,
             product_name: productDetails.product_name,
             barcode: productDetails.barcode,
+            metal_type_id: productDetails.metal_type_id,
             metal_type: productDetails.metal_type,
-            design_name: productDetails.design,
+            purity_id: productDetails.purity_id,
             purity: productDetails.purity,
+            design_id: productDetails.design_id,
+            design_name: productDetails.design,
             gross_weight: productDetails.gross_wt,
             stone_weight: productDetails.stone_wt,
+            net_weight: productDetails.net_wt,
+            stone_price: productDetails.stone_price,
             weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
-            pricing: "By Weight"
+            pricing: productDetails.pricing || "By Weight",
+            va_on: productDetails.va_on || "Gross Weight",
+            va_percent: productDetails.va_percent || "",
+            wastage_weight: productDetails.wastage_weight || "",
+            total_weight_av: productDetails.total_weight_av || "",
+            mc_on: productDetails.mc_on || "MC %",
+            mc_per_gram: productDetails.mc_per_gram || "",
+            making_charges: productDetails.making_charges || "",
+            rate: productRate, // Use the rate from product details
+            rate_amt: productDetails.rate_amt || "",
+            hm_charges: productDetails.hm_charges || "60.00",
+            tax_percent: productDetails.tax_percent || "03% GST",
+            tax_amt: productDetails.tax_amt || "",
+            total_price: productDetails.total_price || "",
+            pieace_cost: productDetails.pieace_cost || "",
+            disscount_percentage: productDetails.disscount_percentage || "",
+            disscount: productDetails.disscount || "",
+            qty: productDetails.qty || 1
           }));
           setIsQtyEditable(true);
         }
@@ -267,16 +319,43 @@ const EstimateForm = () => {
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
         
         if (selectedTag) {
+          // Get rate from tag data or calculate from current rates
+          let tagRate = selectedTag.rate || "";
+          
+          // If no rate in tag, calculate from current rates based on purity
+          if (!tagRate && selectedTag.Purity && selectedTag.metal_type) {
+            if (selectedTag.metal_type?.toLowerCase() === "gold" && selectedTag.Purity) {
+              if (selectedTag.Purity.includes("24")) {
+                tagRate = rates.rate_24crt;
+              } else if (selectedTag.Purity.includes("22")) {
+                tagRate = rates.rate_22crt;
+              } else if (selectedTag.Purity.includes("18")) {
+                tagRate = rates.rate_18crt;
+              } else if (selectedTag.Purity.includes("16")) {
+                tagRate = rates.rate_16crt;
+              } else {
+                tagRate = rates.rate_22crt;
+              }
+            } else if (selectedTag.metal_type?.toLowerCase() === "silver" && selectedTag.Purity) {
+              tagRate = rates.silver_rate;
+            }
+          }
+          
           setFormData(prev => ({
             ...prev,
             product_id: selectedTag.product_id || "",
+            category_id: selectedTag.category_id || "",
             product_name: selectedTag.sub_category || "",
             barcode: selectedTag.PCode_BarCode,
+            metal_type_id: selectedTag.metal_type_id || "",
             metal_type: selectedTag.metal_type || "",
-            design_name: selectedTag.design_master || "",
+            purity_id: selectedTag.purity_id || "",
             purity: selectedTag.Purity || "",
+            design_id: selectedTag.design_id || "",
+            design_name: selectedTag.design_master || "",
             gross_weight: selectedTag.Gross_Weight || "",
             stone_weight: selectedTag.Stones_Weight || "",
+            net_weight: selectedTag.Net_Weight || "",
             stone_price: selectedTag.Stones_Price || "",
             weight_bw: selectedTag.Weight_BW || "",
             va_on: selectedTag.Wastage_On || "Gross Weight",
@@ -286,6 +365,16 @@ const EstimateForm = () => {
             mc_on: selectedTag.Making_Charges_On || "MC %",
             mc_per_gram: selectedTag.MC_Per_Gram || "",
             making_charges: selectedTag.Making_Charges || "",
+            rate: tagRate, // Use the calculated rate
+            rate_amt: selectedTag.rate_amt || "",
+            hm_charges: selectedTag.hm_charges || "60.00",
+            tax_percent: selectedTag.tax_percent || "03% GST",
+            tax_amt: selectedTag.tax_amt || "",
+            total_price: selectedTag.total_price || "",
+            pieace_cost: selectedTag.pieace_cost || "",
+            disscount_percentage: selectedTag.disscount_percentage || "",
+            disscount: selectedTag.disscount || "",
+            qty: selectedTag.qty || 1,
             opentag_id: selectedTag.opentag_id || "",
             pricing: selectedTag.Pricing || "By Weight"
           }));
@@ -319,6 +408,33 @@ const EstimateForm = () => {
       // Handle barcode change
       if (name === "barcode" && value !== prevData.barcode) {
         handleBarcodeChange(value);
+      }
+
+      // Handle manual metal type change - calculate rate if not from product/tag
+      if ((name === "metal_type" || name === "purity") && 
+          !prevData.product_id && !prevData.opentag_id && 
+          value && updatedData.metal_type && updatedData.purity) {
+        
+        let currentRate = "";
+        if (updatedData.metal_type?.toLowerCase() === "gold" && updatedData.purity) {
+          if (updatedData.purity.includes("24")) {
+            currentRate = rates.rate_24crt;
+          } else if (updatedData.purity.includes("22")) {
+            currentRate = rates.rate_22crt;
+          } else if (updatedData.purity.includes("18")) {
+            currentRate = rates.rate_18crt;
+          } else if (updatedData.purity.includes("16")) {
+            currentRate = rates.rate_16crt;
+          } else {
+            currentRate = rates.rate_22crt;
+          }
+        } else if (updatedData.metal_type?.toLowerCase() === "silver" && updatedData.purity) {
+          currentRate = rates.silver_rate;
+        }
+        
+        if (currentRate) {
+          updatedData.rate = currentRate;
+        }
       }
 
       if (name === "disscount_percentage") {
@@ -404,7 +520,7 @@ const EstimateForm = () => {
     }
   }, [formData.mc_on, formData.mc_per_gram, formData.making_charges, formData.total_weight_av, formData.rate_amt]);
 
-  // Calculate rate amount
+  // Calculate rate amount - FIXED: Only depends on rate and total weight
   useEffect(() => {
     const rate = parseFloat(formData.rate) || 0;
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
@@ -420,35 +536,13 @@ const EstimateForm = () => {
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
 
-  // Update rate based on purity and metal type
-  useEffect(() => {
-    let currentRate = "";
-
-    if (formData.metal_type?.toLowerCase() === "gold" && formData.purity) {
-      if (formData.purity.includes("24")) {
-        currentRate = rates.rate_24crt;
-      } else if (formData.purity.includes("22")) {
-        currentRate = rates.rate_22crt;
-      } else if (formData.purity.includes("18")) {
-        currentRate = rates.rate_18crt;
-      } else if (formData.purity.includes("16")) {
-        currentRate = rates.rate_16crt;
-      } else {
-        currentRate = rates.rate_22crt;
-      }
-    } else if (formData.metal_type?.toLowerCase() === "silver" && formData.purity) {
-      currentRate = rates.silver_rate;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      rate: currentRate,
-    }));
-  }, [formData.purity, formData.metal_type, rates]);
+  // REMOVED: The duplicate useEffect that was updating rate based on purity
+  // This was causing conflicts with the rate from product/tag data
 
   // Calculate tax and total price
   useEffect(() => {
-    const taxPercent = parseFloat(formData.tax_percent) || 0;
+    const taxPercentStr = formData.tax_percent || "3% GST";
+    const taxPercent = parseFloat(taxPercentStr.replace('% GST', '').trim()) || 3;
     const rateAmt = parseFloat(formData.rate_amt) || 0;
     const stonesPrice = parseFloat(formData.stone_price) || 0;
     const totalMC = parseFloat(formData.making_charges) || 0;
@@ -465,7 +559,7 @@ const EstimateForm = () => {
       tax_amt: taxAmt.toFixed(2),
       total_price: totalPrice.toFixed(2),
     }));
-  }, [formData.tax_percent, formData.rate_amt, formData.stone_price, formData.making_charges, formData.disscount]);
+  }, [formData.tax_percent, formData.rate_amt, formData.stone_price, formData.making_charges, formData.disscount, formData.hm_charges]);
 
   // Fetch last estimate number
   useEffect(() => {

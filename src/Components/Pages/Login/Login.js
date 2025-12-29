@@ -14,74 +14,104 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+// In your Login.js file, update the handleSubmit function:
+
 const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!email_id || !password) {
-      Swal.fire({ 
-        icon: "warning", 
-        title: "Missing Fields",
-        text: "Please enter both email and password."
-      });
-      return;
-    }
-    
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email_id)) {
-      Swal.fire({ 
-        icon: "warning", 
-        title: "Invalid Email",
-        text: "Please enter a valid email address."
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      const response = await fetch("http://localhost:5000/api/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email_id: email_id.trim(),
-          password: password,
-        }),
-      });
+  e.preventDefault();
+  
+  // Basic validation
+  if (!email_id || !password) {
+    Swal.fire({ 
+      icon: "warning", 
+      title: "Missing Fields",
+      text: "Please enter both email and password."
+    });
+    return;
+  }
+  
+  // Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email_id)) {
+    Swal.fire({ 
+      icon: "warning", 
+      title: "Invalid Email",
+      text: "Please enter a valid email address."
+    });
+    return;
+  }
+  
+  setIsLoading(true);
+  
+  try {
+    const response = await fetch("http://localhost:5000/api/users/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email_id: email_id.trim(),
+        password: password,
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        // Store user data in localStorage or context as needed
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        Swal.fire({ 
-          icon: "success", 
-          title: "Login Successful!",
-          timer: 1500,
-          showConfirmButton: true // Keep the OK button visible
-        }).then(() => navigate("/dashboard"));
+    if (response.ok) {
+      // Store user data in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user));
+      
+      Swal.fire({ 
+        icon: "success", 
+        title: "Login Successful!",
+        timer: 1500,
+        showConfirmButton: false
+      });
+      
+      // Navigate based on user role
+      const userRole = data.user?.role?.toLowerCase();
+      
+      if (userRole === "admin") {
+        navigate("/dashboard");
+      } else if (userRole === "customer") {
+        // Check if customer is approved
+        if (data.user.status === "approved") {
+          navigate("/customer-dashboard");
+        } else {
+          Swal.fire({
+            icon: "info",
+            title: "Account Pending Approval",
+            text: "Your account is awaiting approval from the administrator. You will be notified via email once approved.",
+            confirmButtonText: "OK"
+          }).then(() => {
+            // Still navigate to dashboard but show pending status
+            navigate("/customer-dashboard");
+          });
+        }
+      } else if (userRole === "salesman") {
+        navigate("/salesperson-dashboard");
       } else {
-        Swal.fire({ 
-          icon: "error", 
-          title: "Login Failed",
-          text: data.message || data.error || "Invalid email or password!"
-        });
+        // Default fallback
+        navigate("/dashboard");
       }
-    } catch (error) {
-      console.error("Login error:", error);
+      
+    } else {
       Swal.fire({ 
         icon: "error", 
-        title: "Network Error",
-        text: "Unable to connect to the server. Please try again later."
+        title: "Login Failed",
+        text: data.message || data.error || "Invalid email or password!"
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error);
+    Swal.fire({ 
+      icon: "error", 
+      title: "Network Error",
+      text: "Unable to connect to the server. Please try again later."
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="saleslogin-container container-fluid">
