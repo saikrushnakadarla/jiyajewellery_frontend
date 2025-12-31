@@ -20,12 +20,14 @@ function ProductForm() {
     purities: true,
     designs: true,
     productNames: true,
-    barcode: true
+    barcode: true,
+    rate: false
   });
 
   // Get editing record if exists
   const editingRecord = location.state?.editingRecord || null;
 
+  // Initialize form data with empty values instead of "0.000"
   const [formData, setFormData] = useState({
     product_name: "",
     category_id: "",
@@ -36,28 +38,36 @@ function ProductForm() {
     purity: "",
     design_id: "",
     design: "",
-    gross_wt: "0.000",
-    stone_wt: "0.000",
-    net_wt: "0.000",
-    stone_price: "0.00",
+    gross_wt: "",
+    stone_wt: "",
+    net_wt: "",
+    stone_price: "",
     pricing: "By Weight",
     va_on: "Gross Weight",
-    va_percent: "0.00",
-    wastage_weight: "0.000",
-    total_weight_av: "0.000",
+    va_percent: "",
+    wastage_weight: "",
+    total_weight_av: "",
     mc_on: "MC %",
-    mc_per_gram: "0.00",
-    making_charges: "0.00",
-    rate: "0.00",
-    rate_amt: "0.00",
+    mc_per_gram: "",
+    making_charges: "",
+    rate: "",
+    rate_amt: "",
     hm_charges: "60.00",
     tax_percent: "0.9% GST",
-    tax_amt: "0.00",
-    total_price: "0.00",
-    pieace_cost: "0.00",
-    disscount_percentage: "0.00",
-    disscount: "0.00",
+    tax_amt: "",
+    total_price: "",
+    pieace_cost: "",
+    disscount_percentage: "",
+    disscount: "",
     qty: "1"
+  });
+
+  // State for current rate info
+  const [currentRateInfo, setCurrentRateInfo] = useState({
+    rate: 0,
+    rate_date: "",
+    rate_time: "",
+    isLoading: false
   });
 
   // Fetch all dropdown data
@@ -68,40 +78,52 @@ function ProductForm() {
   // Initialize form with editing data if available
   useEffect(() => {
     if (editingRecord) {
-      setFormData({
+      console.log("Editing record:", editingRecord);
+      
+      // Format the editing record data properly
+      const formattedData = {
         product_name: editingRecord.product_name || "",
         category_id: editingRecord.category_id || "",
         barcode: editingRecord.barcode || "",
-        metal_type_id: editingRecord.metal_type_id || "",
+        metal_type_id: editingRecord.metal_type_id?.toString() || "",
         metal_type: editingRecord.metal_type || "",
-        purity_id: editingRecord.purity_id || "",
+        purity_id: editingRecord.purity_id?.toString() || "",
         purity: editingRecord.purity || "",
-        design_id: editingRecord.design_id || "",
+        design_id: editingRecord.design_id?.toString() || "",
         design: editingRecord.design || "",
-        gross_wt: editingRecord.gross_wt || "0.000",
-        stone_wt: editingRecord.stone_wt || "0.000",
-        net_wt: editingRecord.net_wt || "0.000",
-        stone_price: editingRecord.stone_price || "0.00",
+        gross_wt: editingRecord.gross_wt || "",
+        stone_wt: editingRecord.stone_wt || "",
+        net_wt: editingRecord.net_wt || "",
+        stone_price: editingRecord.stone_price || "",
         pricing: editingRecord.pricing || "By Weight",
         va_on: editingRecord.va_on || "Gross Weight",
-        va_percent: editingRecord.va_percent || "0.00",
-        wastage_weight: editingRecord.wastage_weight || "0.000",
-        total_weight_av: editingRecord.total_weight_av || "0.000",
+        va_percent: editingRecord.va_percent || "",
+        wastage_weight: editingRecord.wastage_weight || "",
+        total_weight_av: editingRecord.total_weight_av || "",
         mc_on: editingRecord.mc_on || "MC %",
-        mc_per_gram: editingRecord.mc_per_gram || "0.00",
-        making_charges: editingRecord.making_charges || "0.00",
-        rate: editingRecord.rate || "0.00",
-        rate_amt: editingRecord.rate_amt || "0.00",
+        mc_per_gram: editingRecord.mc_per_gram || "",
+        making_charges: editingRecord.making_charges || "",
+        rate: editingRecord.rate || "",
+        rate_amt: editingRecord.rate_amt || "",
         hm_charges: editingRecord.hm_charges || "60.00",
         tax_percent: editingRecord.tax_percent || "0.9% GST",
-        tax_amt: editingRecord.tax_amt || "0.00",
-        total_price: editingRecord.total_price || "0.00",
-        pieace_cost: editingRecord.pieace_cost || "0.00",
-        disscount_percentage: editingRecord.disscount_percentage || "0.00",
-        disscount: editingRecord.disscount || "0.00",
-        qty: editingRecord.qty || "1"
-      });
+        tax_amt: editingRecord.tax_amt || "",
+        total_price: editingRecord.total_price || "",
+        pieace_cost: editingRecord.pieace_cost || "",
+        disscount_percentage: editingRecord.disscount_percentage || "",
+        disscount: editingRecord.disscount || "",
+        qty: editingRecord.qty?.toString() || "1"
+      };
+      
+      console.log("Formatted data:", formattedData);
+      setFormData(formattedData);
+      
+      // Fetch rate for the purity in editing mode
+      if (editingRecord.purity) {
+        fetchRateByPurity(editingRecord.purity);
+      }
     } else {
+      // For new records, set empty values
       setFormData({
         product_name: "",
         category_id: "",
@@ -112,31 +134,117 @@ function ProductForm() {
         purity: "",
         design_id: "",
         design: "",
-        gross_wt: "0.000",
-        stone_wt: "0.000",
-        net_wt: "0.000",
-        stone_price: "0.00",
+        gross_wt: "",
+        stone_wt: "",
+        net_wt: "",
+        stone_price: "",
         pricing: "By Weight",
         va_on: "Gross Weight",
-        va_percent: "0.00",
-        wastage_weight: "0.000",
-        total_weight_av: "0.000",
+        va_percent: "",
+        wastage_weight: "",
+        total_weight_av: "",
         mc_on: "MC %",
-        mc_per_gram: "0.00",
-        making_charges: "0.00",
-        rate: "0.00",
-        rate_amt: "0.00",
+        mc_per_gram: "",
+        making_charges: "",
+        rate: "",
+        rate_amt: "",
         hm_charges: "60.00",
         tax_percent: "0.9% GST",
-        tax_amt: "0.00",
-        total_price: "0.00",
-        pieace_cost: "0.00",
-        disscount_percentage: "0.00",
-        disscount: "0.00",
+        tax_amt: "",
+        total_price: "",
+        pieace_cost: "",
+        disscount_percentage: "",
+        disscount: "",
         qty: "1"
       });
     }
   }, [editingRecord]);
+
+  // Function to extract purity value from purity string (e.g., "16K" -> "16crt", "Silver" -> "silver")
+  const extractPurityValue = (purityString) => {
+    if (!purityString) return null;
+    
+    // Remove spaces and convert to lowercase
+    const cleanString = purityString.toLowerCase().replace(/\s+/g, '');
+    
+    // Check for silver - handle different silver names
+    if (cleanString.includes('silver') || cleanString === 'silver') {
+      return 'silver';
+    }
+    
+    // Extract numeric value for gold (16K, 18K, 22K, 24K)
+    const match = cleanString.match(/(\d+)/);
+    if (match) {
+      const numericValue = match[1];
+      return `${numericValue}crt`;
+    }
+    
+    return null;
+  };
+
+  // Function to fetch rate by purity
+  const fetchRateByPurity = async (purityString) => {
+    if (!purityString) {
+      setFormData(prev => ({
+        ...prev,
+        rate: ""
+      }));
+      return;
+    }
+
+    const purityValue = extractPurityValue(purityString);
+    
+    console.log("Purity string:", purityString);
+    console.log("Extracted purity value:", purityValue);
+    
+    if (!purityValue) {
+      setFormData(prev => ({
+        ...prev,
+        rate: ""
+      }));
+      return;
+    }
+
+    setLoading(prev => ({ ...prev, rate: true }));
+    setCurrentRateInfo(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const response = await fetch(`http://localhost:5000/rates/by-purity/${purityValue}`);
+      
+      if (response.ok) {
+        const rateData = await response.json();
+        console.log("Rate data received:", rateData);
+        
+        setFormData(prev => ({
+          ...prev,
+          rate: rateData.rate ? rateData.rate.toString() : ""
+        }));
+        
+        setCurrentRateInfo({
+          rate: rateData.rate || 0,
+          rate_date: rateData.rate_date || "",
+          rate_time: rateData.rate_time || "",
+          isLoading: false
+        });
+      } else {
+        // If API fails, keep the current rate or set to empty
+        setFormData(prev => ({
+          ...prev,
+          rate: prev.rate || ""
+        }));
+        setCurrentRateInfo(prev => ({ ...prev, isLoading: false }));
+      }
+    } catch (error) {
+      console.error('Error fetching rate:', error);
+      setFormData(prev => ({
+        ...prev,
+        rate: ""
+      }));
+      setCurrentRateInfo(prev => ({ ...prev, isLoading: false }));
+    } finally {
+      setLoading(prev => ({ ...prev, rate: false }));
+    }
+  };
 
   const fetchAllData = async () => {
     try {
@@ -189,7 +297,8 @@ function ProductForm() {
         purities: false,
         designs: false,
         productNames: false,
-        barcode: false
+        barcode: false,
+        rate: false
       });
     }
   };
@@ -340,7 +449,7 @@ function ProductForm() {
   const handleChange = async (e) => {
     const { name, value } = e.target;
 
-    // Handle numeric fields
+    // Handle numeric fields - allow empty string
     const numericFields = [
       'gross_wt', 'stone_wt', 'net_wt', 'stone_price', 'va_percent',
       'wastage_weight', 'total_weight_av', 'mc_per_gram', 'making_charges',
@@ -349,6 +458,7 @@ function ProductForm() {
     ];
 
     if (numericFields.includes(name)) {
+      // Allow empty string or valid numbers
       if (value === '' || /^\d*\.?\d{0,3}$/.test(value) || name === 'qty' && /^\d*$/.test(value)) {
         setFormData(prev => ({
           ...prev,
@@ -385,6 +495,7 @@ function ProductForm() {
         setFormData(prev => ({
           ...prev,
           metal_type: selectedMetal.metal_name,
+          metal_type_id: value
         }));
       }
     }
@@ -395,7 +506,11 @@ function ProductForm() {
         setFormData(prev => ({
           ...prev,
           purity: selectedPurity.name,
+          purity_id: value
         }));
+
+        // Fetch rate based on purity
+        fetchRateByPurity(selectedPurity.name);
       }
     }
 
@@ -405,6 +520,7 @@ function ProductForm() {
         setFormData(prev => ({
           ...prev,
           design: selectedDesign.design_name,
+          design_id: value
         }));
       }
     }
@@ -417,10 +533,11 @@ function ProductForm() {
     const stone = parseFloat(formData.stone_wt) || 0;
     const net = gross - stone;
 
-    if (net !== parseFloat(formData.net_wt || 0)) {
+    const currentNetWt = parseFloat(formData.net_wt) || 0;
+    if (net !== currentNetWt) {
       setFormData(prev => ({
         ...prev,
-        net_wt: net < 0 ? "0.000" : net.toFixed(3),
+        net_wt: net < 0 ? "" : net.toFixed(3),
       }));
     }
   }, [formData.gross_wt, formData.stone_wt]);
@@ -428,23 +545,26 @@ function ProductForm() {
   // Calculate wastage and total weight when relevant fields change
   useEffect(() => {
     const { wastageWeight, totalWeight } = calculateWastageAndTotalWeight(
-      formData.gross_wt,
-      formData.stone_wt,
-      formData.va_percent,
+      formData.gross_wt || "0",
+      formData.stone_wt || "0",
+      formData.va_percent || "0",
       formData.va_on
     );
 
-    if (wastageWeight !== formData.wastage_weight) {
+    const currentWastage = parseFloat(formData.wastage_weight) || 0;
+    const currentTotal = parseFloat(formData.total_weight_av) || 0;
+
+    if (parseFloat(wastageWeight) !== currentWastage) {
       setFormData(prev => ({
         ...prev,
-        wastage_weight: wastageWeight,
+        wastage_weight: wastageWeight === "0.000" ? "" : wastageWeight,
       }));
     }
 
-    if (totalWeight !== formData.total_weight_av) {
+    if (parseFloat(totalWeight) !== currentTotal) {
       setFormData(prev => ({
         ...prev,
-        total_weight_av: totalWeight,
+        total_weight_av: totalWeight === "0.000" ? "" : totalWeight,
       }));
     }
   }, [formData.gross_wt, formData.stone_wt, formData.va_percent, formData.va_on]);
@@ -452,16 +572,17 @@ function ProductForm() {
   // Calculate rate amount
   useEffect(() => {
     const rateAmount = calculateRateAmount(
-      formData.rate,
-      formData.total_weight_av,
+      formData.rate || "0",
+      formData.total_weight_av || "0",
       formData.pricing,
-      formData.qty
+      formData.qty || "1"
     );
 
-    if (rateAmount !== formData.rate_amt) {
+    const currentRateAmt = parseFloat(formData.rate_amt) || 0;
+    if (parseFloat(rateAmount) !== currentRateAmt) {
       setFormData(prev => ({
         ...prev,
-        rate_amt: rateAmount,
+        rate_amt: rateAmount === "0.00" ? "" : rateAmount,
       }));
     }
   }, [formData.rate, formData.total_weight_av, formData.pricing, formData.qty]);
@@ -469,16 +590,17 @@ function ProductForm() {
   // Calculate making charges
   useEffect(() => {
     const makingCharges = calculateMakingCharges(
-      formData.total_weight_av,
-      formData.mc_per_gram,
+      formData.total_weight_av || "0",
+      formData.mc_per_gram || "0",
       formData.mc_on,
-      formData.rate_amt
+      formData.rate_amt || "0"
     );
 
-    if (makingCharges !== formData.making_charges) {
+    const currentMakingCharges = parseFloat(formData.making_charges) || 0;
+    if (parseFloat(makingCharges) !== currentMakingCharges) {
       setFormData(prev => ({
         ...prev,
-        making_charges: makingCharges,
+        making_charges: makingCharges === "0.00" ? "" : makingCharges,
       }));
     }
   }, [formData.total_weight_av, formData.mc_per_gram, formData.mc_on, formData.rate_amt]);
@@ -486,25 +608,28 @@ function ProductForm() {
   // Calculate tax and total price
   useEffect(() => {
     const { taxAmt, totalPrice } = calculateTaxAndTotal(
-      formData.rate_amt,
-      formData.stone_price,
-      formData.making_charges,
-      formData.hm_charges,
+      formData.rate_amt || "0",
+      formData.stone_price || "0",
+      formData.making_charges || "0",
+      formData.hm_charges || "0",
       formData.tax_percent,
-      formData.disscount
+      formData.disscount || "0"
     );
 
-    if (taxAmt !== formData.tax_amt) {
+    const currentTaxAmt = parseFloat(formData.tax_amt) || 0;
+    const currentTotalPrice = parseFloat(formData.total_price) || 0;
+
+    if (parseFloat(taxAmt) !== currentTaxAmt) {
       setFormData(prev => ({
         ...prev,
-        tax_amt: taxAmt,
+        tax_amt: taxAmt === "0.00" ? "" : taxAmt,
       }));
     }
 
-    if (totalPrice !== formData.total_price) {
+    if (parseFloat(totalPrice) !== currentTotalPrice) {
       setFormData(prev => ({
         ...prev,
-        total_price: totalPrice,
+        total_price: totalPrice === "0.00" ? "" : totalPrice,
       }));
     }
   }, [formData.rate_amt, formData.stone_price, formData.making_charges,
@@ -516,10 +641,11 @@ function ProductForm() {
     const discountPercent = parseFloat(formData.disscount_percentage) || 0;
     const discountAmount = (makingCharges * discountPercent) / 100;
 
-    if (discountAmount.toFixed(2) !== formData.disscount) {
+    const currentDiscount = parseFloat(formData.disscount) || 0;
+    if (discountAmount !== currentDiscount) {
       setFormData(prev => ({
         ...prev,
-        disscount: discountAmount.toFixed(2),
+        disscount: discountAmount === 0 ? "" : discountAmount.toFixed(2),
       }));
     }
   }, [formData.disscount_percentage, formData.making_charges]);
@@ -554,7 +680,7 @@ function ProductForm() {
       return;
     }
 
-    // Prepare data for API
+    // Prepare data for API - convert empty strings to "0.00" or "0.000"
     const apiData = {
       ...formData,
       gross_wt: formData.gross_wt || "0.000",
@@ -580,6 +706,8 @@ function ProductForm() {
       disscount: formData.disscount || "0.00",
       qty: formData.qty || "1"
     };
+
+    console.log("Submitting data:", apiData);
 
     try {
       let url = "http://localhost:5000/post/product";
@@ -641,7 +769,7 @@ function ProductForm() {
   };
 
   const productNameOptions = [
-    { value: "", label: loading.productNames ? "Loading product names..." : "Select product name", disabled: true },
+    { value: "", label: "Select Product Name", disabled: true },
     ...productNames.map(product => ({
       value: product.category_name,
       label: `${product.category_name} (${product.prefix || 'No Prefix'})`
@@ -649,7 +777,7 @@ function ProductForm() {
   ];
 
   const metalTypeOptions = [
-    { value: "", label: loading.metals ? "Loading metal types..." : "Select metal type", disabled: true },
+    { value: "", label: "Select Metal Type", disabled: true },
     ...metalTypes.map(metal => ({
       value: metal.id.toString(),
       label: metal.metal_name
@@ -657,7 +785,7 @@ function ProductForm() {
   ];
 
   const purityOptions = [
-    { value: "", label: loading.purities ? "Loading purities..." : "Select purity", disabled: true },
+    { value: "", label: "Select Purity", disabled: true },
     ...purities.map(purity => ({
       value: purity.id.toString(),
       label: `${purity.name} (${purity.metal})`
@@ -665,7 +793,7 @@ function ProductForm() {
   ];
 
   const designOptions = [
-    { value: "", label: loading.designs ? "Loading designs..." : "Select design", disabled: true },
+    { value: "", label: "Select Design", disabled: true },
     ...designs.map(design => ({
       value: design.id.toString(),
       label: `${design.design_name} (${design.metal})`
@@ -708,9 +836,10 @@ function ProductForm() {
 
           {errorMessage && <div className="product-form-error">{errorMessage}</div>}
 
+
           <form className="product-form" onSubmit={handleSubmit}>
             <Row className="product-form-section">
-              {/* Product Name, Barcode, Metal Type, Design, Purity - same as second form */}
+              {/* Product Name, Barcode, Metal Type, Design, Purity */}
               <Col xs={12} md={3}>
                 <InputField
                   label="Product Name *"
@@ -721,7 +850,7 @@ function ProductForm() {
                   onChange={handleChange}
                   required
                   disabled={loading.productNames}
-                  options={[{ value: "", label: "Select Product Name", disabled: true }, ...productNameOptions]}
+                  options={productNameOptions}
                 />
               </Col>
 
@@ -748,7 +877,7 @@ function ProductForm() {
                   onChange={handleChange}
                   required
                   disabled={loading.metals}
-                  options={[{ value: "", label: "Select Metal Type", disabled: true }, ...metalTypeOptions]}
+                  options={metalTypeOptions}
                 />
               </Col>
 
@@ -762,7 +891,7 @@ function ProductForm() {
                   onChange={handleChange}
                   required
                   disabled={loading.designs}
-                  options={[{ value: "", label: "Select Design", disabled: true }, ...designOptions]}
+                  options={designOptions}
                 />
               </Col>
 
@@ -776,11 +905,11 @@ function ProductForm() {
                   onChange={handleChange}
                   required
                   disabled={loading.purities}
-                  options={[{ value: "", label: "Select Purity", disabled: true }, ...purityOptions]}
+                  options={purityOptions}
                 />
               </Col>
 
-              {/* Pricing dropdown - same as second form */}
+              {/* Pricing dropdown */}
               <Col xs={12} md={2}>
                 <InputField
                   label="Pricing"
@@ -795,7 +924,7 @@ function ProductForm() {
                 />
               </Col>
 
-              {/* Condition based on Pricing selection - matching second form layout */}
+              {/* Condition based on Pricing selection */}
               {formData.pricing === "By fixed" ? (
                 <>
                   <Col xs={12} md={1}>
@@ -864,7 +993,7 @@ function ProductForm() {
                 </>
               ) : (
                 <>
-                  {/* Weight-based pricing fields - matching second form order and sizes */}
+                  {/* Weight-based pricing fields */}
                   <Col xs={12} md={1}>
                     <InputField
                       label="Gross Wt"
@@ -966,7 +1095,11 @@ function ProductForm() {
                       placeholder="0.00"
                       pattern="^\d*\.?\d{0,2}$"
                       title="Enter rate with up to 2 decimal places"
+                      readOnly={loading.rate}
+                      disabled={loading.rate}
+                      className={loading.rate ? "rate-loading-field" : ""}
                     />
+                    {loading.rate && <small>Fetching rate...</small>}
                   </Col>
                   <Col xs={12} md={1}>
                     <InputField
@@ -1059,7 +1192,7 @@ function ProductForm() {
                 </>
               )}
 
-              {/* Qty field only for By Weight pricing (moved from earlier position to match second form) */}
+              {/* Qty field only for By Weight pricing */}
               {formData.pricing !== "By fixed" && (
                 <Col xs={12} md={1}>
                   <InputField
@@ -1095,7 +1228,7 @@ function ProductForm() {
               <button
                 type="submit"
                 className="product-form-submit-btn"
-                disabled={isSubmitting}
+                disabled={isSubmitting || loading.rate}
               >
                 {isSubmitting ? "Saving..." : editingRecord ? "Update Product" : "Save Product"}
               </button>

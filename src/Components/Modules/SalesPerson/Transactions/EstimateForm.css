@@ -1,0 +1,58 @@
+.estimate-form-container {
+    max-width: 1500px;
+    margin: auto;
+    padding: 20px;
+    margin-top: 12px;
+    padding-top: 50px;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .estimate-form-section {
+    margin-bottom: 10px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: rgba(163, 110, 41, 0.08);
+    margin-top: -40px;
+  }
+
+  .estimate-form-section2{
+    margin-bottom: 10px;
+    padding: 8px;
+    padding-bottom: 0px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: rgba(163, 110, 41, 0.08);
+  }
+  
+  .input-with-suffix {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Space between input and % */
+    position: relative; /* Enables relative positioning for children */
+  }
+  
+  .suffix {
+    position: relative;
+    top: -10px; /* Adjust this value to move the % symbol upwards */
+    font-size: 0.9rem; /* Optional: Adjust size for better alignment */
+    color: #333; /* Optional: Match with your theme */
+  }
+
+  /* h2{
+    color: #a36e29;
+  } */
+  
+  /* Mobile responsive design for medium screens (max-width: 768px) */
+  @media (max-width: 768px) {
+    .repair-form-container {
+      margin-top: 20px; /* Adjusted top margin */
+      padding-top: 20px; /* Reduced padding for smaller screens */
+    }
+
+  }
+  
+
+  

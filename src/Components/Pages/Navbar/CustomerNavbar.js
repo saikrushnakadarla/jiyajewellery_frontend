@@ -80,7 +80,7 @@ function Navbar() {
         <div>
           <span>
             <Link
-              to="/dashboard"
+              to="/customer-dashboard"
               onClick={handleItemClick}
               className={isActive('/dashboard')}
               style={{
@@ -96,49 +96,6 @@ function Navbar() {
 
         <div
           className="navbar-dropdown"
-          onMouseEnter={toggleDropdown}
-          onMouseLeave={toggleDropdown}
-        >
-          <span className="navbar-dropdown-title">
-            MASTERS{' '}
-            <FontAwesomeIcon
-              icon={mastersDropdownOpen ? faChevronUp : faChevronDown}
-              className="dropdown-arrow-icon"
-            />
-          </span>
-          {mastersDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/customers" onClick={handleItemClick} className={isActive('/customers')}>
-                Customer 
-              </Link>
-              <Link to="/salespersontable" onClick={handleItemClick} className={isActive('/salespersontable')}>
-                Salesperson 
-              </Link>
-              <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
-                Purity 
-              </Link>
-               <Link to="/rates" onClick={handleItemClick} className={isActive('/ratesmaster')}>
-                Rates 
-              </Link>
-              <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
-                Design Master
-              </Link>
-              <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
-                Metaltype 
-              </Link>
-               <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
-                Category 
-              </Link>
-               <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
-                Products 
-              </Link>
-            </div>
-          )}
-        </div>
-
-
-        <div
-          className="navbar-dropdown"
           onMouseEnter={toggletransactionDropdown}
           onMouseLeave={toggletransactionDropdown}
         >
@@ -151,7 +108,7 @@ function Navbar() {
           </span>
           {transactionsDropdownOpen && (
             <div className="navbar-dropdown-content">
-              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
+              <Link to="/customer-estimation" onClick={handleItemClick} className={isActive('/customer-estimation')}>
                 Estimation
               </Link>
             </div>
@@ -170,13 +127,13 @@ function Navbar() {
               className="dropdown-arrow-icon"
             />
           </span>
-          {reportsDropdownOpen && (
+          {/* {reportsDropdownOpen && (
             <div className="navbar-dropdown-content">
               <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
                 Sales Reports
               </Link>
             </div>
-          )}
+          )} */}
         </div>
       </nav>
 
