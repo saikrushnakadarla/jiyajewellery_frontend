@@ -170,13 +170,13 @@ function Navbar() {
               className="dropdown-arrow-icon"
             />
           </span>
-          {reportsDropdownOpen && (
+          {/* {reportsDropdownOpen && (
             <div className="navbar-dropdown-content">
               <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
                 Sales Reports
               </Link>
             </div>
-          )}
+          )} */}
         </div>
       </nav>
 

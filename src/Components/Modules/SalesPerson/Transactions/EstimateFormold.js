@@ -17,34 +17,11 @@ const EstimateForm = () => {
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
   
-  // Get current logged-in salesperson from localStorage
-  const getCurrentSalesperson = () => {
-    try {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        return {
-          id: parsedUser.id || parsedUser._id || parsedUser.userId,
-          name: parsedUser.full_name || parsedUser.name || parsedUser.username,
-          role: parsedUser.role
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error getting salesperson data:', error);
-      return null;
-    }
-  };
-  
-  const currentSalesperson = getCurrentSalesperson();
-  
   const initialFormData = {
     date: today,
     estimate_number: "",
     product_id: "",
     product_name: "",
-    customer_name: "",
-    customer_id: "", // Added customer_id field
     barcode: "",
     metal_type: "",
     design_name: "",
@@ -71,8 +48,6 @@ const EstimateForm = () => {
     total_amount: "0.00",
     pricing: "By Weight",
     opentag_id: "",
-    salesperson_id: currentSalesperson?.id || "", // Add salesperson_id field
-    salesperson_name: currentSalesperson?.name || "" // Add salesperson_name for reference
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -82,8 +57,6 @@ const EstimateForm = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [tagsData, setTagsData] = useState([]);
   const [isQtyEditable, setIsQtyEditable] = useState(false);
-  const [customers, setCustomers] = useState([]);
-  const [customerOptions, setCustomerOptions] = useState([]);
   const [rates, setRates] = useState({
     rate_24crt: "",
     rate_22crt: "",
@@ -130,40 +103,6 @@ const EstimateForm = () => {
     };
 
     fetchProducts();
-  }, []);
-
-  // Fetch customers from API
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch(`${baseURL}/api/users`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch customers');
-        }
-        const data = await response.json();
-
-        // Filter customers with role "Customer" and status "approved"
-        const filteredCustomers = data.filter(user =>
-          user.role === 'Customer' && user.status === 'approved'
-        );
-
-        setCustomers(filteredCustomers);
-
-        // Create options for dropdown with customer name as value
-        const customerOpts = filteredCustomers.map(customer => ({
-          value: customer.full_name,
-          label: customer.full_name,
-          customerId: customer.id || customer._id || customer.user_id
-        }));
-
-        setCustomerOptions(customerOpts);
-
-      } catch (error) {
-        console.error('Error fetching customers:', error);
-      }
-    };
-
-    fetchCustomers();
   }, []);
 
   // Fetch tags data
@@ -380,7 +319,7 @@ const EstimateForm = () => {
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
         
         if (selectedTag) {
-          // Get rate from tag data or calculate from current rates based on purity
+          // Get rate from tag data or calculate from current rates
           let tagRate = selectedTag.rate || "";
           
           // If no rate in tag, calculate from current rates based on purity
@@ -448,15 +387,7 @@ const EstimateForm = () => {
   };
 
   const resetFormData = () => {
-    setFormData({
-      ...initialFormData,
-      date: today,
-      estimate_number: formData.estimate_number, // Keep existing estimate number
-      customer_name: formData.customer_name, // Keep existing customer name
-      customer_id: formData.customer_id, // Keep existing customer ID
-      salesperson_id: currentSalesperson?.id || "", // Keep salesperson ID
-      salesperson_name: currentSalesperson?.name || "" // Keep salesperson name
-    });
+    setFormData(initialFormData);
     setIsQtyEditable(true);
   };
 
@@ -468,19 +399,6 @@ const EstimateForm = () => {
         ...prevData,
         [name]: value,
       };
-
-      // Handle customer name change - FIXED
-      if (name === "customer_name") {
-        // Find the selected customer from customerOptions
-        const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
-        if (selectedCustomerOption) {
-          updatedData.customer_name = selectedCustomerOption.value; // Customer name
-          updatedData.customer_id = selectedCustomerOption.customerId; // Customer ID
-        } else {
-          updatedData.customer_name = "";
-          updatedData.customer_id = "";
-        }
-      }
 
       // Handle product name change
       if (name === "product_name" && value !== prevData.product_name) {
@@ -618,6 +536,9 @@ const EstimateForm = () => {
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
 
+  // REMOVED: The duplicate useEffect that was updating rate based on purity
+  // This was causing conflicts with the rate from product/tag data
+
   // Calculate tax and total price
   useEffect(() => {
     const taxPercentStr = formData.tax_percent || "3% GST";
@@ -657,21 +578,6 @@ const EstimateForm = () => {
     fetchLastEstimateNumber();
   }, []);
 
-  // Check if user is logged in and is a salesperson
-  useEffect(() => {
-    if (!currentSalesperson) {
-      alert("Please login as a salesperson to create estimates");
-      navigate('/login');
-      return;
-    }
-    
-    if (currentSalesperson.role !== 'salesman' && currentSalesperson.role !== 'salesman') {
-      alert("Only salespersons can create estimates");
-      navigate('/dashboard');
-      return;
-    }
-  }, [currentSalesperson, navigate]);
-
   // Handle add/update entry
   const handleAdd = () => {
     if (!formData.product_name || !formData.barcode) {
@@ -679,58 +585,36 @@ const EstimateForm = () => {
       return;
     }
 
-    if (!formData.customer_name || !formData.customer_id) {
-      alert("Please select a customer");
-      return;
-    }
-
-    // Ensure salesperson_id is included in the entry
-    const entryWithSalesperson = {
-      ...formData,
-      salesperson_id: currentSalesperson?.id || "",
-      salesperson_name: currentSalesperson?.name || ""
-    };
-
     let updatedEntries;
     if (isEditing) {
       updatedEntries = entries.map((entry, index) =>
-        index === editIndex ? entryWithSalesperson : entry
+        index === editIndex ? formData : entry
       );
       setIsEditing(false);
       setEditIndex(null);
     } else {
-      updatedEntries = [...entries, entryWithSalesperson];
+      updatedEntries = [...entries, formData];
     }
     
     setEntries(updatedEntries);
     localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
     
-    // Reset form but keep estimate number, customer, and salesperson info
-    setFormData({
+    // Reset form but keep estimate number
+    setFormData(prev => ({
       ...initialFormData,
-      estimate_number: formData.estimate_number,
-      customer_name: formData.customer_name,
-      customer_id: formData.customer_id,
-      salesperson_id: currentSalesperson?.id || "",
-      salesperson_name: currentSalesperson?.name || "",
+      estimate_number: prev.estimate_number,
       date: today
-    });
+    }));
   };
 
   // Load entries from localStorage
   useEffect(() => {
     const storedEntries = JSON.parse(localStorage.getItem("estimateDetails")) || [];
-    // Ensure all entries have salesperson_id
-    const entriesWithSalesperson = storedEntries.map(entry => ({
-      ...entry,
-      salesperson_id: entry.salesperson_id || currentSalesperson?.id || "",
-      salesperson_name: entry.salesperson_name || currentSalesperson?.name || ""
-    }));
-    setEntries(entriesWithSalesperson);
+    setEntries(storedEntries);
     
     const storedDiscount = parseFloat(localStorage.getItem("estimateDiscount")) || 0;
     setDiscount(storedDiscount);
-  }, [currentSalesperson]);
+  }, []);
 
   const handleEdit = (index) => {
     setFormData(entries[index]);
@@ -785,16 +669,6 @@ const EstimateForm = () => {
         return;
       }
 
-      if (!entries[0].customer_id) {
-        alert("Customer information is missing. Please select a customer.");
-        return;
-      }
-
-      if (!currentSalesperson?.id) {
-        alert("Salesperson information is missing. Please login again.");
-        return;
-      }
-
       const totalAmount = entries.reduce((sum, item) => {
         const stonePrice = parseFloat(item.stone_price) || 0;
         const makingCharges = parseFloat(item.making_charges) || 0;
@@ -808,26 +682,21 @@ const EstimateForm = () => {
       const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Save to database - each entry will have customer_id and salesperson_id
+      // Save to database
       await Promise.all(
         entries.map((entry) => {
           const requestData = {
             ...entry,
-            customer_id: entry.customer_id, // Ensure customer_id is included
-            customer_name: entry.customer_name, // Keep customer name for reference
-            salesperson_id: currentSalesperson?.id || entry.salesperson_id || "", // Include salesperson_id
-            salesperson_name: currentSalesperson?.name || entry.salesperson_name || "", // Include salesperson name
             total_amount: totalAmount.toFixed(2),
             taxable_amount: taxableAmount.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
             net_amount: netAmount.toFixed(2),
-            created_by: currentSalesperson?.name || "Unknown Salesperson" // Add created_by field
           };
           return axios.post(`${baseURL}/add/estimate`, requestData);
         })
       );
 
-      // Generate PDF with salesperson info
+      // Generate PDF
       const pdfDoc = pdf(
         <PDFContent
           entries={entries}
@@ -838,26 +707,20 @@ const EstimateForm = () => {
           date={today}
           estimateNumber={formData.estimate_number}
           sellerName="Sadashri Jewels"
-          customerName={entries[0]?.customer_name || ""}
-          salespersonName={currentSalesperson?.name || "Salesperson"}
         />
       );
 
       const blob = await pdfDoc.toBlob();
       saveAs(blob, `estimate_${formData.estimate_number}.pdf`);
 
-      alert(`Estimates saved successfully! Created by: ${currentSalesperson?.name || 'Salesperson'}`);
+      alert("Estimates saved successfully!");
 
       // Clear localStorage and reset state
       localStorage.removeItem("estimateDetails");
       localStorage.removeItem("estimateDiscount");
       setEntries([]);
       setDiscount(0);
-      setFormData({
-        ...initialFormData,
-        salesperson_id: currentSalesperson?.id || "",
-        salesperson_name: currentSalesperson?.name || ""
-      });
+      setFormData(initialFormData);
 
       navigate("/salesperson-estimation");
     } catch (error) {
@@ -898,19 +761,6 @@ const EstimateForm = () => {
           <Row className="estimate-form-section">
             <h2>Estimate</h2>
             <Row className="d-flex justify-content-end align-items-center mb-3" style={{ marginLeft: '9px', marginTop: '-60px' }}>
-               {/* Display current salesperson info */}
-            <Col xs={12} md={2}>
-              <div className="form-group">
-                <label style={{ fontSize: "14px", marginBottom: "5px" }}>
-                  Salesperson: <strong>{currentSalesperson?.name || "Not logged in"}</strong>
-                </label>
-                <input
-                  type="hidden"
-                  name="salesperson_id"
-                  value={currentSalesperson?.id || ""}
-                />
-              </div>
-            </Col>
               <Col xs={12} md={2}>
                 <InputField
                   label="Date:"
@@ -931,20 +781,6 @@ const EstimateForm = () => {
                 />
               </Col>
             </Row>
-
-            <Col xs={12} md={3}>
-              <InputField
-                label="Customer Name"
-                name="customer_name"
-                value={formData.customer_name || ""} // Display customer name in the field
-                type="select"
-                onChange={handleInputChange}
-                options={[
-                  { value: "", label: "Select Customer Name", disabled: true },
-                  ...customerOptions
-                ]}
-              />
-            </Col>
 
             <Col xs={12} md={3}>
               <InputField
@@ -1192,7 +1028,6 @@ const EstimateForm = () => {
                 <tr style={{ fontSize: "14px" }}>
                   <th>S No</th>
                   <th>Product Name</th>
-                  <th>Customer Name</th>
                   <th>Barcode</th>
                   <th>Metal Type</th>
                   <th>Gross Weight</th>
@@ -1209,7 +1044,6 @@ const EstimateForm = () => {
                     <tr key={index} style={{ fontSize: "14px" }}>
                       <td>{index + 1}</td>
                       <td>{entry.product_name}</td>
-                      <td>{entry.customer_name}</td>
                       <td>{entry.barcode}</td>
                       <td>{entry.metal_type}</td>
                       <td>{entry.gross_weight}</td>
@@ -1233,7 +1067,7 @@ const EstimateForm = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="11" className="text-center">
+                    <td colSpan="10" className="text-center">
                       No entries added yet.
                     </td>
                   </tr>
@@ -1291,15 +1125,6 @@ const EstimateForm = () => {
                   </td>
                   <td colSpan="4">{Math.round(netAmount).toFixed(2)}</td>
                 </tr>
-                {/* Display salesperson info in summary */}
-                <tr style={{ fontSize: "14px", backgroundColor: "#f8f9fa" }}>
-                  <td colSpan="20" className="text-right">
-                    <strong>Created By:</strong>
-                  </td>
-                  <td colSpan="4">
-                    <strong>{currentSalesperson?.name || "Salesperson"}</strong>
-                  </td>
-                </tr>
               </tbody>
             </Table>
             
@@ -1346,7 +1171,7 @@ const EstimateForm = () => {
                 }}
                 onClick={handlePrint}
               >
-                Print & Save
+                Print
               </Button>
             </Col>
           </Row>

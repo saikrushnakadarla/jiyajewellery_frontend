@@ -215,7 +215,7 @@ const PDFContent = ({ entries, totalAmount, date, estimateNumber, sellerName }) 
           <View>
             <View style={styles.row}>
               <Text style={styles.leftText}>Est No: {entries[0].estimate_number}</Text>
-              <Text style={styles.rightText}>S.E: New Friend's Jewellery</Text>
+              <Text style={styles.rightText}>S.E: Jiya Jewellery</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.leftText}>Rate: {entries[0].rate}</Text>

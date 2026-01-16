@@ -51,20 +51,108 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
 const EstimateTable = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
+  const [allEstimates, setAllEstimates] = useState([]); // Store all fetched estimates
   const [loading, setLoading] = useState(true);
   const [filteredData, setFilteredData] = useState([]);
   const [repairDetails, setRepairDetails] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [salespersonId, setSalespersonId] = useState(null);
+  const [salespersonName, setSalespersonName] = useState('');
+
+  // Get current logged-in salesperson from localStorage
+  useEffect(() => {
+    const getCurrentSalesperson = () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          const salespersonId = parsedUser.id || parsedUser._id || parsedUser.userId;
+          const salespersonName = parsedUser.full_name || parsedUser.name || parsedUser.username;
+          const role = parsedUser.role;
+          
+          // Check if user is a salesperson
+          if (role === 'salesman' || role === 'salesman' || role === 'salesman') {
+            setSalespersonId(salespersonId);
+            setSalespersonName(salespersonName);
+            return { id: salespersonId, name: salespersonName };
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Access Denied',
+              text: 'Only salespersons can view estimates',
+            }).then(() => {
+              navigate('/dashboard');
+            });
+            return null;
+          }
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Authentication Required',
+            text: 'Please login as a salesperson',
+          }).then(() => {
+            navigate('/login');
+          });
+          return null;
+        }
+      } catch (error) {
+        console.error('Error getting salesperson data:', error);
+        return null;
+      }
+    };
+
+    const salesperson = getCurrentSalesperson();
+    if (!salesperson) {
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  // Filter estimates based on salesperson_id
+  const filterEstimatesBySalespersonId = useCallback((estimates, salespersonId) => {
+    if (!salespersonId || !estimates || !Array.isArray(estimates)) {
+      return [];
+    }
+    
+    // Filter estimates where salesperson_id matches the logged-in salesperson's ID
+    const filtered = estimates.filter((estimate) => {
+      const estimateSalespersonId = estimate.salesperson_id;
+      
+      // Handle different data types - convert both to string for comparison
+      if (estimateSalespersonId === undefined || estimateSalespersonId === null) {
+        return false;
+      }
+      
+      return String(estimateSalespersonId) === String(salespersonId);
+    });
+    
+    return filtered;
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      // Fetch all estimates from the existing API
       const response = await axios.get(`${baseURL}/get-unique-estimates`);
       
-      const filteredData = response.data || [];
+      const allEstimatesData = response.data || [];
+      setAllEstimates(allEstimatesData);
       
-      setData(filteredData);
-      setFilteredData(filteredData);
+      // If we have a salespersonId, filter the data
+      if (salespersonId) {
+        const salespersonEstimates = filterEstimatesBySalespersonId(allEstimatesData, salespersonId);
+        setData(salespersonEstimates);
+        setFilteredData(salespersonEstimates);
+        
+        // Optional: Show message if no estimates found for this salesperson
+        if (salespersonEstimates.length === 0) {
+          console.log(`No estimates found for salesperson ID: ${salespersonId}`);
+        }
+      } else {
+        // If no salespersonId yet, set empty arrays
+        setData([]);
+        setFilteredData([]);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching estimate details:', error);
@@ -75,16 +163,29 @@ const EstimateTable = () => {
       });
       setLoading(false);
     }
-  }, []);
+  }, [salespersonId, filterEstimatesBySalespersonId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (salespersonId) {
+      fetchData();
+    }
+  }, [salespersonId, fetchData]);
+
+  // Re-filter data when salespersonId changes
+  useEffect(() => {
+    if (salespersonId && allEstimates.length > 0) {
+      const salespersonEstimates = filterEstimatesBySalespersonId(allEstimates, salespersonId);
+      setData(salespersonEstimates);
+      setFilteredData(salespersonEstimates);
+    }
+  }, [salespersonId, allEstimates, filterEstimatesBySalespersonId]);
 
   // Handle date filter
   const handleDateFilter = useCallback((fromDate, toDate) => {
     if (fromDate || toDate) {
       const filtered = data.filter((item) => {
+        if (!item.date) return false;
+        
         const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
         const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
         const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
@@ -120,6 +221,19 @@ const EstimateTable = () => {
 
     if (result.isConfirmed) {
       try {
+        // Check if the estimate belongs to the current salesperson
+        const estimateToEdit = data.find(item => item.estimate_number === estimate_number);
+        if (!estimateToEdit) {
+          Swal.fire('Error', 'Estimate not found.', 'error');
+          return;
+        }
+        
+        // Verify ownership - only allow editing own estimates
+        if (estimateToEdit.salesperson_id !== salespersonId) {
+          Swal.fire('Error', 'You can only edit estimates created by you.', 'error');
+          return;
+        }
+
         const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
         const details = response.data;
 
@@ -135,6 +249,8 @@ const EstimateTable = () => {
           ...item,
           date: today,
           estimate_number,
+          salesperson_id: salespersonId,
+          salesperson_name: salespersonName
         }));
 
         const updatedDetails = [...existingDetails, ...formattedDetails];
@@ -144,7 +260,7 @@ const EstimateTable = () => {
           localStorage.setItem('estimateDiscount', updatedDetails[0].disscount_percentage);
         }
 
-        navigate('/estimates', {
+        navigate('/salesperson-estimates', {
           state: {
             estimate_number,
             mobile,
@@ -156,9 +272,22 @@ const EstimateTable = () => {
         Swal.fire('Error', 'Unable to fetch estimate details. Please try again.', 'error');
       }
     }
-  }, [navigate]);
+  }, [navigate, data, salespersonId, salespersonName]);
 
   const handleDelete = useCallback(async (estimateNumber) => {
+    // Check if the estimate belongs to the current salesperson
+    const estimateToDelete = data.find(item => item.estimate_number === estimateNumber);
+    if (!estimateToDelete) {
+      Swal.fire('Error', 'Estimate not found.', 'error');
+      return;
+    }
+    
+    // Verify ownership - only allow deleting own estimates
+    if (estimateToDelete.salesperson_id !== salespersonId) {
+      Swal.fire('Error', 'You can only delete estimates created by you.', 'error');
+      return;
+    }
+
     const result = await Swal.fire({
       title: 'Are you sure?',
       text: `Do you really want to delete estimate ${estimateNumber}`,
@@ -181,9 +310,15 @@ const EstimateTable = () => {
         
         // Refresh data after delete
         const refreshResponse = await axios.get(`${baseURL}/get-unique-estimates`);
-        const refreshedData = refreshResponse.data || [];
-        setData(refreshedData);
-        setFilteredData(refreshedData);
+        const allEstimatesData = refreshResponse.data || [];
+        setAllEstimates(allEstimatesData);
+        
+        // Re-filter for current salesperson
+        if (salespersonId) {
+          const salespersonEstimates = filterEstimatesBySalespersonId(allEstimatesData, salespersonId);
+          setData(salespersonEstimates);
+          setFilteredData(salespersonEstimates);
+        }
         
         Swal.fire('Deleted!', 'The estimate has been deleted.', 'success');
       } catch (error) {
@@ -191,7 +326,7 @@ const EstimateTable = () => {
         Swal.fire('Error!', 'Failed to delete the estimate.', 'error');
       }
     }
-  }, []);
+  }, [data, salespersonId, filterEstimatesBySalespersonId]);
 
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
@@ -239,6 +374,10 @@ const EstimateTable = () => {
       accessor: 'estimate_number',
     },
     {
+      Header: 'Customer Name',
+      accessor: 'customer_name',
+    },
+    {
       Header: 'Product Name',
       accessor: 'sub_category',
     },
@@ -248,9 +387,17 @@ const EstimateTable = () => {
       Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
     },
     {
+      Header: 'Created By',
+      accessor: 'salesperson_name',
+      Cell: ({ value }) => value || 'N/A',
+    },
+    {
       Header: 'Actions',
       id: 'actions',
       Cell: ({ row }) => {
+        // Only show edit/delete if the estimate belongs to the current salesperson
+        const canEditDelete = row.original.salesperson_id === salespersonId;
+        
         return (
           <div style={{ display: 'flex', gap: '10px' }}>
             <FaEye
@@ -258,23 +405,27 @@ const EstimateTable = () => {
               onClick={() => handleViewDetails(row.original.estimate_number)}
               title="View Details"
             />
-            <FaEdit
-              style={{ cursor: 'pointer', color: 'blue' }}
-              onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
-              title="Edit"
-            />
-            <FaTrash
-              style={{ cursor: 'pointer', color: 'red' }}
-              onClick={() => handleDelete(row.original.estimate_number)}
-              title="Delete"
-            />
+            {canEditDelete && (
+              <>
+                <FaEdit
+                  style={{ cursor: 'pointer', color: 'blue' }}
+                  onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
+                  title="Edit"
+                />
+                <FaTrash
+                  style={{ cursor: 'pointer', color: 'red' }}
+                  onClick={() => handleDelete(row.original.estimate_number)}
+                  title="Delete"
+                />
+              </>
+            )}
           </div>
         );
       },
       width: 120,
       disableSortBy: true,
     },
-  ], [handleEdit, handleDelete, handleViewDetails]);
+  ], [handleEdit, handleDelete, handleViewDetails, salespersonId]);
 
   // Memoize table data
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
@@ -305,6 +456,7 @@ const EstimateTable = () => {
     usePagination
   );
 
+  // Show loading state
   if (loading) {
     return (
       <>
@@ -312,6 +464,61 @@ const EstimateTable = () => {
         <div className="text-center py-5">
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-2">Loading your estimates...</p>
+        </div>
+      </>
+    );
+  }
+
+  // Show message if user is not logged in as salesperson
+  if (!salespersonId) {
+    return (
+      <>
+        <SalesPersonNavbar />
+        <div className="text-center py-5">
+          <div className="alert alert-warning">
+            Please login as a salesperson to view estimates
+          </div>
+          <Button variant="primary" onClick={() => navigate('/login')}>
+            Go to Login
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // Show message if no estimates found for the salesperson
+  if (tableData.length === 0) {
+    return (
+      <>
+        <SalesPersonNavbar />
+        <div className="main-container">
+          <div className="estimates-table-container">
+            <Row className="mb-3">
+              <Col className="d-flex justify-content-between align-items-center">
+                <h3>Your Estimates</h3>
+                <Button
+                  className="create_but"
+                  onClick={handleCreate}
+                  style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
+                >
+                  + Create
+                </Button>
+              </Col>
+            </Row>
+            <div className="text-center py-5">
+              <div className="alert alert-info">
+                No estimates found for your account (Salesperson: {salespersonName}). Create your first estimate!
+              </div>
+              <Button
+                className="create_but"
+                onClick={handleCreate}
+                style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
+              >
+                + Create New Estimate
+              </Button>
+            </div>
           </div>
         </div>
       </>
@@ -326,7 +533,7 @@ const EstimateTable = () => {
           {/* Header with Title and Create Button */}
           <Row className="mb-3">
             <Col className="d-flex justify-content-between align-items-center">
-              <h3>Estimates</h3>
+              <h3>Your Estimates (Salesperson: {salespersonName})</h3>
               <Button
                 className="create_but"
                 onClick={handleCreate}
@@ -389,6 +596,7 @@ const EstimateTable = () => {
                 <strong>
                   {pageIndex + 1} of {pageOptions.length}
                 </strong>
+                {' '}(Showing {tableData.length} total records)
               </div>
               <div className="pagebuttons">
                 <button
@@ -412,7 +620,7 @@ const EstimateTable = () => {
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
                 >
-                  {[5, 10, 20].map((size) => (
+                  {[5, 10, 20, 50].map((size) => (
                     <option key={size} value={size}>
                       Show {size}
                     </option>
@@ -440,6 +648,14 @@ const EstimateTable = () => {
                     <tr>
                       <td>Estimate Number</td>
                       <td>{repairDetails.uniqueData?.estimate_number}</td>
+                    </tr>
+                    <tr>
+                      <td>Customer Name</td>
+                      <td>{repairDetails.uniqueData?.customer_name || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                      <td>Created By</td>
+                      <td>{repairDetails.uniqueData?.salesperson_name || 'N/A'}</td>
                     </tr>
                     <tr>
                       <td>Total Amount</td>

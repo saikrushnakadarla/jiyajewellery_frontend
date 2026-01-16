@@ -238,9 +238,13 @@ const EstimateTable = () => {
       Header: 'Estimate Number',
       accessor: 'estimate_number',
     },
+     {
+      Header: 'Customer Name',
+      accessor: 'customer_name',
+    },
     {
       Header: 'Product Name',
-      accessor: 'sub_category',
+      accessor: 'product_name',
     },
     {
       Header: 'Total Amount',
@@ -472,7 +476,7 @@ const EstimateTable = () => {
                       {repairDetails.repeatedData?.map((product, index) => (
                         <tr key={index}>
                           <td>{product.code}</td>
-                          <td>{product.sub_category}</td>
+                          <td>{product.product_name}</td>
                           <td>{product.metal_type}</td>
                           <td>{product.purity}</td>
                           <td>{product.gross_weight}</td>

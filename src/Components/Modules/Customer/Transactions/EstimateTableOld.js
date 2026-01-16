@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table, Form } from 'react-bootstrap';
+import { Button, Row, Col, Modal, Table } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import CustomerNavbar from '../../../Pages/Navbar/CustomerNavbar';
 import './EstimateTable.css';
@@ -57,7 +57,6 @@ const EstimateTable = () => {
   const [repairDetails, setRepairDetails] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [customerId, setCustomerId] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState({}); // Track status updates
 
   // Get current logged-in user's customer_id
   useEffect(() => {
@@ -78,6 +77,10 @@ const EstimateTable = () => {
             return null;
           }
         }
+        
+        // If using context or other auth method, you might need to adjust this
+        // For example, if using a context provider:
+        // const { user } = useAuth(); // Uncomment if you have auth context
         
         console.warn('No user data found in localStorage. Please check your authentication flow.');
         return null;
@@ -108,9 +111,11 @@ const EstimateTable = () => {
     }
     
     // Filter estimates where customer_id matches the logged-in user's ID
+    // Also handle cases where customer_id might be a string or number
     const filtered = estimates.filter((estimate) => {
       const estimateCustomerId = estimate.customer_id;
       
+      // Handle different data types - convert both to string for comparison
       if (estimateCustomerId === undefined || estimateCustomerId === null) {
         return false;
       }
@@ -128,31 +133,20 @@ const EstimateTable = () => {
       const response = await axios.get(`${baseURL}/get-unique-estimates`);
       
       const allEstimatesData = response.data || [];
-      
-      // Log the structure of the data to understand field names
-      if (allEstimatesData.length > 0) {
-        console.log('First estimate data structure:', allEstimatesData[0]);
-        console.log('Available fields:', Object.keys(allEstimatesData[0]));
-      }
-      
-      // Ensure all estimates have an estimate_status field, default to "Pending"
-      const estimatesWithStatus = allEstimatesData.map(estimate => ({
-        ...estimate,
-        estimate_status: estimate.estimate_status || estimate.status || "Pending"
-      }));
-      
-      setAllEstimates(estimatesWithStatus);
+      setAllEstimates(allEstimatesData);
       
       // If we have a customerId, filter the data
       if (customerId) {
-        const customerEstimates = filterEstimatesByCustomerId(estimatesWithStatus, customerId);
+        const customerEstimates = filterEstimatesByCustomerId(allEstimatesData, customerId);
         setData(customerEstimates);
         setFilteredData(customerEstimates);
         
+        // Optional: Show message if no estimates found for this customer
         if (customerEstimates.length === 0) {
           console.log(`No estimates found for customer ID: ${customerId}`);
         }
       } else {
+        // If no customerId yet, set empty arrays
         setData([]);
         setFilteredData([]);
       }
@@ -208,151 +202,6 @@ const EstimateTable = () => {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   }, []);
-
-  // Handle status change - FIXED VERSION
-  const handleStatusChange = async (estimateId, newStatus) => {
-    try {
-      // Find the estimate in data
-      const estimateToUpdate = data.find(item => 
-        item.id === estimateId || 
-        item.estimate_id === estimateId ||
-        item._id === estimateId
-      );
-      
-      if (!estimateToUpdate) {
-        Swal.fire('Error', 'Estimate not found.', 'error');
-        return;
-      }
-
-      console.log('Updating estimate:', estimateToUpdate);
-      console.log('New status:', newStatus);
-
-      // Show loading state
-      setUpdatingStatus(prev => ({ ...prev, [estimateId]: true }));
-
-      // Try different possible ID field names
-      const idField = estimateToUpdate.id || estimateToUpdate.estimate_id || estimateToUpdate._id;
-      
-      if (!idField) {
-        throw new Error('Estimate ID not found in data');
-      }
-
-      // First, let's try a simple update with just the status field
-      const simpleUpdateData = {
-        estimate_status: newStatus
-      };
-
-      console.log('Sending update data:', simpleUpdateData);
-      console.log('API URL:', `${baseURL}/edit/estimate/${idField}`);
-
-      // Try simple update first
-      const response = await axios.put(
-        `${baseURL}/edit/estimate/${idField}`, 
-        simpleUpdateData,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Update response:', response.data);
-
-      if (response.data && (response.data.success || response.data.message)) {
-        // Update local state
-        const updatedData = data.map(item => {
-          const itemId = item.id || item.estimate_id || item._id;
-          if (itemId === idField) {
-            return { ...item, estimate_status: newStatus };
-          }
-          return item;
-        });
-        
-        setData(updatedData);
-        setFilteredData(updatedData);
-        
-        // Also update allEstimates to keep consistency
-        const updatedAllEstimates = allEstimates.map(item => {
-          const itemId = item.id || item.estimate_id || item._id;
-          if (itemId === idField) {
-            return { ...item, estimate_status: newStatus };
-          }
-          return item;
-        });
-        
-        setAllEstimates(updatedAllEstimates);
-        
-        Swal.fire({
-          icon: 'success',
-          title: 'Status Updated',
-          text: `Estimate status updated to "${newStatus}" successfully!`,
-          timer: 2000,
-          showConfirmButton: false
-        });
-      } else {
-        throw new Error('Failed to update status');
-      }
-    } catch (error) {
-      console.error('Error updating estimate status:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      
-      // Try alternative approach if simple update fails
-      if (error.response?.status === 500) {
-        try {
-          console.log('Trying alternative update method...');
-          
-          // Find the estimate again
-          const estimateToUpdate = data.find(item => 
-            item.id === estimateId || 
-            item.estimate_id === estimateId ||
-            item._id === estimateId
-          );
-          
-          const idField = estimateToUpdate.id || estimateToUpdate.estimate_id || estimateToUpdate._id;
-          
-          // Try POST instead of PUT
-          const postResponse = await axios.post(
-            `${baseURL}/update-estimate-status/${idField}`, 
-            { estimate_status: newStatus }
-          );
-          
-          if (postResponse.data && (postResponse.data.success || postResponse.data.message)) {
-            // Update local state
-            const updatedData = data.map(item => {
-              const itemId = item.id || item.estimate_id || item._id;
-              if (itemId === idField) {
-                return { ...item, estimate_status: newStatus };
-              }
-              return item;
-            });
-            
-            setData(updatedData);
-            setFilteredData(updatedData);
-            
-            Swal.fire({
-              icon: 'success',
-              title: 'Status Updated',
-              text: `Estimate status updated to "${newStatus}" successfully!`,
-              timer: 2000,
-              showConfirmButton: false
-            });
-            return;
-          }
-        } catch (postError) {
-          console.error('Alternative update also failed:', postError);
-        }
-      }
-      
-      Swal.fire({
-        icon: 'error',
-        title: 'Update Failed',
-        text: error.response?.data?.message || 'Failed to update estimate status. Please try again.',
-      });
-    } finally {
-      // Remove loading state
-      setUpdatingStatus(prev => ({ ...prev, [estimateId]: false }));
-    }
-  };
 
   const handleEdit = useCallback(async (estimate_number, mobile) => {
     const result = await Swal.fire({
@@ -430,16 +279,11 @@ const EstimateTable = () => {
         // Refresh data after delete
         const refreshResponse = await axios.get(`${baseURL}/get-unique-estimates`);
         const allEstimatesData = refreshResponse.data || [];
-        const estimatesWithStatus = allEstimatesData.map(estimate => ({
-          ...estimate,
-          estimate_status: estimate.estimate_status || estimate.status || "Pending"
-        }));
-        
-        setAllEstimates(estimatesWithStatus);
+        setAllEstimates(allEstimatesData);
         
         // Re-filter for current customer
         if (customerId) {
-          const customerEstimates = filterEstimatesByCustomerId(estimatesWithStatus, customerId);
+          const customerEstimates = filterEstimatesByCustomerId(allEstimatesData, customerId);
           setData(customerEstimates);
           setFilteredData(customerEstimates);
         }
@@ -471,13 +315,6 @@ const EstimateTable = () => {
   const handleCreate = useCallback(() => {
     navigate('/customer-estimates');
   }, [navigate]);
-
-  // Status options
-  const statusOptions = [
-    { value: 'Pending', label: 'Pending', color: '#ffc107' },
-    { value: 'Accepted', label: 'Accepted', color: '#28a745' },
-    { value: 'Rejected', label: 'Rejected', color: '#dc3545' }
-  ];
 
   // Define columns separately to avoid dependency issues
   const columns = useMemo(() => [
@@ -513,78 +350,14 @@ const EstimateTable = () => {
       accessor: 'net_amount',
       Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
     },
-    {
+      {
       Header: 'Status',
       accessor: 'estimate_status',
-      Cell: ({ row, value }) => {
-        const estimate = row.original;
-        // Try multiple possible ID field names
-        const estimateId = estimate.id || estimate.estimate_id || estimate._id;
-        const isUpdating = estimateId ? updatingStatus[estimateId] : false;
-        
-        const getStatusColor = (status) => {
-          switch(status) {
-            case 'Pending': return '#ffc107';
-            case 'Accepted': return '#28a745';
-            case 'Rejected': return '#dc3545';
-            default: return '#6c757d';
-          }
-        };
-        
-        if (!estimateId) {
-          return (
-            <span className="text-muted">N/A</span>
-          );
-        }
-        
-        return (
-          <div style={{ minWidth: '120px' }}>
-            {isUpdating ? (
-              <div className="d-flex align-items-center">
-                <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <span>Updating...</span>
-              </div>
-            ) : (
-              <Form.Select
-                value={value || 'Pending'}
-                onChange={(e) => handleStatusChange(estimateId, e.target.value)}
-                style={{
-                  backgroundColor: getStatusColor(value),
-                  color: 'white',
-                  border: 'none',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  minWidth: '120px'
-                }}
-                disabled={isUpdating}
-              >
-                {statusOptions.map(option => (
-                  <option 
-                    key={option.value} 
-                    value={option.value}
-                    style={{ backgroundColor: option.color, color: 'white' }}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </Form.Select>
-            )}
-          </div>
-        );
-      },
-      width: 150,
-      disableSortBy: true,
     },
     {
       Header: 'Actions',
       id: 'actions',
       Cell: ({ row }) => {
-        const estimateStatus = row.original.estimate_status;
-        const estimate = row.original;
-        const estimateId = estimate.id || estimate.estimate_id || estimate._id;
-        
         return (
           <div style={{ display: 'flex', gap: '10px' }}>
             <FaEye
@@ -592,27 +365,23 @@ const EstimateTable = () => {
               onClick={() => handleViewDetails(row.original.estimate_number)}
               title="View Details"
             />
-            {estimateStatus === 'Pending' && (
-              <>
-                <FaEdit
-                  style={{ cursor: 'pointer', color: 'blue' }}
-                  onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
-                  title="Edit"
-                />
-                <FaTrash
-                  style={{ cursor: 'pointer', color: 'red' }}
-                  onClick={() => handleDelete(row.original.estimate_number)}
-                  title="Delete"
-                />
-              </>
-            )}
+            <FaEdit
+              style={{ cursor: 'pointer', color: 'blue' }}
+              onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
+              title="Edit"
+            />
+            <FaTrash
+              style={{ cursor: 'pointer', color: 'red' }}
+              onClick={() => handleDelete(row.original.estimate_number)}
+              title="Delete"
+            />
           </div>
         );
       },
       width: 120,
       disableSortBy: true,
     },
-  ], [handleEdit, handleDelete, handleViewDetails, updatingStatus]);
+  ], [handleEdit, handleDelete, handleViewDetails]);
 
   // Memoize table data
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
@@ -685,25 +454,24 @@ const EstimateTable = () => {
             <Row className="mb-3">
               <Col className="d-flex justify-content-between align-items-center">
                 <h3>Your Estimates</h3>
+                <Button variant="primary" onClick={handleCreate}>
+                  Create New Estimate
+                </Button>
               </Col>
             </Row>
             <div className="text-center py-5">
               <div className="alert alert-info">
-                No estimates found for your account. Please contact sales for estimates.
+                No estimates found for your account (Customer ID: {customerId}). Create your first estimate!
               </div>
+              <Button variant="primary" onClick={handleCreate}>
+                Create New Estimate
+              </Button>
             </div>
           </div>
         </div>
       </>
     );
   }
-
-  // Calculate status counts
-  const statusCounts = tableData.reduce((counts, item) => {
-    const status = item.estimate_status || 'Pending';
-    counts[status] = (counts[status] || 0) + 1;
-    return counts;
-  }, {});
 
   return (
     <>
@@ -714,45 +482,11 @@ const EstimateTable = () => {
           <Row className="mb-3">
             <Col className="d-flex justify-content-between align-items-center">
               <h3>Your Estimates</h3>
+              {/* <Button variant="primary" onClick={handleCreate}>
+                Create New Estimate
+              </Button> */}
             </Col>
           </Row>
-
-          {/* Status Summary */}
-          <div className="status-summary mb-3">
-            <Row>
-              <Col md={12}>
-                <div className="d-flex flex-wrap gap-2">
-                  {statusOptions.map(option => (
-                    <div 
-                      key={option.value} 
-                      className="d-flex align-items-center px-3 py-2 rounded"
-                      style={{ 
-                        backgroundColor: option.color + '20',
-                        borderLeft: `4px solid ${option.color}`
-                      }}
-                    >
-                      <span className="fw-bold me-2" style={{ color: option.color }}>
-                        {statusCounts[option.value] || 0}
-                      </span>
-                      <span style={{ color: '#495057' }}>{option.label}</span>
-                    </div>
-                  ))}
-                  <div 
-                    className="d-flex align-items-center px-3 py-2 rounded"
-                    style={{ 
-                      backgroundColor: '#6c757d20',
-                      borderLeft: '4px solid #6c757d'
-                    }}
-                  >
-                    <span className="fw-bold me-2" style={{ color: '#6c757d' }}>
-                      {tableData.length}
-                    </span>
-                    <span style={{ color: '#495057' }}>Total</span>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          </div>
 
           {/* Global Search Filter */}
           <GlobalFilter 
@@ -785,39 +519,13 @@ const EstimateTable = () => {
                 <tbody {...getTableBodyProps()} className="dataTable_body">
                   {page.map((row) => {
                     prepareRow(row);
-                    const estimateStatus = row.original.estimate_status;
-                    
                     return (
                       <tr {...row.getRowProps()} className="dataTable_row">
-                        {row.cells.map((cell) => {
-                          // Add background color based on status
-                          const cellProps = cell.getCellProps();
-                          if (cell.column.id === 'estimate_status') {
-                            let bgColor = '';
-                            switch(estimateStatus) {
-                              case 'Pending': bgColor = '#fff3cd'; break;
-                              case 'Accepted': bgColor = '#d4edda'; break;
-                              case 'Rejected': bgColor = '#f8d7da'; break;
-                              default: bgColor = '';
-                            }
-                            
-                            return (
-                              <td 
-                                {...cellProps} 
-                                className="dataTable_cell"
-                                style={{ backgroundColor: bgColor }}
-                              >
-                                {cell.render('Cell')}
-                              </td>
-                            );
-                          }
-                          
-                          return (
-                            <td {...cellProps} className="dataTable_cell">
-                              {cell.render('Cell')}
-                            </td>
-                          );
-                        })}
+                        {row.cells.map((cell) => (
+                          <td {...cell.getCellProps()} className="dataTable_cell">
+                            {cell.render('Cell')}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -888,23 +596,6 @@ const EstimateTable = () => {
                     <tr>
                       <td>Customer ID</td>
                       <td>{repairDetails.uniqueData?.customer_id || 'N/A'}</td>
-                    </tr>
-                    <tr>
-                      <td>Status</td>
-                      <td>
-                        <span 
-                          className="badge px-3 py-2"
-                          style={{
-                            backgroundColor: 
-                              repairDetails.uniqueData?.estimate_status === 'Accepted' ? '#28a745' :
-                              repairDetails.uniqueData?.estimate_status === 'Rejected' ? '#dc3545' : '#ffc107',
-                            color: 'white',
-                            fontSize: '0.9em'
-                          }}
-                        >
-                          {repairDetails.uniqueData?.estimate_status || 'Pending'}
-                        </span>
-                      </td>
                     </tr>
                     <tr>
                       <td>Total Amount</td>

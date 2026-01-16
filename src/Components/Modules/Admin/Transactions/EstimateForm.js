@@ -16,12 +16,14 @@ const EstimateForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
-  
+
   const initialFormData = {
     date: today,
     estimate_number: "",
     product_id: "",
     product_name: "",
+    customer_name: "",
+    customer_id: "", // Added customer_id field
     barcode: "",
     metal_type: "",
     design_name: "",
@@ -57,6 +59,8 @@ const EstimateForm = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [tagsData, setTagsData] = useState([]);
   const [isQtyEditable, setIsQtyEditable] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [customerOptions, setCustomerOptions] = useState([]);
   const [rates, setRates] = useState({
     rate_24crt: "",
     rate_22crt: "",
@@ -64,7 +68,7 @@ const EstimateForm = () => {
     rate_16crt: "",
     silver_rate: ""
   });
-  
+
   const [productOptions, setProductOptions] = useState([]);
   const [barcodeOptions, setBarcodeOptions] = useState([]);
   const [metalTypeOptions, setMetalTypeOptions] = useState([]);
@@ -82,27 +86,61 @@ const EstimateForm = () => {
         }
         const result = await response.json();
         setAllProducts(result);
-        
+
         // Create product name options
         const productOpts = result.map(product => ({
           value: product.product_name,
           label: product.product_name
         }));
         setProductOptions(productOpts);
-        
+
         // Create barcode options
         const barcodeOpts = result.map(product => ({
           value: product.barcode,
           label: product.barcode
         }));
         setBarcodeOptions(barcodeOpts);
-        
+
       } catch (error) {
         console.error('Error fetching products:', error);
       }
     };
 
     fetchProducts();
+  }, []);
+
+  // Fetch customers from API
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch(`${baseURL}/api/users`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch customers');
+        }
+        const data = await response.json();
+
+        // Filter customers with role "Customer" and status "approved"
+        const filteredCustomers = data.filter(user =>
+          user.role === 'Customer' && user.status === 'approved'
+        );
+
+        setCustomers(filteredCustomers);
+
+        // Create options for dropdown with customer name as value
+        const customerOpts = filteredCustomers.map(customer => ({
+          value: customer.full_name,
+          label: customer.full_name,
+          customerId: customer.id || customer._id || customer.user_id
+        }));
+
+        setCustomerOptions(customerOpts);
+
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+      }
+    };
+
+    fetchCustomers();
   }, []);
 
   // Fetch tags data
@@ -202,16 +240,16 @@ const EstimateForm = () => {
 
       // Find product in allProducts array
       const selectedProduct = allProducts.find(p => p.product_name === productName);
-      
+
       if (selectedProduct) {
         // Fetch full product details by ID
         const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
         if (response.ok) {
           const productDetails = await response.json();
-          
+
           // Use the rate from productDetails instead of calculating from current rates
           const productRate = productDetails.rate || "";
-          
+
           // Update form with product details
           setFormData(prev => ({
             ...prev,
@@ -266,16 +304,16 @@ const EstimateForm = () => {
 
       // First check in products
       const selectedProduct = allProducts.find(p => p.barcode === barcode);
-      
+
       if (selectedProduct) {
         // Fetch full product details by ID
         const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
         if (response.ok) {
           const productDetails = await response.json();
-          
+
           // Use the rate from productDetails
           const productRate = productDetails.rate || "";
-          
+
           setFormData(prev => ({
             ...prev,
             product_id: productDetails.product_id,
@@ -317,11 +355,11 @@ const EstimateForm = () => {
       } else {
         // Check in tags data
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
-        
+
         if (selectedTag) {
-          // Get rate from tag data or calculate from current rates
+          // Get rate from tag data or calculate from current rates based on purity
           let tagRate = selectedTag.rate || "";
-          
+
           // If no rate in tag, calculate from current rates based on purity
           if (!tagRate && selectedTag.Purity && selectedTag.metal_type) {
             if (selectedTag.metal_type?.toLowerCase() === "gold" && selectedTag.Purity) {
@@ -340,7 +378,7 @@ const EstimateForm = () => {
               tagRate = rates.silver_rate;
             }
           }
-          
+
           setFormData(prev => ({
             ...prev,
             product_id: selectedTag.product_id || "",
@@ -400,6 +438,19 @@ const EstimateForm = () => {
         [name]: value,
       };
 
+      // Handle customer name change - FIXED
+      if (name === "customer_name") {
+        // Find the selected customer from customerOptions
+        const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
+        if (selectedCustomerOption) {
+          updatedData.customer_name = selectedCustomerOption.value; // Customer name
+          updatedData.customer_id = selectedCustomerOption.customerId; // Customer ID
+        } else {
+          updatedData.customer_name = "";
+          updatedData.customer_id = "";
+        }
+      }
+
       // Handle product name change
       if (name === "product_name" && value !== prevData.product_name) {
         handleProductNameChange(value);
@@ -411,10 +462,10 @@ const EstimateForm = () => {
       }
 
       // Handle manual metal type change - calculate rate if not from product/tag
-      if ((name === "metal_type" || name === "purity") && 
-          !prevData.product_id && !prevData.opentag_id && 
-          value && updatedData.metal_type && updatedData.purity) {
-        
+      if ((name === "metal_type" || name === "purity") &&
+        !prevData.product_id && !prevData.opentag_id &&
+        value && updatedData.metal_type && updatedData.purity) {
+
         let currentRate = "";
         if (updatedData.metal_type?.toLowerCase() === "gold" && updatedData.purity) {
           if (updatedData.purity.includes("24")) {
@@ -431,7 +482,7 @@ const EstimateForm = () => {
         } else if (updatedData.metal_type?.toLowerCase() === "silver" && updatedData.purity) {
           currentRate = rates.silver_rate;
         }
-        
+
         if (currentRate) {
           updatedData.rate = currentRate;
         }
@@ -536,9 +587,6 @@ const EstimateForm = () => {
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
 
-  // REMOVED: The duplicate useEffect that was updating rate based on purity
-  // This was causing conflicts with the rate from product/tag data
-
   // Calculate tax and total price
   useEffect(() => {
     const taxPercentStr = formData.tax_percent || "3% GST";
@@ -585,6 +633,11 @@ const EstimateForm = () => {
       return;
     }
 
+    if (!formData.customer_name || !formData.customer_id) {
+      alert("Please select a customer");
+      return;
+    }
+
     let updatedEntries;
     if (isEditing) {
       updatedEntries = entries.map((entry, index) =>
@@ -595,14 +648,16 @@ const EstimateForm = () => {
     } else {
       updatedEntries = [...entries, formData];
     }
-    
+
     setEntries(updatedEntries);
     localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
-    
-    // Reset form but keep estimate number
+
+    // Reset form but keep estimate number and customer
     setFormData(prev => ({
       ...initialFormData,
       estimate_number: prev.estimate_number,
+      customer_name: prev.customer_name,
+      customer_id: prev.customer_id,
       date: today
     }));
   };
@@ -611,7 +666,7 @@ const EstimateForm = () => {
   useEffect(() => {
     const storedEntries = JSON.parse(localStorage.getItem("estimateDetails")) || [];
     setEntries(storedEntries);
-    
+
     const storedDiscount = parseFloat(localStorage.getItem("estimateDiscount")) || 0;
     setDiscount(storedDiscount);
   }, []);
@@ -669,6 +724,11 @@ const EstimateForm = () => {
         return;
       }
 
+      if (!entries[0].customer_id) {
+        alert("Customer information is missing. Please select a customer.");
+        return;
+      }
+
       const totalAmount = entries.reduce((sum, item) => {
         const stonePrice = parseFloat(item.stone_price) || 0;
         const makingCharges = parseFloat(item.making_charges) || 0;
@@ -682,11 +742,13 @@ const EstimateForm = () => {
       const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Save to database
+      // Save to database - each entry will have customer_id
       await Promise.all(
         entries.map((entry) => {
           const requestData = {
             ...entry,
+            customer_id: entry.customer_id, // Ensure customer_id is included
+            customer_name: entry.customer_name, // Keep customer name for reference
             total_amount: totalAmount.toFixed(2),
             taxable_amount: taxableAmount.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
@@ -707,6 +769,7 @@ const EstimateForm = () => {
           date={today}
           estimateNumber={formData.estimate_number}
           sellerName="Sadashri Jewels"
+          customerName={entries[0]?.customer_name || ""}
         />
       );
 
@@ -756,7 +819,7 @@ const EstimateForm = () => {
   return (
     <>
       <Navbar />
-      <div className="main-container" style={{marginTop:'60px'}}>
+      <div className="main-container" style={{ marginTop: '60px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
             <h2>Estimate</h2>
@@ -781,6 +844,20 @@ const EstimateForm = () => {
                 />
               </Col>
             </Row>
+
+            <Col xs={12} md={3}>
+              <InputField
+                label="Customer Name"
+                name="customer_name"
+                value={formData.customer_name || ""} // Display customer name in the field
+                type="select"
+                onChange={handleInputChange}
+                options={[
+                  { value: "", label: "Select Customer Name", disabled: true },
+                  ...customerOptions
+                ]}
+              />
+            </Col>
 
             <Col xs={12} md={3}>
               <InputField
@@ -1028,6 +1105,7 @@ const EstimateForm = () => {
                 <tr style={{ fontSize: "14px" }}>
                   <th>S No</th>
                   <th>Product Name</th>
+                  <th>Customer Name</th>
                   <th>Barcode</th>
                   <th>Metal Type</th>
                   <th>Gross Weight</th>
@@ -1044,6 +1122,7 @@ const EstimateForm = () => {
                     <tr key={index} style={{ fontSize: "14px" }}>
                       <td>{index + 1}</td>
                       <td>{entry.product_name}</td>
+                      <td>{entry.customer_name}</td>
                       <td>{entry.barcode}</td>
                       <td>{entry.metal_type}</td>
                       <td>{entry.gross_weight}</td>
@@ -1067,7 +1146,7 @@ const EstimateForm = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="text-center">
+                    <td colSpan="11" className="text-center">
                       No entries added yet.
                     </td>
                   </tr>
@@ -1127,7 +1206,7 @@ const EstimateForm = () => {
                 </tr>
               </tbody>
             </Table>
-            
+
             <Col xs={12} md={12} className="d-flex justify-content-end" style={{ marginTop: "-10px" }}>
               <Button
                 onClick={handleClose}
