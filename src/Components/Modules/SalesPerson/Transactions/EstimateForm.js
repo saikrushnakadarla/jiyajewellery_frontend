@@ -815,6 +815,7 @@ const EstimateForm = () => {
             ...entry,
             customer_id: entry.customer_id, // Ensure customer_id is included
             customer_name: entry.customer_name, // Keep customer name for reference
+            estimate_status:"Pending",
             salesperson_id: currentSalesperson?.id || entry.salesperson_id || "", // Include salesperson_id
             salesperson_name: currentSalesperson?.name || entry.salesperson_name || "", // Include salesperson name
             total_amount: totalAmount.toFixed(2),

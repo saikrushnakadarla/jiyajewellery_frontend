@@ -386,11 +386,11 @@ const EstimateTable = () => {
       accessor: 'net_amount',
       Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
     },
-    {
-      Header: 'Created By',
-      accessor: 'salesperson_name',
-      Cell: ({ value }) => value || 'N/A',
-    },
+    // {
+    //   Header: 'Created By',
+    //   accessor: 'salesperson_name',
+    //   Cell: ({ value }) => value || 'N/A',
+    // },
     {
       Header: 'Actions',
       id: 'actions',
