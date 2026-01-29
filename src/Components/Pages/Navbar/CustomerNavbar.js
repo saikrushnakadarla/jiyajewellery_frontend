@@ -11,7 +11,7 @@ function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mastersDropdownOpen, setMastersDropdownOpen] = useState(false);
   const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
-   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -110,6 +110,10 @@ function Navbar() {
             <div className="navbar-dropdown-content">
               <Link to="/customer-estimation" onClick={handleItemClick} className={isActive('/customer-estimation')}>
                 Estimation
+              </Link>
+              {/* Add Product Catalog here */}
+              <Link to="/product-catalog" onClick={handleItemClick} className={isActive('/product-catalog')}>
+                Product Catalog
               </Link>
             </div>
           )}

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table,Form } from 'react-bootstrap';
+import { Button, Row, Col, Modal, Table } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalesPersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './EstimateTable.css';
@@ -58,16 +58,6 @@ const EstimateTable = () => {
   const [showModal, setShowModal] = useState(false);
   const [salespersonId, setSalespersonId] = useState(null);
   const [salespersonName, setSalespersonName] = useState('');
-  const [updatingStatus, setUpdatingStatus] = useState({}); // Track status updates
-
-    // Status options
-const statusOptions = [
-  { value: 'Pending', label: 'Pending', color: '#ffc107' },
-  { value: 'Accepted', label: 'Accepted', color: '#28a745' },
-  { value: 'Rejected', label: 'Rejected', color: '#dc3545' }
-];
-
-
 
   // Get current logged-in salesperson from localStorage
   useEffect(() => {
@@ -197,104 +187,6 @@ const statusOptions = [
       setFilteredData(salespersonEstimates);
     }
   }, [salespersonId, allEstimates, filterEstimatesBySalespersonId]);
-
-
-    // Handle status change
- // Handle status change - FIXED VERSION
-// Handle status change - FIXED VERSION
-const handleStatusChange = async (rowData, newStatus) => {
-  try {
-    console.log('handleStatusChange called with row data:', rowData);
-    console.log('New status:', newStatus);
-    
-    // Extract identifier from rowData - use estimate_number as primary
-    const identifier = rowData.estimate_number || rowData.estimate_id || rowData.id;
-    
-    if (!identifier) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Could not identify the estimate.',
-      });
-      return;
-    }
-
-    console.log('Using identifier:', identifier);
-    
-    // Show loading state using estimate_number as key
-    const loadingKey = rowData.estimate_number || identifier;
-    setUpdatingStatus(prev => ({ ...prev, [loadingKey]: true }));
-
-    // Call the status update endpoint
-    const response = await axios.put(
-      `${baseURL}/update-estimate-status/${identifier}`, 
-      { estimate_status: newStatus },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    console.log('Update response:', response.data);
-
-    if (response.data && response.data.success) {
-      // Update local state using estimate_number as the key
-      const updatedData = data.map(item => {
-        if (item.estimate_number === rowData.estimate_number) {
-          return { ...item, estimate_status: newStatus };
-        }
-        return item;
-      });
-      
-      const updatedFilteredData = filteredData.map(item => {
-        if (item.estimate_number === rowData.estimate_number) {
-          return { ...item, estimate_status: newStatus };
-        }
-        return item;
-      });
-      
-      // Also update allEstimates
-      const updatedAllEstimates = allEstimates.map(item => {
-        if (item.estimate_number === rowData.estimate_number) {
-          return { ...item, estimate_status: newStatus };
-        }
-        return item;
-      });
-      
-      // Update all states
-      setData(updatedData);
-      setFilteredData(updatedFilteredData);
-      setAllEstimates(updatedAllEstimates);
-      
-      Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `Estimate status updated to "${newStatus}" successfully!`,
-        timer: 2000,
-        showConfirmButton: false
-      });
-    } else {
-      throw new Error('Failed to update status');
-    }
-  } catch (error) {
-    console.error('Error updating estimate status:', error);
-    console.error('Error details:', error.response?.data || error.message);
-    
-    Swal.fire({
-      icon: 'error',
-      title: 'Update Failed',
-      text: error.response?.data?.message || 'Failed to update estimate status. Please try again.',
-    });
-  } finally {
-    // Remove loading state
-    const loadingKey = rowData.estimate_number || rowData.estimate_id || rowData.id;
-    if (loadingKey) {
-      setUpdatingStatus(prev => ({ ...prev, [loadingKey]: false }));
-    }
-  }
-};
-
 
   // Handle date filter
   const handleDateFilter = useCallback((fromDate, toDate) => {
@@ -502,68 +394,77 @@ const handleStatusChange = async (rowData, newStatus) => {
       accessor: 'net_amount',
       Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
     },
-
     {
-  Header: 'Status',
-  accessor: 'estimate_status',
-  Cell: ({ row, value }) => {
-    const estimate = row.original;
-    
-    // Create loading key - prefer estimate_number
-    const loadingKey = estimate.estimate_number || estimate.id || estimate.estimate_id || estimate._id;
-    const isUpdating = loadingKey ? updatingStatus[loadingKey] : false;
-    
-    const getStatusColor = (status) => {
-      switch(status) {
-        case 'Pending': return '#ffc107';
-        case 'Accepted': return '#28a745';
-        case 'Rejected': return '#dc3545';
-        default: return '#6c757d';
-      }
-    };
-    
-    // Get current status with fallback
-    const currentStatus = value || 'Pending';
-    
-    return (
-      <div style={{ minWidth: '120px' }}>
-        {isUpdating ? (
-          <div className="d-flex align-items-center">
-            <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-            <span>Updating...</span>
+      Header: 'Status',
+      accessor: 'estimate_status',
+      Cell: ({ value }) => {
+        // Get current status with fallback
+        const currentStatus = value || 'Pending';
+        
+        // Define status colors and styles
+        const getStatusStyle = (status) => {
+          switch(status) {
+            case 'Pending':
+              return {
+                backgroundColor: '#ffc107',
+                color: '#212529',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            case 'Accepted':
+              return {
+                backgroundColor: '#28a745',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            case 'Rejected':
+              return {
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            default:
+              return {
+                backgroundColor: '#6c757d',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+          }
+        };
+
+        return (
+          <div style={{ minWidth: '120px' }}>
+            <span style={getStatusStyle(currentStatus)}>
+              {currentStatus}
+            </span>
           </div>
-        ) : (
-          <Form.Select
-            value={currentStatus}
-            onChange={(e) => handleStatusChange(estimate, e.target.value)}
-            style={{
-              backgroundColor: getStatusColor(currentStatus),
-              color: 'white',
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              minWidth: '120px'
-            }}
-            disabled={isUpdating}
-          >
-            {statusOptions.map(option => (
-              <option 
-                key={option.value} 
-                value={option.value}
-                style={{ backgroundColor: option.color, color: 'white' }}
-              >
-                {option.label}
-              </option>
-            ))}
-          </Form.Select>
-        )}
-      </div>
-    );
-  },
-  width: 150,
-  disableSortBy: true,
+        );
+      },
+      width: 150,
+      disableSortBy: true,
     },
     {
       Header: 'Actions',
@@ -572,11 +473,6 @@ const handleStatusChange = async (rowData, newStatus) => {
         // Only show edit/delete if the estimate belongs to the current salesperson
         const canEditDelete = row.original.salesperson_id === salespersonId;
 
-         const estimateStatus = row.original.estimate_status;
-      const estimate = row.original;
-      const estimateId = estimate.id || estimate.estimate_id || estimate._id;
-
-        
         return (
           <div style={{ display: 'flex', gap: '10px' }}>
             <FaEye
@@ -604,7 +500,7 @@ const handleStatusChange = async (rowData, newStatus) => {
       width: 120,
       disableSortBy: true,
     },
-  ], [handleEdit, handleDelete, handleViewDetails, salespersonId,updatingStatus]);
+  ], [handleEdit, handleDelete, handleViewDetails, salespersonId]);
 
   // Memoize table data
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);

@@ -100,9 +100,9 @@ function CategoryForm() {
         category_name: editingRecord.category_name || "",
         rbarcode: editingRecord.rbarcode || "",
         prefix: editingRecord.prefix || "",
-        metal_type_id: editingRecord.metal_type_id || "",
+          metal_type_id: String(editingRecord.metal_type_id) || "",
         metal_type: editingRecord.metal_type || "",
-        tax_slab_id: editingRecord.tax_slab_id || "",
+         tax_slab_id: String(editingRecord.tax_slab_id) || "",
         tax_slab: editingRecord.tax_slab || "",
         hsn_code: editingRecord.hsn_code || "",
         opening_qty: editingRecord.opening_qty || 0,
@@ -176,7 +176,11 @@ function CategoryForm() {
 
     // Auto-update related fields
     if (name === 'metal_type_id') {
-      const selectedMetal = metalTypes.find(mt => mt.id.toString() === value);
+
+         // Convert to string for comparison
+    const searchValue = String(processedValue);
+    const selectedMetal = metalTypes.find(mt => String(mt.id) === searchValue);
+
       if (selectedMetal) {
         setFormData(prev => ({
           ...prev,
@@ -190,22 +194,34 @@ function CategoryForm() {
           { id: 3, metal_name: "Platinum" },
           { id: 4, metal_name: "Diamond" },
         ];
-        const fallbackMetal = defaultMetals.find(mt => mt.id.toString() === value);
+         const fallbackMetal = defaultMetals.find(mt => String(mt.id) === searchValue);
         if (fallbackMetal) {
           setFormData(prev => ({
             ...prev,
             metal_type: fallbackMetal.metal_name,
           }));
         }
+         else {
+        // Clear metal_type if no match
+        setFormData(prev => ({
+          ...prev,
+          metal_type: "",
+          }));
+        }
       }
     }
 
     if (name === 'tax_slab_id') {
-      const selectedTaxSlab = taxSlabOptions.find(ts => ts.value === value);
+        const selectedTaxSlab = taxSlabOptions.find(ts => ts.value === String(processedValue));
       if (selectedTaxSlab) {
         setFormData(prev => ({
           ...prev,
           tax_slab: selectedTaxSlab.label,
+        }));
+      }else {
+      setFormData(prev => ({
+        ...prev,
+        tax_slab: "",
         }));
       }
     }

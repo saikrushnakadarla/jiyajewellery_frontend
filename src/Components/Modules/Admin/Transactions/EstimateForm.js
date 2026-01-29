@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import "./EstimateForm.css";
 import InputField from "../../../Pages/TableLayout/InputField";
-import { Container, Row, Col, Button, Table } from "react-bootstrap";
+import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
@@ -23,7 +23,7 @@ const EstimateForm = () => {
     product_id: "",
     product_name: "",
     customer_name: "",
-    customer_id: "", // Added customer_id field
+    customer_id: "",
     barcode: "",
     metal_type: "",
     design_name: "",
@@ -50,6 +50,7 @@ const EstimateForm = () => {
     total_amount: "0.00",
     pricing: "By Weight",
     opentag_id: "",
+    images: [] // Added images field
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -75,6 +76,15 @@ const EstimateForm = () => {
   const [designOptions, setDesignOptions] = useState([]);
   const [purityOptions, setPurityOptions] = useState([]);
   const [discount, setDiscount] = useState(0);
+  const [showImagesModal, setShowImagesModal] = useState(false);
+  const [currentProductImages, setCurrentProductImages] = useState([]);
+
+  // Function to get full image URL
+  const getImageUrl = (imageName) => {
+    if (!imageName) return "";
+    // Construct full URL for the image
+    return `${baseURL}/uploads/products/${imageName}`;
+  };
 
   // Fetch all products for dropdowns
   useEffect(() => {
@@ -230,7 +240,7 @@ const EstimateForm = () => {
     fetchPurities();
   }, []);
 
-  // Handle product name selection - FIXED VERSION
+  // Handle product name selection - UPDATED to fetch images
   const handleProductNameChange = async (productName) => {
     try {
       if (!productName) {
@@ -250,7 +260,10 @@ const EstimateForm = () => {
           // Use the rate from productDetails instead of calculating from current rates
           const productRate = productDetails.rate || "";
 
-          // Update form with product details
+          // Get images array from product details
+          const productImages = productDetails.images || [];
+
+          // Update form with product details including images
           setFormData(prev => ({
             ...prev,
             product_id: productDetails.product_id,
@@ -276,7 +289,7 @@ const EstimateForm = () => {
             mc_on: productDetails.mc_on || "MC %",
             mc_per_gram: productDetails.mc_per_gram || "",
             making_charges: productDetails.making_charges || "",
-            rate: productRate, // Use the rate from product details
+            rate: productRate,
             rate_amt: productDetails.rate_amt || "",
             hm_charges: productDetails.hm_charges || "60.00",
             tax_percent: productDetails.tax_percent || "03% GST",
@@ -285,8 +298,12 @@ const EstimateForm = () => {
             pieace_cost: productDetails.pieace_cost || "",
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1
+            qty: productDetails.qty || 1,
+            images: productImages // Set images
           }));
+
+          // Set current images for modal
+          setCurrentProductImages(productImages);
         }
       }
     } catch (error) {
@@ -294,7 +311,7 @@ const EstimateForm = () => {
     }
   };
 
-  // Handle barcode selection - FIXED VERSION
+  // Handle barcode selection - UPDATED to fetch images
   const handleBarcodeChange = async (barcode) => {
     try {
       if (!barcode) {
@@ -314,6 +331,9 @@ const EstimateForm = () => {
           // Use the rate from productDetails
           const productRate = productDetails.rate || "";
 
+          // Get images array from product details
+          const productImages = productDetails.images || [];
+
           setFormData(prev => ({
             ...prev,
             product_id: productDetails.product_id,
@@ -339,7 +359,7 @@ const EstimateForm = () => {
             mc_on: productDetails.mc_on || "MC %",
             mc_per_gram: productDetails.mc_per_gram || "",
             making_charges: productDetails.making_charges || "",
-            rate: productRate, // Use the rate from product details
+            rate: productRate,
             rate_amt: productDetails.rate_amt || "",
             hm_charges: productDetails.hm_charges || "60.00",
             tax_percent: productDetails.tax_percent || "03% GST",
@@ -348,9 +368,13 @@ const EstimateForm = () => {
             pieace_cost: productDetails.pieace_cost || "",
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1
+            qty: productDetails.qty || 1,
+            images: productImages // Set images
           }));
           setIsQtyEditable(true);
+
+          // Set current images for modal
+          setCurrentProductImages(productImages);
         }
       } else {
         // Check in tags data
@@ -403,7 +427,7 @@ const EstimateForm = () => {
             mc_on: selectedTag.Making_Charges_On || "MC %",
             mc_per_gram: selectedTag.MC_Per_Gram || "",
             making_charges: selectedTag.Making_Charges || "",
-            rate: tagRate, // Use the calculated rate
+            rate: tagRate,
             rate_amt: selectedTag.rate_amt || "",
             hm_charges: selectedTag.hm_charges || "60.00",
             tax_percent: selectedTag.tax_percent || "03% GST",
@@ -414,9 +438,11 @@ const EstimateForm = () => {
             disscount: selectedTag.disscount || "",
             qty: selectedTag.qty || 1,
             opentag_id: selectedTag.opentag_id || "",
-            pricing: selectedTag.Pricing || "By Weight"
+            pricing: selectedTag.Pricing || "By Weight",
+            images: [] // Tags don't have images
           }));
           setIsQtyEditable(false);
+          setCurrentProductImages([]);
         }
       }
     } catch (error) {
@@ -427,6 +453,7 @@ const EstimateForm = () => {
   const resetFormData = () => {
     setFormData(initialFormData);
     setIsQtyEditable(true);
+    setCurrentProductImages([]);
   };
 
   const handleInputChange = (e) => {
@@ -438,13 +465,12 @@ const EstimateForm = () => {
         [name]: value,
       };
 
-      // Handle customer name change - FIXED
+      // Handle customer name change
       if (name === "customer_name") {
-        // Find the selected customer from customerOptions
         const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
         if (selectedCustomerOption) {
-          updatedData.customer_name = selectedCustomerOption.value; // Customer name
-          updatedData.customer_id = selectedCustomerOption.customerId; // Customer ID
+          updatedData.customer_name = selectedCustomerOption.value;
+          updatedData.customer_id = selectedCustomerOption.customerId;
         } else {
           updatedData.customer_name = "";
           updatedData.customer_id = "";
@@ -571,7 +597,7 @@ const EstimateForm = () => {
     }
   }, [formData.mc_on, formData.mc_per_gram, formData.making_charges, formData.total_weight_av, formData.rate_amt]);
 
-  // Calculate rate amount - FIXED: Only depends on rate and total weight
+  // Calculate rate amount
   useEffect(() => {
     const rate = parseFloat(formData.rate) || 0;
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
@@ -658,8 +684,10 @@ const EstimateForm = () => {
       estimate_number: prev.estimate_number,
       customer_name: prev.customer_name,
       customer_id: prev.customer_id,
-      date: today
+      date: today,
+      images: [] // Reset images
     }));
+    setCurrentProductImages([]);
   };
 
   // Load entries from localStorage
@@ -675,6 +703,8 @@ const EstimateForm = () => {
     setFormData(entries[index]);
     setIsEditing(true);
     setEditIndex(index);
+    // Set current images for the product being edited
+    setCurrentProductImages(entries[index].images || []);
   };
 
   const handleDelete = (index) => {
@@ -747,8 +777,8 @@ const EstimateForm = () => {
         entries.map((entry) => {
           const requestData = {
             ...entry,
-            customer_id: entry.customer_id, // Ensure customer_id is included
-            customer_name: entry.customer_name, // Keep customer name for reference
+            customer_id: entry.customer_id,
+            customer_name: entry.customer_name,
             total_amount: totalAmount.toFixed(2),
             taxable_amount: taxableAmount.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
@@ -784,6 +814,7 @@ const EstimateForm = () => {
       setEntries([]);
       setDiscount(0);
       setFormData(initialFormData);
+      setCurrentProductImages([]);
 
       navigate("/estimation");
     } catch (error) {
@@ -798,6 +829,12 @@ const EstimateForm = () => {
 
   const handleClose = () => {
     navigate(-1);
+  };
+
+  // Function to show images modal
+  const showProductImages = (productImages) => {
+    setCurrentProductImages(productImages || []);
+    setShowImagesModal(true);
   };
 
   const isByFixed = formData.pricing === "By fixed";
@@ -849,7 +886,7 @@ const EstimateForm = () => {
               <InputField
                 label="Customer Name"
                 name="customer_name"
-                value={formData.customer_name || ""} // Display customer name in the field
+                value={formData.customer_name || ""}
                 type="select"
                 onChange={handleInputChange}
                 options={[
@@ -1082,19 +1119,79 @@ const EstimateForm = () => {
               </>
             )}
 
-            <Col xs={12} md={1}>
+            {/* Image Preview Section - Moved before the Add button */}
+            <Col xs={12} className="mt-2 mb-2">
+              <Row className="align-items-center">
+                <Col xs={12} md={2}>
+                  <div className="d-flex align-items-center">
+                    <span className="me-2" style={{ fontSize: "14px", fontWeight: "bold" }}>
+                      Product Images:
+                    </span>
+                    <Button
+                      variant="info"
+                      size="sm"
+                      onClick={() => showProductImages(formData.images)}
+                      disabled={!formData.images || formData.images.length === 0}
+                      style={{
+                        padding: "3px 10px",
+                        fontSize: "12px"
+                      }}
+                      title="View Product Images"
+                    >
+                      <FaImage /> View Images ({formData.images?.length || 0})
+                    </Button>
+                  </div>
+                </Col>
+                
+                {/* Small image preview thumbnails if you want to show them inline */}
+                {formData.images && formData.images.length > 0 && (
+                  <Col xs={12} md={8}>
+                    <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
+                      {formData.images.slice(0, 3).map((image, index) => (
+                        <div key={index} style={{ width: "60px", height: "60px", overflow: "hidden", border: "1px solid #ddd", borderRadius: "4px" }}>
+                          <Image
+                            src={getImageUrl(image)}
+                            alt={`Preview ${index + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/60x60?text=Image';
+                            }}
+                          />
+                        </div>
+                      ))}
+                      {formData.images.length > 3 && (
+                        <div style={{ 
+                          width: "60px", 
+                          height: "60px", 
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center",
+                          border: "1px solid #ddd", 
+                          borderRadius: "4px",
+                          backgroundColor: "#f8f9fa"
+                        }}>
+                          <span style={{ fontSize: "12px" }}>+{formData.images.length - 3}</span>
+                        </div>
+                      )}
+                    </div>
+                  </Col>
+                )}
+              </Row>
+            </Col>
+
+            {/* Add/Update Button - Now comes after the image preview */}
+            <Col xs={12} md={12} className="mt-2">
               <Button
                 style={{
                   backgroundColor: "#a36e29",
                   borderColor: "#a36e29",
-                  marginTop: "3px",
-                  marginLeft: "-1px",
-                  fontSize: "13px",
-                  padding: "5px 9px"
+                  fontSize: "14px",
+                  padding: "6px 20px"
                 }}
                 onClick={handleAdd}
               >
-                {isEditing ? "Update" : "Add"}
+                {isEditing ? "Update Entry" : "Add Entry"}
               </Button>
             </Col>
           </Row>
@@ -1113,6 +1210,7 @@ const EstimateForm = () => {
                   <th>Total Weight</th>
                   <th>Rate</th>
                   <th>Total Price</th>
+                  <th>Images</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -1131,6 +1229,18 @@ const EstimateForm = () => {
                       <td>{entry.rate}</td>
                       <td>{entry.total_price}</td>
                       <td>
+                        <Button
+                          variant="info"
+                          size="sm"
+                          onClick={() => showProductImages(entry.images)}
+                          disabled={!entry.images || entry.images.length === 0}
+                          style={{ padding: "2px 6px", fontSize: "11px" }}
+                          title="View Images"
+                        >
+                          <FaImage /> ({entry.images?.length || 0})
+                        </Button>
+                      </td>
+                      <td>
                         <div className="d-flex align-items-center">
                           <FaEdit
                             style={{ cursor: 'pointer', marginLeft: '10px', color: 'blue' }}
@@ -1146,7 +1256,7 @@ const EstimateForm = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="11" className="text-center">
+                    <td colSpan="12" className="text-center">
                       No entries added yet.
                     </td>
                   </tr>
@@ -1256,6 +1366,52 @@ const EstimateForm = () => {
           </Row>
         </Container>
       </div>
+
+      {/* Images Modal */}
+      <Modal
+        show={showImagesModal}
+        onHide={() => setShowImagesModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Product Images</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {currentProductImages.length > 0 ? (
+            <Row>
+              {currentProductImages.map((image, index) => (
+                <Col xs={6} md={4} key={index} className="mb-3">
+                  <div className="text-center">
+                    <Image
+                      src={getImageUrl(image)}
+                      alt={`Product Image ${index + 1}`}
+                      fluid
+                      style={{ maxHeight: '200px', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/200x200?text=Image+Not+Found';
+                      }}
+                    />
+                    <small className="text-muted d-block mt-1">
+                      {image}
+                    </small>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          ) : (
+            <div className="text-center py-4">
+              <p>No images available for this product</p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImagesModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };

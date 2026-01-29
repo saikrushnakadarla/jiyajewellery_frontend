@@ -4,6 +4,7 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import { Container, Row, Col, Button, Table } from "react-bootstrap";
 import Navbar from "../../../../Pages/Navbar/Navbar";
+import { FaEdit, FaTrash, FaCloudUploadAlt } from "react-icons/fa";
 import "./ProductForm.css";
 
 function ProductForm() {
@@ -62,6 +63,12 @@ function ProductForm() {
     qty: "1"
   });
 
+  // State for product images
+  const [productImages, setProductImages] = useState([]);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [imagesToDelete, setImagesToDelete] = useState([]);
+  const [editingImageIndex, setEditingImageIndex] = useState(null);
+
   // State for current rate info
   const [currentRateInfo, setCurrentRateInfo] = useState({
     rate: 0,
@@ -118,6 +125,12 @@ function ProductForm() {
       console.log("Formatted data:", formattedData);
       setFormData(formattedData);
       
+      // Set product images if editing
+      if (editingRecord.images) {
+        const imagesArray = Array.isArray(editingRecord.images) ? editingRecord.images : [];
+        setProductImages(imagesArray);
+      }
+      
       // Fetch rate for the purity in editing mode
       if (editingRecord.purity) {
         fetchRateByPurity(editingRecord.purity);
@@ -157,6 +170,7 @@ function ProductForm() {
         disscount: "",
         qty: "1"
       });
+      setProductImages([]);
     }
   }, [editingRecord]);
 
@@ -446,6 +460,168 @@ function ProductForm() {
     };
   };
 
+  // Handle image upload
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File Type',
+        text: 'Only JPG, PNG, GIF, and WebP images are allowed.',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'File Too Large',
+        text: 'Maximum file size is 5MB per image.',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+    
+    // Create preview URLs and add to uploaded images
+    const newImages = files.map(file => ({
+      file: file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+      isNew: true,
+      isEditing: false
+    }));
+    
+    setUploadedImages(prev => [...prev, ...newImages]);
+    e.target.value = null; // Reset file input
+  };
+
+  // Handle edit image (replace existing image)
+  const handleEditImage = (index, imageName) => {
+    // Create a hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid File Type',
+          text: 'Only JPG, PNG, GIF, and WebP images are allowed.',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'error',
+          title: 'File Too Large',
+          text: 'Maximum file size is 5MB per image.',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+      
+      // Mark existing image for deletion
+      if (editingRecord) {
+        setImagesToDelete(prev => [...prev, imageName]);
+      }
+      
+      // Remove the old image
+      const updatedImages = [...productImages];
+      updatedImages.splice(index, 1);
+      setProductImages(updatedImages);
+      
+      // Add new image to uploaded images
+      const newImage = {
+        file: file,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+        size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+        isNew: true,
+        isEditing: false
+      };
+      
+      setUploadedImages(prev => [...prev, newImage]);
+      setEditingImageIndex(null);
+    };
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+  };
+
+  // Handle delete uploaded image (new images not yet saved)
+  const handleDeleteUploadedImage = (index) => {
+    Swal.fire({
+      title: 'Delete Image?',
+      text: 'Are you sure you want to delete this image?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setUploadedImages(prev => {
+          const newImages = [...prev];
+          URL.revokeObjectURL(newImages[index].preview); // Clean up memory
+          newImages.splice(index, 1);
+          return newImages;
+        });
+      }
+    });
+  };
+
+  // Handle delete existing image (for editing mode)
+  const handleDeleteExistingImage = (imageName) => {
+    Swal.fire({
+      title: 'Delete Image?',
+      text: 'Are you sure you want to delete this image?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (editingRecord) {
+          setImagesToDelete(prev => [...prev, imageName]);
+        }
+        setProductImages(prev => prev.filter(img => img !== imageName));
+      }
+    });
+  };
+
+  // Get image URL for display
+  const getImageUrl = (imageName) => {
+    if (imageName.startsWith('blob:')) {
+      return imageName;
+    }
+    return `http://localhost:5000/uploads/products/${imageName}`;
+  };
+
   const handleChange = async (e) => {
     const { name, value } = e.target;
 
@@ -476,10 +652,23 @@ function ProductForm() {
     if (name === 'product_name') {
       const selectedProduct = productNames.find(p => p.category_name === value);
       if (selectedProduct) {
+        // Find the matching metal type from metalTypes array
+        const selectedMetal = metalTypes.find(mt => 
+          mt.metal_name === selectedProduct.metal_type || 
+          mt.id.toString() === selectedProduct.metal_type_id?.toString()
+        );
+        
+        const updatedData = {
+          category_id: selectedProduct.category_id,
+          product_name: value,
+          // Auto-fill metal type from category
+          metal_type_id: selectedMetal ? selectedMetal.id.toString() : "",
+          metal_type: selectedProduct.metal_type || ""
+        };
+        
         setFormData(prev => ({
           ...prev,
-          category_id: selectedProduct.category_id,
-          product_name: value
+          ...updatedData
         }));
 
         if (!editingRecord) {
@@ -488,7 +677,7 @@ function ProductForm() {
       }
     }
 
-    // Auto-update related fields
+    // Auto-update related fields when metal type is manually selected
     if (name === 'metal_type_id') {
       const selectedMetal = metalTypes.find(mt => mt.id.toString() === value);
       if (selectedMetal) {
@@ -680,34 +869,27 @@ function ProductForm() {
       return;
     }
 
-    // Prepare data for API - convert empty strings to "0.00" or "0.000"
-    const apiData = {
-      ...formData,
-      gross_wt: formData.gross_wt || "0.000",
-      stone_wt: formData.stone_wt || "0.000",
-      net_wt: formData.net_wt || "0.000",
-      stone_price: formData.stone_price || "0.00",
-      pricing: formData.pricing || "By Weight",
-      va_on: formData.va_on || "Gross Weight",
-      va_percent: formData.va_percent || "0.00",
-      wastage_weight: formData.wastage_weight || "0.000",
-      total_weight_av: formData.total_weight_av || "0.000",
-      mc_on: formData.mc_on || "MC %",
-      mc_per_gram: formData.mc_per_gram || "0.00",
-      making_charges: formData.making_charges || "0.00",
-      rate: formData.rate || "0.00",
-      rate_amt: formData.rate_amt || "0.00",
-      hm_charges: formData.hm_charges || "60.00",
-      tax_percent: formData.tax_percent || "0.9% GST",
-      tax_amt: formData.tax_amt || "0.00",
-      total_price: formData.total_price || "0.00",
-      pieace_cost: formData.pieace_cost || "0.00",
-      disscount_percentage: formData.disscount_percentage || "0.00",
-      disscount: formData.disscount || "0.00",
-      qty: formData.qty || "1"
-    };
+    // Prepare FormData for file upload
+    const formDataToSend = new FormData();
+    
+    // Add all form fields to FormData
+    Object.keys(formData).forEach(key => {
+      formDataToSend.append(key, formData[key] || "");
+    });
 
-    console.log("Submitting data:", apiData);
+    // Add existing images to delete (for edit mode)
+    if (editingRecord && imagesToDelete.length > 0) {
+      formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
+    }
+
+    // Add new image files
+    uploadedImages.forEach((imageObj, index) => {
+      if (imageObj.file) {
+        formDataToSend.append('images', imageObj.file);
+      }
+    });
+
+    console.log("Submitting data...");
 
     try {
       let url = "http://localhost:5000/post/product";
@@ -720,15 +902,20 @@ function ProductForm() {
 
       const response = await fetch(url, {
         method: method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiData),
+        body: formDataToSend,
+        // Note: Don't set Content-Type header for FormData, browser sets it automatically with boundary
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log("Success:", result);
+
+        // Clean up preview URLs
+        uploadedImages.forEach(img => {
+          if (img.preview && img.preview.startsWith('blob:')) {
+            URL.revokeObjectURL(img.preview);
+          }
+        });
 
         Swal.fire({
           icon: 'success',
@@ -836,8 +1023,7 @@ function ProductForm() {
 
           {errorMessage && <div className="product-form-error">{errorMessage}</div>}
 
-
-          <form className="product-form" onSubmit={handleSubmit}>
+          <form className="product-form" onSubmit={handleSubmit} encType="multipart/form-data">
             <Row className="product-form-section">
               {/* Product Name, Barcode, Metal Type, Design, Purity */}
               <Col xs={12} md={3}>
@@ -1206,6 +1392,104 @@ function ProductForm() {
                   />
                 </Col>
               )}
+
+              {/* Product Images Section */}
+              <Col xs={12} className="mt-4">
+                <div className="image-upload-section">
+                  <h5>Product Images</h5>
+                  <div className="image-upload-container">
+                    {/* File upload input */}
+                    <div className="file-upload-box">
+                      <input
+                        type="file"
+                        id="product-images"
+                        name="images"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="file-input"
+                      />
+                      <label htmlFor="product-images" className="file-upload-label">
+                        <FaCloudUploadAlt className="upload-icon" />
+                        <span>Click to upload images</span>
+                        <small>Max 10 images, 5MB each (JPG, PNG, GIF, WebP)</small>
+                      </label>
+                    </div>
+
+                    {/* Image previews */}
+                    <div className="image-previews">
+                      {/* Existing images */}
+                      {productImages.map((image, index) => (
+                        <div key={`existing-${index}`} className="image-preview-item">
+                          <div className="image-controls">
+                            <div className="image-badge">#{index + 1}</div>
+                            <div className="image-action-buttons">
+                              <button
+                                type="button"
+                                className="edit-image-btn"
+                                onClick={() => handleEditImage(index, image)}
+                                title="Edit image"
+                              >
+                                <FaEdit className="edit-icon" />
+                              </button>
+                              <button
+                                type="button"
+                                className="delete-image-btn"
+                                onClick={() => handleDeleteExistingImage(image)}
+                                title="Delete image"
+                              >
+                                <FaTrash className="delete-icon" />
+                              </button>
+                            </div>
+                          </div>
+                          <img 
+                            src={getImageUrl(image)} 
+                            alt={`Product ${index + 1}`}
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/150?text=Image+Error';
+                            }}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Newly uploaded images */}
+                      {uploadedImages.map((image, index) => (
+                        <div key={`new-${index}`} className="image-preview-item">
+                          <div className="image-controls">
+                            <div className="image-badge new-badge">New #{index + 1}</div>
+                            <div className="image-action-buttons">
+                              <button
+                                type="button"
+                                className="delete-image-btn"
+                                onClick={() => handleDeleteUploadedImage(index)}
+                                title="Delete image"
+                              >
+                                <FaTrash className="delete-icon" />
+                              </button>
+                            </div>
+                          </div>
+                          <img src={image.preview} alt={`New upload ${index + 1}`} />
+                          <div className="image-info-overlay">
+                            <span className="image-info">{image.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Image count info */}
+                    <div className="image-count-info">
+                      <small>
+                        Total images: {productImages.length + uploadedImages.length} / 10
+                        {editingRecord && imagesToDelete.length > 0 && (
+                          <span className="text-danger ml-2">
+                            ({imagesToDelete.length} marked for deletion)
+                          </span>
+                        )}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </Col>
 
               {/* Hidden field for category_id */}
               <input

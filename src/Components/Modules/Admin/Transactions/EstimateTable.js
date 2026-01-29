@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table, Form } from 'react-bootstrap';
+import { Button, Row, Col, Modal, Table, Form, Badge } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import Navbar from '../../../Pages/Navbar/Navbar';
 import './EstimateTable.css';
@@ -55,126 +55,39 @@ const EstimateTable = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [repairDetails, setRepairDetails] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState({}); // Track status updates
 
-  // Status options
-const statusOptions = [
-  { value: 'Pending', label: 'Pending', color: '#ffc107' },
-  { value: 'Accepted', label: 'Accepted', color: '#28a745' },
-  { value: 'Rejected', label: 'Rejected', color: '#dc3545' }
-];
-
-const fetchData = useCallback(async () => {
-  try {
-    setLoading(true);
-    const response = await axios.get(`${baseURL}/get-unique-estimates`);
-    
-    const allEstimatesData = response.data || [];
-    
-    // Ensure all estimates have an estimate_status field
-    const estimatesWithStatus = allEstimatesData.map(estimate => ({
-      ...estimate,
-      estimate_status: estimate.estimate_status || estimate.status || 'Pending'
-    }));
-    
-    console.log('Fetched estimates with status:', estimatesWithStatus);
-    
-    setData(estimatesWithStatus);
-    setFilteredData(estimatesWithStatus);
-    setLoading(false);
-  } catch (error) {
-    console.error('Error fetching estimate details:', error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'Failed to load estimates',
-    });
-    setLoading(false);
-  }
-}, []);
-
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${baseURL}/get-unique-estimates`);
+      
+      const allEstimatesData = response.data || [];
+      
+      // Ensure all estimates have an estimate_status field
+      const estimatesWithStatus = allEstimatesData.map(estimate => ({
+        ...estimate,
+        estimate_status: estimate.estimate_status || estimate.status || 'Pending'
+      }));
+      
+      console.log('Fetched estimates with status:', estimatesWithStatus);
+      
+      setData(estimatesWithStatus);
+      setFilteredData(estimatesWithStatus);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching estimate details:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to load estimates',
+      });
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-
-  // Handle status change
-// Replace your existing handleStatusChange function with this updated version
-const handleStatusChange = async (rowData, newStatus) => {
-  try {
-    console.log('handleStatusChange called with row data:', rowData);
-    console.log('New status:', newStatus);
-    
-    // Extract identifier from rowData - use estimate_number as primary
-    const identifier = rowData.estimate_number || rowData.estimate_id || rowData.id;
-    
-    if (!identifier) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Could not identify the estimate.',
-      });
-      return;
-    }
-
-    console.log('Using identifier:', identifier);
-    
-    // Show loading state using estimate_number as key
-    const loadingKey = rowData.estimate_number || identifier;
-    setUpdatingStatus(prev => ({ ...prev, [loadingKey]: true }));
-
-    // Call the status update endpoint
-    const response = await axios.put(
-      `${baseURL}/update-estimate-status/${identifier}`, 
-      { estimate_status: newStatus },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    console.log('Update response:', response.data);
-
-    if (response.data && response.data.success) {
-      // Show success message
-      Swal.fire({
-        icon: 'success',
-        title: 'Status Updated',
-        text: `Estimate status updated to "${newStatus}" successfully!`,
-        timer: 2000,
-        showConfirmButton: false
-      });
-      
-      // REFRESH DATA FROM SERVER - This is the key fix
-      setTimeout(() => {
-        fetchData(); // Call your existing fetchData function to refresh from server
-      }, 500);
-      
-    } else {
-      throw new Error('Failed to update status');
-    }
-  } catch (error) {
-    console.error('Error updating estimate status:', error);
-    console.error('Error details:', error.response?.data || error.message);
-    
-    Swal.fire({
-      icon: 'error',
-      title: 'Update Failed',
-      text: error.response?.data?.message || 'Failed to update estimate status. Please try again.',
-    });
-  } finally {
-    // Remove loading state after a delay
-    setTimeout(() => {
-      const loadingKey = rowData.estimate_number || rowData.estimate_id || rowData.id;
-      if (loadingKey) {
-        setUpdatingStatus(prev => ({ ...prev, [loadingKey]: false }));
-      }
-    }, 500);
-  }
-};
-
 
   // Handle date filter
   const handleDateFilter = useCallback((fromDate, toDate) => {
@@ -333,7 +246,7 @@ const handleStatusChange = async (rowData, newStatus) => {
       Header: 'Estimate Number',
       accessor: 'estimate_number',
     },
-     {
+    {
       Header: 'Customer Name',
       accessor: 'customer_name',
     },
@@ -346,78 +259,82 @@ const handleStatusChange = async (rowData, newStatus) => {
       accessor: 'net_amount',
       Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
     },
-
     {
-  Header: 'Status',
-  accessor: 'estimate_status',
-  Cell: ({ row, value }) => {
-    const estimate = row.original;
-    
-    // Create loading key - prefer estimate_number
-    const loadingKey = estimate.estimate_number || estimate.id || estimate.estimate_id || estimate._id;
-    const isUpdating = loadingKey ? updatingStatus[loadingKey] : false;
-    
-    const getStatusColor = (status) => {
-      switch(status) {
-        case 'Pending': return '#ffc107';
-        case 'Accepted': return '#28a745';
-        case 'Rejected': return '#dc3545';
-        default: return '#6c757d';
-      }
-    };
-    
-    // Get current status with fallback
-    const currentStatus = value || 'Pending';
-    
-    return (
-      <div style={{ minWidth: '120px' }}>
-        {isUpdating ? (
-          <div className="d-flex align-items-center">
-            <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-            <span>Updating...</span>
+      Header: 'Status',
+      accessor: 'estimate_status',
+      Cell: ({ value }) => {
+        // Get current status with fallback
+        const currentStatus = value || 'Pending';
+        
+        // Define status colors and styles
+        const getStatusStyle = (status) => {
+          switch(status) {
+            case 'Pending':
+              return {
+                backgroundColor: '#ffc107',
+                color: '#212529',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            case 'Accepted':
+              return {
+                backgroundColor: '#28a745',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            case 'Rejected':
+              return {
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+            default:
+              return {
+                backgroundColor: '#6c757d',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                minWidth: '90px',
+                textAlign: 'center'
+              };
+          }
+        };
+
+        return (
+          <div style={{ minWidth: '120px' }}>
+            <span style={getStatusStyle(currentStatus)}>
+              {currentStatus}
+            </span>
           </div>
-        ) : (
-          <Form.Select
-            value={currentStatus}
-            onChange={(e) => handleStatusChange(estimate, e.target.value)}
-            style={{
-              backgroundColor: getStatusColor(currentStatus),
-              color: 'white',
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              minWidth: '120px'
-            }}
-            disabled={isUpdating}
-          >
-            {statusOptions.map(option => (
-              <option 
-                key={option.value} 
-                value={option.value}
-                style={{ backgroundColor: option.color, color: 'white' }}
-              >
-                {option.label}
-              </option>
-            ))}
-          </Form.Select>
-        )}
-      </div>
-    );
-  },
-  width: 150,
-  disableSortBy: true,
-},
-   
+        );
+      },
+      width: 150,
+      disableSortBy: true,
+    },
     {
       Header: 'Actions',
       id: 'actions',
       Cell: ({ row }) => {
-      const estimateStatus = row.original.estimate_status;
-      const estimate = row.original;
-      const estimateId = estimate.id || estimate.estimate_id || estimate._id;
-
         return (
           <div style={{ display: 'flex', gap: '10px' }}>
             <FaEye
@@ -441,7 +358,7 @@ const handleStatusChange = async (rowData, newStatus) => {
       width: 120,
       disableSortBy: true,
     },
-  ], [handleEdit, handleDelete, handleViewDetails, updatingStatus]);
+  ], [handleEdit, handleDelete, handleViewDetails]);
 
   // Memoize table data
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
