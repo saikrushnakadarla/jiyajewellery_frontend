@@ -45,10 +45,13 @@ const EstimateForm = () => {
     product_name: "",
     customer_name: "",
     customer_id: "", // Added customer_id field
+      code: "", // Add this field
     barcode: "",
     metal_type: "",
     design_name: "",
     purity: "",
+    category: "", // Add this field
+  sub_category: "", // Add this field
     gross_weight: "",
     stone_weight: "",
     stone_price: "",
@@ -98,6 +101,7 @@ const EstimateForm = () => {
   const [designOptions, setDesignOptions] = useState([]);
   const [purityOptions, setPurityOptions] = useState([]);
   const [discount, setDiscount] = useState(0);
+  
 
   // Fetch all products for dropdowns
   useEffect(() => {
@@ -254,68 +258,79 @@ const EstimateForm = () => {
   }, []);
 
   // Handle product name selection - FIXED VERSION
-  const handleProductNameChange = async (productName) => {
-    try {
-      if (!productName) {
-        resetFormData();
-        return;
-      }
-
-      // Find product in allProducts array
-      const selectedProduct = allProducts.find(p => p.product_name === productName);
-      
-      if (selectedProduct) {
-        // Fetch full product details by ID
-        const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-        if (response.ok) {
-          const productDetails = await response.json();
-          
-          // Use the rate from productDetails instead of calculating from current rates
-          const productRate = productDetails.rate || "";
-          
-          // Update form with product details
-          setFormData(prev => ({
-            ...prev,
-            product_id: productDetails.product_id,
-            category_id: productDetails.category_id,
-            product_name: productDetails.product_name,
-            barcode: productDetails.barcode,
-            metal_type_id: productDetails.metal_type_id,
-            metal_type: productDetails.metal_type,
-            purity_id: productDetails.purity_id,
-            purity: productDetails.purity,
-            design_id: productDetails.design_id,
-            design_name: productDetails.design,
-            gross_weight: productDetails.gross_wt,
-            stone_weight: productDetails.stone_wt,
-            net_weight: productDetails.net_wt,
-            stone_price: productDetails.stone_price,
-            weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
-            pricing: productDetails.pricing || "By Weight",
-            va_on: productDetails.va_on || "Gross Weight",
-            va_percent: productDetails.va_percent || "",
-            wastage_weight: productDetails.wastage_weight || "",
-            total_weight_av: productDetails.total_weight_av || "",
-            mc_on: productDetails.mc_on || "MC %",
-            mc_per_gram: productDetails.mc_per_gram || "",
-            making_charges: productDetails.making_charges || "",
-            rate: productRate, // Use the rate from product details
-            rate_amt: productDetails.rate_amt || "",
-            hm_charges: productDetails.hm_charges || "60.00",
-            tax_percent: productDetails.tax_percent || "03% GST",
-            tax_amt: productDetails.tax_amt || "",
-            total_price: productDetails.total_price || "",
-            pieace_cost: productDetails.pieace_cost || "",
-            disscount_percentage: productDetails.disscount_percentage || "",
-            disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching product details:', error);
+ const handleProductNameChange = async (productName) => {
+  try {
+    if (!productName) {
+      resetFormData();
+      return;
     }
-  };
+
+    // Find product in allProducts array
+    const selectedProduct = allProducts.find(p => p.product_name === productName);
+    
+    if (selectedProduct) {
+      console.log("Selected Product ID:", selectedProduct.product_id);
+      
+      // Fetch full product details by ID
+      const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
+      if (response.ok) {
+        const productDetails = await response.json();
+        console.log("Full Product Details:", productDetails); // Debug log
+        
+        // Extract ALL available fields to see what we're getting
+        console.log("Available fields in productDetails:", Object.keys(productDetails));
+        console.log("Category data:", productDetails.category, productDetails.category_name);
+        console.log("Sub-category data:", productDetails.sub_category, productDetails.subcategory_name);
+        
+        // Use the rate from productDetails instead of calculating from current rates
+        const productRate = productDetails.rate || "";
+        
+        // Update form with product details
+        setFormData(prev => ({
+          ...prev,
+          product_id: productDetails.product_id,
+          category_id: productDetails.category_id,
+          product_name: productDetails.product_name,
+          code: productDetails.barcode || productDetails.code || "",
+          barcode: productDetails.barcode,
+          metal_type_id: productDetails.metal_type_id,
+          metal_type: productDetails.metal_type,
+          purity_id: productDetails.purity_id,
+          purity: productDetails.purity,
+          design_id: productDetails.design_id,
+          design_name: productDetails.design,
+          category: productDetails.category || productDetails.category_name || "", // Try multiple field names
+          sub_category: productDetails.sub_category || productDetails.subcategory_name || "", // Try multiple field names
+          gross_weight: productDetails.gross_wt,
+          stone_weight: productDetails.stone_wt,
+          net_weight: productDetails.net_wt,
+          stone_price: productDetails.stone_price,
+          weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
+          pricing: productDetails.pricing || "By Weight",
+          va_on: productDetails.va_on || "Gross Weight",
+          va_percent: productDetails.va_percent || "",
+          wastage_weight: productDetails.wastage_weight || "",
+          total_weight_av: productDetails.total_weight_av || "",
+          mc_on: productDetails.mc_on || "MC %",
+          mc_per_gram: productDetails.mc_per_gram || "",
+          making_charges: productDetails.making_charges || "",
+          rate: productRate, // Use the rate from product details
+          rate_amt: productDetails.rate_amt || "",
+          hm_charges: productDetails.hm_charges || "60.00",
+          tax_percent: productDetails.tax_percent || "03% GST",
+          tax_amt: productDetails.tax_amt || "",
+          total_price: productDetails.total_price || "",
+          pieace_cost: productDetails.pieace_cost || "",
+          disscount_percentage: productDetails.disscount_percentage || "",
+          disscount: productDetails.disscount || "",
+          qty: productDetails.qty || 1
+        }));
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching product details:', error);
+  }
+};
 
   // Handle barcode selection - FIXED VERSION
   const handleBarcodeChange = async (barcode) => {
@@ -327,12 +342,18 @@ const EstimateForm = () => {
 
       // First check in products
       const selectedProduct = allProducts.find(p => p.barcode === barcode);
+
+
       
       if (selectedProduct) {
         // Fetch full product details by ID
         const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
         if (response.ok) {
           const productDetails = await response.json();
+
+            // Extract category and sub_category from productDetails
+        const category = productDetails.category_name || productDetails.category || "";
+        const subCategory = productDetails.subcategory_name || productDetails.sub_category || "";
           
           // Use the rate from productDetails
           const productRate = productDetails.rate || "";
@@ -342,6 +363,7 @@ const EstimateForm = () => {
             product_id: productDetails.product_id,
             category_id: productDetails.category_id,
             product_name: productDetails.product_name,
+            code: productDetails.barcode,
             barcode: productDetails.barcode,
             metal_type_id: productDetails.metal_type_id,
             metal_type: productDetails.metal_type,
@@ -349,6 +371,8 @@ const EstimateForm = () => {
             purity: productDetails.purity,
             design_id: productDetails.design_id,
             design_name: productDetails.design,
+            category: category, // Add category
+            sub_category: subCategory, // Add sub_category
             gross_weight: productDetails.gross_wt,
             stone_weight: productDetails.stone_wt,
             net_weight: productDetails.net_wt,
@@ -380,6 +404,12 @@ const EstimateForm = () => {
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
         
         if (selectedTag) {
+
+           // Extract category and sub_category from tag data
+        const category = selectedTag.category || selectedTag.category_name || "";
+        const subCategory = selectedTag.sub_category || selectedTag.subcategory_name || "";
+
+
           // Get rate from tag data or calculate from current rates based on purity
           let tagRate = selectedTag.rate || "";
           
@@ -407,6 +437,7 @@ const EstimateForm = () => {
             product_id: selectedTag.product_id || "",
             category_id: selectedTag.category_id || "",
             product_name: selectedTag.sub_category || "",
+            code: selectedTag.PCode_BarCode, // Set code from barcode
             barcode: selectedTag.PCode_BarCode,
             metal_type_id: selectedTag.metal_type_id || "",
             metal_type: selectedTag.metal_type || "",
@@ -414,6 +445,8 @@ const EstimateForm = () => {
             purity: selectedTag.Purity || "",
             design_id: selectedTag.design_id || "",
             design_name: selectedTag.design_master || "",
+            category: category, // Add category from tag
+             sub_category: subCategory, // Add sub_category from tag
             gross_weight: selectedTag.Gross_Weight || "",
             stone_weight: selectedTag.Stones_Weight || "",
             net_weight: selectedTag.Net_Weight || "",
@@ -687,6 +720,9 @@ const EstimateForm = () => {
     // Ensure salesperson_id is included in the entry
     const entryWithSalesperson = {
       ...formData,
+      code: formData.code || formData.barcode, // Ensure code is populated
+      category: formData.category || "", // Ensure category is populated
+      sub_category: formData.sub_category || "", // Ensure sub_category is populated
       salesperson_id: currentSalesperson?.id || "",
       salesperson_name: currentSalesperson?.name || ""
     };
