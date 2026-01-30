@@ -1127,23 +1127,8 @@ const EstimateForm = () => {
                     <span className="me-2" style={{ fontSize: "14px", fontWeight: "bold" }}>
                       Product Images:
                     </span>
-                    <Button
-                      variant="info"
-                      size="sm"
-                      onClick={() => showProductImages(formData.images)}
-                      disabled={!formData.images || formData.images.length === 0}
-                      style={{
-                        padding: "3px 10px",
-                        fontSize: "12px"
-                      }}
-                      title="View Product Images"
-                    >
-                      <FaImage /> View Images ({formData.images?.length || 0})
-                    </Button>
-                  </div>
-                </Col>
-                
-                {/* Small image preview thumbnails if you want to show them inline */}
+
+                     {/* Small image preview thumbnails if you want to show them inline */}
                 {formData.images && formData.images.length > 0 && (
                   <Col xs={12} md={8}>
                     <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
@@ -1177,23 +1162,26 @@ const EstimateForm = () => {
                     </div>
                   </Col>
                 )}
+
+                  </div>
+                </Col>
+                  {/* Add/Update Button - Now comes after the image preview */}
+                    <Col xs={12} md={6} className="mt-2">
+                      <Button
+                        style={{
+                          backgroundColor: "#a36e29",
+                          borderColor: "#a36e29",
+                          fontSize: "14px",
+                          padding: "6px 20px"
+                        }}
+                        onClick={handleAdd}
+                      >
+                        {isEditing ? "Update Entry" : "Add Entry"}
+                      </Button>
+                    </Col>
               </Row>
             </Col>
 
-            {/* Add/Update Button - Now comes after the image preview */}
-            <Col xs={12} md={12} className="mt-2">
-              <Button
-                style={{
-                  backgroundColor: "#a36e29",
-                  borderColor: "#a36e29",
-                  fontSize: "14px",
-                  padding: "6px 20px"
-                }}
-                onClick={handleAdd}
-              >
-                {isEditing ? "Update Entry" : "Add Entry"}
-              </Button>
-            </Col>
           </Row>
 
           <Row className="estimate-form-section2">
@@ -1210,7 +1198,7 @@ const EstimateForm = () => {
                   <th>Total Weight</th>
                   <th>Rate</th>
                   <th>Total Price</th>
-                  <th>Images</th>
+                  {/* <th>Images</th> */}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -1228,7 +1216,7 @@ const EstimateForm = () => {
                       <td>{entry.total_weight_av}</td>
                       <td>{entry.rate}</td>
                       <td>{entry.total_price}</td>
-                      <td>
+                      {/* <td>
                         <Button
                           variant="info"
                           size="sm"
@@ -1239,7 +1227,7 @@ const EstimateForm = () => {
                         >
                           <FaImage /> ({entry.images?.length || 0})
                         </Button>
-                      </td>
+                      </td> */}
                       <td>
                         <div className="d-flex align-items-center">
                           <FaEdit

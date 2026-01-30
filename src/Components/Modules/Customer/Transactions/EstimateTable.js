@@ -546,7 +546,7 @@ const handleStatusChange = async (rowData, newStatus) => {
               onClick={() => handleViewDetails(row.original.estimate_number)}
               title="View Details"
             />
-            {estimateStatus === 'Pending' && (
+            {/* {estimateStatus === 'Pending' && (
               <>
                 <FaEdit
                   style={{ cursor: 'pointer', color: 'blue' }}
@@ -559,7 +559,7 @@ const handleStatusChange = async (rowData, newStatus) => {
                   title="Delete"
                 />
               </>
-            )}
+            )} */}
           </div>
         );
       },
@@ -845,10 +845,6 @@ if (loading) {
                   <tr>
                     <td>Estimate Number</td>
                     <td>{repairDetails.uniqueData?.estimate_number}</td>
-                  </tr>
-                  <tr>
-                    <td>Customer ID</td>
-                    <td>{repairDetails.uniqueData?.customer_id || 'N/A'}</td>
                   </tr>
                   <tr>
                     <td>Status</td>

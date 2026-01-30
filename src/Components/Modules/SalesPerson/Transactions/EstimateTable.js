@@ -724,14 +724,14 @@ const EstimateTable = () => {
                       <td>Estimate Number</td>
                       <td>{repairDetails.uniqueData?.estimate_number}</td>
                     </tr>
-                    <tr>
+                    {/* <tr>
                       <td>Customer Name</td>
                       <td>{repairDetails.uniqueData?.customer_name || 'N/A'}</td>
                     </tr>
                     <tr>
                       <td>Created By</td>
                       <td>{repairDetails.uniqueData?.salesperson_name || 'N/A'}</td>
-                    </tr>
+                    </tr> */}
                     <tr>
                       <td>Total Amount</td>
                       <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
