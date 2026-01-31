@@ -17,6 +17,32 @@ const EstimateForm = () => {
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
 
+  // Get user data from localStorage
+  const getUserData = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      console.log("Raw localStorage user data:", userData); // Debug log
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        console.log("Parsed user data:", parsedData); // Debug log
+        console.log("User ID:", parsedData?.id, "User Role:", parsedData?.role); // Debug log
+        return parsedData;
+      }
+      console.warn("No user data found in localStorage");
+      return null;
+    } catch (error) {
+      console.error('Error parsing user data from localStorage:', error);
+      return null;
+    }
+  };
+
+  const user = getUserData();
+  const salespersonId = user?.id ? String(user.id) : ""; // Ensure it's a string
+  const sourceBy = user?.role || "";
+
+  console.log("Salesperson ID from localStorage:", salespersonId);
+  console.log("Source By (role) from localStorage:", sourceBy);
+
   const initialFormData = {
     date: today,
     estimate_number: "",
@@ -50,6 +76,8 @@ const EstimateForm = () => {
     total_amount: "0.00",
     pricing: "By Weight",
     opentag_id: "",
+    salesperson_id: salespersonId, // Add salesperson_id from localStorage
+    source_by: sourceBy, // Add source_by from localStorage
     images: [] // Added images field
   };
 
@@ -264,8 +292,7 @@ const EstimateForm = () => {
           const productImages = productDetails.images || [];
 
           // Update form with product details including images
-          setFormData(prev => ({
-            ...prev,
+          const updatedFormData = {
             product_id: productDetails.product_id,
             category_id: productDetails.category_id,
             product_name: productDetails.product_name,
@@ -299,7 +326,16 @@ const EstimateForm = () => {
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
             qty: productDetails.qty || 1,
+            salesperson_id: salespersonId, // Keep salesperson_id
+            source_by: sourceBy, // Keep source_by
             images: productImages // Set images
+          };
+
+          console.log("Updated form data after product selection:", updatedFormData);
+          
+          setFormData(prev => ({
+            ...prev,
+            ...updatedFormData
           }));
 
           // Set current images for modal
@@ -334,8 +370,7 @@ const EstimateForm = () => {
           // Get images array from product details
           const productImages = productDetails.images || [];
 
-          setFormData(prev => ({
-            ...prev,
+          const updatedFormData = {
             product_id: productDetails.product_id,
             category_id: productDetails.category_id,
             product_name: productDetails.product_name,
@@ -369,7 +404,16 @@ const EstimateForm = () => {
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
             qty: productDetails.qty || 1,
+            salesperson_id: salespersonId, // Keep salesperson_id
+            source_by: sourceBy, // Keep source_by
             images: productImages // Set images
+          };
+
+          console.log("Updated form data after barcode selection:", updatedFormData);
+
+          setFormData(prev => ({
+            ...prev,
+            ...updatedFormData
           }));
           setIsQtyEditable(true);
 
@@ -403,8 +447,7 @@ const EstimateForm = () => {
             }
           }
 
-          setFormData(prev => ({
-            ...prev,
+          const updatedFormData = {
             product_id: selectedTag.product_id || "",
             category_id: selectedTag.category_id || "",
             product_name: selectedTag.sub_category || "",
@@ -439,7 +482,16 @@ const EstimateForm = () => {
             qty: selectedTag.qty || 1,
             opentag_id: selectedTag.opentag_id || "",
             pricing: selectedTag.Pricing || "By Weight",
+            salesperson_id: salespersonId, // Keep salesperson_id
+            source_by: sourceBy, // Keep source_by
             images: [] // Tags don't have images
+          };
+
+          console.log("Updated form data after tag selection:", updatedFormData);
+
+          setFormData(prev => ({
+            ...prev,
+            ...updatedFormData
           }));
           setIsQtyEditable(false);
           setCurrentProductImages([]);
@@ -451,13 +503,20 @@ const EstimateForm = () => {
   };
 
   const resetFormData = () => {
-    setFormData(initialFormData);
+    const resetData = {
+      ...initialFormData,
+      salesperson_id: salespersonId, // Reset with salesperson_id
+      source_by: sourceBy // Reset with source_by
+    };
+    console.log("Reset form data:", resetData);
+    setFormData(resetData);
     setIsQtyEditable(true);
     setCurrentProductImages([]);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Input changed: ${name} = ${value}`);
 
     setFormData((prevData) => {
       let updatedData = {
@@ -471,6 +530,7 @@ const EstimateForm = () => {
         if (selectedCustomerOption) {
           updatedData.customer_name = selectedCustomerOption.value;
           updatedData.customer_id = selectedCustomerOption.customerId;
+          console.log(`Customer selected: ${selectedCustomerOption.value}, ID: ${selectedCustomerOption.customerId}`);
         } else {
           updatedData.customer_name = "";
           updatedData.customer_id = "";
@@ -511,6 +571,7 @@ const EstimateForm = () => {
 
         if (currentRate) {
           updatedData.rate = currentRate;
+          console.log(`Calculated rate for ${updatedData.metal_type} ${updatedData.purity}: ${currentRate}`);
         }
       }
 
@@ -520,6 +581,7 @@ const EstimateForm = () => {
         const discountAmount = (discountPercentage / 100) * makingCharges;
 
         updatedData.disscount = discountAmount.toFixed(2);
+        console.log(`Discount calculated: ${discountPercentage}% of ${makingCharges} = ${discountAmount.toFixed(2)}`);
       }
 
       if (name === "mc_on") {
@@ -527,6 +589,7 @@ const EstimateForm = () => {
         updatedData.making_charges = "";
       }
 
+      console.log("Updated form data after input change:", updatedData);
       return updatedData;
     });
   };
@@ -640,9 +703,12 @@ const EstimateForm = () => {
     const fetchLastEstimateNumber = async () => {
       try {
         const response = await axios.get(`${baseURL}/lastEstimateNumber`);
+        console.log("Fetched last estimate number:", response.data.lastEstimateNumber);
         setFormData((prev) => ({
           ...prev,
           estimate_number: response.data.lastEstimateNumber,
+          salesperson_id: salespersonId, // Ensure salesperson_id is set
+          source_by: sourceBy // Ensure source_by is set
         }));
       } catch (error) {
         console.error("Error fetching estimate number:", error);
@@ -650,10 +716,12 @@ const EstimateForm = () => {
     };
 
     fetchLastEstimateNumber();
-  }, []);
+  }, [salespersonId, sourceBy]);
 
   // Handle add/update entry
   const handleAdd = () => {
+    console.log("Current form data before adding:", formData);
+    
     if (!formData.product_name || !formData.barcode) {
       alert("Please select a product first");
       return;
@@ -664,19 +732,29 @@ const EstimateForm = () => {
       return;
     }
 
+    // Ensure salesperson_id and source_by are included
+    const entryToAdd = {
+      ...formData,
+      salesperson_id: formData.salesperson_id || salespersonId,
+      source_by: formData.source_by || sourceBy
+    };
+
+    console.log("Entry to add:", entryToAdd);
+
     let updatedEntries;
     if (isEditing) {
       updatedEntries = entries.map((entry, index) =>
-        index === editIndex ? formData : entry
+        index === editIndex ? entryToAdd : entry
       );
       setIsEditing(false);
       setEditIndex(null);
     } else {
-      updatedEntries = [...entries, formData];
+      updatedEntries = [...entries, entryToAdd];
     }
 
     setEntries(updatedEntries);
     localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
+    console.log("Entries after add:", updatedEntries);
 
     // Reset form but keep estimate number and customer
     setFormData(prev => ({
@@ -685,6 +763,8 @@ const EstimateForm = () => {
       customer_name: prev.customer_name,
       customer_id: prev.customer_id,
       date: today,
+      salesperson_id: salespersonId, // Keep salesperson_id
+      source_by: sourceBy, // Keep source_by
       images: [] // Reset images
     }));
     setCurrentProductImages([]);
@@ -693,6 +773,7 @@ const EstimateForm = () => {
   // Load entries from localStorage
   useEffect(() => {
     const storedEntries = JSON.parse(localStorage.getItem("estimateDetails")) || [];
+    console.log("Loaded entries from localStorage:", storedEntries);
     setEntries(storedEntries);
 
     const storedDiscount = parseFloat(localStorage.getItem("estimateDiscount")) || 0;
@@ -700,6 +781,7 @@ const EstimateForm = () => {
   }, []);
 
   const handleEdit = (index) => {
+    console.log("Editing entry at index:", index, entries[index]);
     setFormData(entries[index]);
     setIsEditing(true);
     setEditIndex(index);
@@ -749,6 +831,8 @@ const EstimateForm = () => {
   // Handle print/save
   const handlePrint = async () => {
     try {
+      console.log("=== STARTING PRINT PROCESS ===");
+      
       if (entries.length === 0) {
         alert("Please add at least one item before printing");
         return;
@@ -758,6 +842,8 @@ const EstimateForm = () => {
         alert("Customer information is missing. Please select a customer.");
         return;
       }
+
+      console.log("All entries to save:", entries);
 
       const totalAmount = entries.reduce((sum, item) => {
         const stonePrice = parseFloat(item.stone_price) || 0;
@@ -772,21 +858,44 @@ const EstimateForm = () => {
       const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Save to database - each entry will have customer_id
-      await Promise.all(
-        entries.map((entry) => {
-          const requestData = {
-            ...entry,
-            customer_id: entry.customer_id,
-            customer_name: entry.customer_name,
-            total_amount: totalAmount.toFixed(2),
-            taxable_amount: taxableAmount.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            net_amount: netAmount.toFixed(2),
-          };
-          return axios.post(`${baseURL}/add/estimate`, requestData);
-        })
-      );
+      console.log("Calculated totals:", {
+        totalAmount,
+        discountAmt,
+        taxableAmount,
+        taxAmount,
+        netAmount
+      });
+
+      // Save to database - each entry will have salesperson_id and source_by
+      const savePromises = entries.map((entry, index) => {
+        const requestData = {
+          ...entry,
+          customer_id: entry.customer_id,
+          customer_name: entry.customer_name,
+          salesperson_id: entry.salesperson_id || salespersonId, // Send salesperson_id
+          source_by: entry.source_by || sourceBy, // Send source_by
+          total_amount: totalAmount.toFixed(2),
+          taxable_amount: taxableAmount.toFixed(2),
+          tax_amount: taxAmount.toFixed(2),
+          net_amount: netAmount.toFixed(2),
+        };
+
+        console.log(`Sending entry ${index + 1} to backend:`, requestData);
+        console.log(`salesperson_id being sent: ${requestData.salesperson_id}`);
+        console.log(`source_by being sent: ${requestData.source_by}`);
+
+        return axios.post(`${baseURL}/add/estimate`, requestData)
+          .then(response => {
+            console.log(`Entry ${index + 1} saved successfully:`, response.data);
+            return response;
+          })
+          .catch(error => {
+            console.error(`Error saving entry ${index + 1}:`, error.response?.data || error.message);
+            throw error;
+          });
+      });
+
+      await Promise.all(savePromises);
 
       // Generate PDF
       const pdfDoc = pdf(
@@ -813,12 +922,17 @@ const EstimateForm = () => {
       localStorage.removeItem("estimateDiscount");
       setEntries([]);
       setDiscount(0);
-      setFormData(initialFormData);
+      setFormData({
+        ...initialFormData,
+        salesperson_id: salespersonId, // Keep salesperson_id
+        source_by: sourceBy // Keep source_by
+      });
       setCurrentProductImages([]);
 
       navigate("/estimation");
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error in handlePrint:", error);
+      console.error("Error details:", error.response?.data || error.message);
       alert("Failed to save or generate PDF. Please try again.");
     }
   };
@@ -1198,7 +1312,6 @@ const EstimateForm = () => {
                   <th>Total Weight</th>
                   <th>Rate</th>
                   <th>Total Price</th>
-                  {/* <th>Images</th> */}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -1216,18 +1329,6 @@ const EstimateForm = () => {
                       <td>{entry.total_weight_av}</td>
                       <td>{entry.rate}</td>
                       <td>{entry.total_price}</td>
-                      {/* <td>
-                        <Button
-                          variant="info"
-                          size="sm"
-                          onClick={() => showProductImages(entry.images)}
-                          disabled={!entry.images || entry.images.length === 0}
-                          style={{ padding: "2px 6px", fontSize: "11px" }}
-                          title="View Images"
-                        >
-                          <FaImage /> ({entry.images?.length || 0})
-                        </Button>
-                      </td> */}
                       <td>
                         <div className="d-flex align-items-center">
                           <FaEdit
