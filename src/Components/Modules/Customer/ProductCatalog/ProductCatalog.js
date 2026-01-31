@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import CustomerNavbar from "../../../Pages/Navbar/CustomerNavbar"
 import './ProductCatalog.css'
-import { FaChevronLeft, FaChevronRight, FaTimes } from 'react-icons/fa'
+import { FaChevronLeft, FaChevronRight, FaTimes, FaShoppingCart, FaCheck } from 'react-icons/fa'
+import { useNavigate } from 'react-router-dom'
 
 const ProductCatalog = () => {
   const [products, setProducts] = useState([])
@@ -13,10 +14,32 @@ const ProductCatalog = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalProduct, setModalProduct] = useState(null)
   const [modalCurrentIndex, setModalCurrentIndex] = useState(0)
+  
+  // Cart state
+  const [isAddingToCart, setIsAddingToCart] = useState({})
+  const [addedToCart, setAddedToCart] = useState({})
+  const [userData, setUserData] = useState(null)
+  
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchProducts()
+    loadUserData()
   }, [])
+
+  const loadUserData = () => {
+    try {
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        setUserData(user)
+      } else {
+        console.warn('No user data found in localStorage')
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    }
+  }
 
   const fetchProducts = async () => {
     try {
@@ -55,6 +78,90 @@ const ProductCatalog = () => {
     return `http://localhost:5000/uploads/products/${imageFilename}`
   }
 
+  // Add to cart function
+  const handleAddToCart = async (productId) => {
+    if (!userData) {
+      alert('Please login to add items to cart')
+      return
+    }
+
+    setIsAddingToCart(prev => ({ ...prev, [productId]: true }))
+
+    try {
+      const response = await fetch('http://localhost:5000/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userData.id,
+          product_id: productId,
+          quantity: 1
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Show success feedback
+        setAddedToCart(prev => ({ ...prev, [productId]: true }))
+        
+        // Reset success indicator after 2 seconds
+        setTimeout(() => {
+          setAddedToCart(prev => ({ ...prev, [productId]: false }))
+        }, 2000)
+        
+        // Optional: Show notification
+        alert('Product added to cart successfully!')
+      } else {
+        alert(data.message || 'Failed to add to cart')
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      alert('Error adding product to cart. Please try again.')
+    } finally {
+      setIsAddingToCart(prev => ({ ...prev, [productId]: false }))
+    }
+  }
+
+  // NEW: Handle Order Now button click
+ // NEW: Handle Order Now button click
+const handleOrderNow = (product) => {
+  if (!userData) {
+    alert('Please login to place an order')
+    return
+  }
+  
+  // Check if user is a customer
+  if (userData.role !== 'Customer') {
+    alert('Only customers can place orders')
+    return
+  }
+  
+  // Store the selected product in localStorage to pass to estimate form
+  const orderData = {
+    product_id: product.product_id,
+    product_name: product.product_name,
+    barcode: product.barcode,
+    metal_type: product.metal_type,
+    design_name: product.design,
+    purity: product.purity,
+    gross_weight: product.gross_wt,
+    stone_weight: product.stone_wt,
+    stone_price: product.stone_price,
+    making_charges: product.making_charges,
+    tax_percent: product.tax_percent,
+    tax_amt: product.tax_amt,
+    total_price: product.total_price,
+    images: product.images || []
+  }
+  
+  localStorage.setItem('quickOrderProduct', JSON.stringify(orderData))
+  
+  // Navigate to customer estimates page - FIXED PATH
+  navigate('/customer-estimates')
+}
+
   const nextImage = (productId, e) => {
     e?.stopPropagation()
     const product = products.find(p => p.product_id === productId)
@@ -83,7 +190,6 @@ const ProductCatalog = () => {
       setModalProduct(product)
       setModalCurrentIndex(currentImageIndexes[product.product_id] || 0)
       setIsModalOpen(true)
-      // Prevent body scrolling when modal is open
       document.body.style.overflow = 'hidden'
     }
   }
@@ -91,7 +197,6 @@ const ProductCatalog = () => {
   const closeModal = () => {
     setIsModalOpen(false)
     setModalProduct(null)
-    // Restore body scrolling
     document.body.style.overflow = 'auto'
   }
 
@@ -164,6 +269,8 @@ const ProductCatalog = () => {
           {products.map((product) => {
             const hasImages = product.images && product.images.length > 0
             const currentIndex = currentImageIndexes[product.product_id] || 0
+            const isAdding = isAddingToCart[product.product_id] || false
+            const isAdded = addedToCart[product.product_id] || false
             
             return (
               <div key={product.product_id} className="product-catalog-card">
@@ -277,11 +384,28 @@ const ProductCatalog = () => {
 
                   {/* Actions */}
                   <div className="product-catalog-actions">
-                    <button className="product-catalog-add-to-cart-btn">
-                      Add to Cart
+                    <button 
+                      className={`product-catalog-add-to-cart-btn ${isAdded ? 'added-to-cart' : ''}`}
+                      onClick={() => handleAddToCart(product.product_id)}
+                      disabled={isAdding || isAdded}
+                    >
+                      {isAdding ? (
+                        'Adding...'
+                      ) : isAdded ? (
+                        <>
+                          <FaCheck /> Added
+                        </>
+                      ) : (
+                        <>
+                          <FaShoppingCart /> Add to Cart
+                        </>
+                      )}
                     </button>
-                    <button className="product-catalog-buy-now-btn">
-                      Buy Now
+                    <button 
+                      className="product-catalog-buy-now-btn"
+                      onClick={() => handleOrderNow(product)}
+                    >
+                      Order Now
                     </button>
                   </div>
                 </div>
@@ -358,6 +482,27 @@ const ProductCatalog = () => {
               </div>
               <div className="product-catalog-modal-price">
                 Total Price: {formatPrice(parseFloat(modalProduct.total_price))}
+              </div>
+              <div className="product-catalog-modal-actions">
+                <button 
+                  className="product-catalog-modal-add-to-cart"
+                  onClick={() => {
+                    handleAddToCart(modalProduct.product_id)
+                    closeModal()
+                  }}
+                  disabled={isAddingToCart[modalProduct.product_id] || addedToCart[modalProduct.product_id]}
+                >
+                  {isAddingToCart[modalProduct.product_id] ? 'Adding...' : 'Add to Cart'}
+                </button>
+                <button 
+                  className="product-catalog-modal-order-now"
+                  onClick={() => {
+                    handleOrderNow(modalProduct)
+                    closeModal()
+                  }}
+                >
+                  Order Now
+                </button>
               </div>
             </div>
           </div>

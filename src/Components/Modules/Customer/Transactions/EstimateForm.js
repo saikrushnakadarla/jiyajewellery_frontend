@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import "./EstimateForm.css";
 import InputField from "../../../Pages/TableLayout/InputField";
-import { Container, Row, Col, Button, Table } from "react-bootstrap";
+import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
@@ -16,7 +16,7 @@ const EstimateForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
-  
+
   const initialFormData = {
     date: today,
     estimate_number: "",
@@ -48,6 +48,16 @@ const EstimateForm = () => {
     total_amount: "0.00",
     pricing: "By Weight",
     opentag_id: "",
+    images: [],
+    net_weight: "", // Added net_weight
+    category_id: "", // Added category_id
+    metal_type_id: "", // Added metal_type_id
+    purity_id: "", // Added purity_id
+    design_id: "", // Added design_id
+    pieace_cost: "", // Added pieace_cost
+    qty: 1, // Added qty with default value
+    msp_va_percent: "", // Added msp_va_percent
+    msp_wastage_weight: "" // Added msp_wastage_weight
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -64,13 +74,182 @@ const EstimateForm = () => {
     rate_16crt: "",
     silver_rate: ""
   });
-  
+
   const [productOptions, setProductOptions] = useState([]);
   const [barcodeOptions, setBarcodeOptions] = useState([]);
   const [metalTypeOptions, setMetalTypeOptions] = useState([]);
   const [designOptions, setDesignOptions] = useState([]);
   const [purityOptions, setPurityOptions] = useState([]);
   const [discount, setDiscount] = useState(0);
+  const [showImagesModal, setShowImagesModal] = useState(false);
+  const [currentProductImages, setCurrentProductImages] = useState([]);
+  
+  // Get current logged-in user's information
+  const [userInfo, setUserInfo] = useState(null);
+  const [sourceBy, setSourceBy] = useState(""); // Track source by
+
+  // Function to get full image URL
+  const getImageUrl = (imageName) => {
+    if (!imageName) return "";
+    return `${baseURL}/uploads/products/${imageName}`;
+  };
+
+  // Fetch current logged-in user's info
+  useEffect(() => {
+    const getCurrentUser = () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          
+          let source = "";
+          if (parsedUser.role === 'Customer') {
+            source = "customer";
+          } else if (parsedUser.role === 'salesman' || parsedUser.role === 'Sales Person') {
+            source = "salesperson";
+          } else if (parsedUser.role === 'admin') {
+            source = "admin";
+          }
+          
+          setSourceBy(source);
+          setUserInfo(parsedUser);
+          
+          if (parsedUser.role === 'Customer') {
+            setFormData(prev => ({
+              ...prev,
+              customer_id: parsedUser.id || parsedUser._id || parsedUser.user_id,
+              customer_name: parsedUser.full_name
+            }));
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              salesperson_id: parsedUser.id || parsedUser._id || parsedUser.user_id
+            }));
+          }
+          
+          return true;
+        }
+        
+        console.warn('No user data found in localStorage');
+        return false;
+      } catch (error) {
+        console.error('Error getting user data:', error);
+        return false;
+      }
+    };
+
+    const isUser = getCurrentUser();
+    if (!isUser) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // Check for quick order product from ProductCatalog
+  useEffect(() => {
+    const quickOrderProduct = localStorage.getItem('quickOrderProduct');
+    if (quickOrderProduct) {
+      try {
+        const product = JSON.parse(quickOrderProduct);
+        
+        // Fetch complete product details using product_id
+        if (product.product_id) {
+          fetchProductDetails(product.product_id);
+        } else {
+          // If no product_id, pre-fill with available data
+          setFormData(prev => ({
+            ...prev,
+            product_id: product.product_id,
+            product_name: product.product_name,
+            barcode: product.barcode,
+            metal_type: product.metal_type,
+            design_name: product.design_name,
+            purity: product.purity,
+            gross_weight: product.gross_weight,
+            stone_weight: product.stone_weight,
+            stone_price: product.stone_price,
+            making_charges: product.making_charges,
+            tax_percent: product.tax_percent,
+            tax_amt: product.tax_amt,
+            total_price: product.total_price,
+            images: product.images || []
+          }));
+          
+          setCurrentProductImages(product.images || []);
+        }
+        
+        localStorage.removeItem('quickOrderProduct');
+      } catch (error) {
+        console.error('Error parsing quick order product:', error);
+      }
+    }
+  }, []);
+
+  // Function to fetch complete product details
+  const fetchProductDetails = async (productId) => {
+    try {
+      const response = await fetch(`${baseURL}/get/product/${productId}`);
+      if (response.ok) {
+        const productDetails = await response.json();
+        
+        // Calculate weight_bw
+        const grossWeight = parseFloat(productDetails.gross_wt) || 0;
+        const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
+        const weightBW = (grossWeight - stoneWeight).toFixed(3);
+        
+        // Calculate rate_amt if not available
+        let rateAmt = productDetails.rate_amt || "0.00";
+        if (!rateAmt && productDetails.rate && productDetails.total_weight_av) {
+          const rate = parseFloat(productDetails.rate) || 0;
+          const totalWeight = parseFloat(productDetails.total_weight_av) || 0;
+          rateAmt = (rate * totalWeight).toFixed(2);
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          product_id: productDetails.product_id,
+          category_id: productDetails.category_id || "",
+          product_name: productDetails.product_name,
+          barcode: productDetails.barcode,
+          metal_type_id: productDetails.metal_type_id || "",
+          metal_type: productDetails.metal_type,
+          purity_id: productDetails.purity_id || "",
+          purity: productDetails.purity,
+          design_id: productDetails.design_id || "",
+          design_name: productDetails.design,
+          gross_weight: productDetails.gross_wt,
+          stone_weight: productDetails.stone_wt,
+          net_weight: productDetails.net_wt || "",
+          stone_price: productDetails.stone_price || "0.00",
+          weight_bw: weightBW,
+          pricing: productDetails.pricing || "By Weight",
+          va_on: productDetails.va_on || "Gross Weight",
+          va_percent: productDetails.va_percent || "0.00",
+          wastage_weight: productDetails.wastage_weight || "0.000",
+          msp_va_percent: productDetails.msp_va_percent || "0.00",
+          msp_wastage_weight: productDetails.msp_wastage_weight || "0.000",
+          total_weight_av: productDetails.total_weight_av || "0.000",
+          mc_on: productDetails.mc_on || "MC %",
+          mc_per_gram: productDetails.mc_per_gram || "0.00",
+          making_charges: productDetails.making_charges || "0.00",
+          rate: productDetails.rate || "",
+          rate_amt: rateAmt,
+          hm_charges: productDetails.hm_charges || "60.00",
+          tax_percent: productDetails.tax_percent || "03% GST",
+          tax_amt: productDetails.tax_amt || "0.00",
+          total_price: productDetails.total_price || "0.00",
+          pieace_cost: productDetails.pieace_cost || "0.00",
+          disscount_percentage: productDetails.disscount_percentage || "0.00",
+          disscount: productDetails.disscount || "0.00",
+          qty: productDetails.qty || 1,
+          images: productDetails.images || []
+        }));
+        
+        setCurrentProductImages(productDetails.images || []);
+      }
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+    }
+  };
 
   // Fetch all products for dropdowns
   useEffect(() => {
@@ -82,21 +261,19 @@ const EstimateForm = () => {
         }
         const result = await response.json();
         setAllProducts(result);
-        
-        // Create product name options
+
         const productOpts = result.map(product => ({
           value: product.product_name,
           label: product.product_name
         }));
         setProductOptions(productOpts);
-        
-        // Create barcode options
+
         const barcodeOpts = result.map(product => ({
           value: product.barcode,
           label: product.barcode
         }));
         setBarcodeOptions(barcodeOpts);
-        
+
       } catch (error) {
         console.error('Error fetching products:', error);
       }
@@ -192,7 +369,7 @@ const EstimateForm = () => {
     fetchPurities();
   }, []);
 
-  // Handle product name selection - FIXED VERSION
+  // Handle product name selection
   const handleProductNameChange = async (productName) => {
     try {
       if (!productName) {
@@ -200,63 +377,16 @@ const EstimateForm = () => {
         return;
       }
 
-      // Find product in allProducts array
       const selectedProduct = allProducts.find(p => p.product_name === productName);
-      
       if (selectedProduct) {
-        // Fetch full product details by ID
-        const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-        if (response.ok) {
-          const productDetails = await response.json();
-          
-          // Use the rate from productDetails instead of calculating from current rates
-          const productRate = productDetails.rate || "";
-          
-          // Update form with product details
-          setFormData(prev => ({
-            ...prev,
-            product_id: productDetails.product_id,
-            category_id: productDetails.category_id,
-            product_name: productDetails.product_name,
-            barcode: productDetails.barcode,
-            metal_type_id: productDetails.metal_type_id,
-            metal_type: productDetails.metal_type,
-            purity_id: productDetails.purity_id,
-            purity: productDetails.purity,
-            design_id: productDetails.design_id,
-            design_name: productDetails.design,
-            gross_weight: productDetails.gross_wt,
-            stone_weight: productDetails.stone_wt,
-            net_weight: productDetails.net_wt,
-            stone_price: productDetails.stone_price,
-            weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
-            pricing: productDetails.pricing || "By Weight",
-            va_on: productDetails.va_on || "Gross Weight",
-            va_percent: productDetails.va_percent || "",
-            wastage_weight: productDetails.wastage_weight || "",
-            total_weight_av: productDetails.total_weight_av || "",
-            mc_on: productDetails.mc_on || "MC %",
-            mc_per_gram: productDetails.mc_per_gram || "",
-            making_charges: productDetails.making_charges || "",
-            rate: productRate, // Use the rate from product details
-            rate_amt: productDetails.rate_amt || "",
-            hm_charges: productDetails.hm_charges || "60.00",
-            tax_percent: productDetails.tax_percent || "03% GST",
-            tax_amt: productDetails.tax_amt || "",
-            total_price: productDetails.total_price || "",
-            pieace_cost: productDetails.pieace_cost || "",
-            disscount_percentage: productDetails.disscount_percentage || "",
-            disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1
-          }));
-        }
+        await fetchProductDetails(selectedProduct.product_id);
       }
     } catch (error) {
       console.error('Error fetching product details:', error);
     }
   };
 
-  // Handle barcode selection - FIXED VERSION
+  // Handle barcode selection
   const handleBarcodeChange = async (barcode) => {
     try {
       if (!barcode) {
@@ -266,62 +396,16 @@ const EstimateForm = () => {
 
       // First check in products
       const selectedProduct = allProducts.find(p => p.barcode === barcode);
-      
       if (selectedProduct) {
-        // Fetch full product details by ID
-        const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-        if (response.ok) {
-          const productDetails = await response.json();
-          
-          // Use the rate from productDetails
-          const productRate = productDetails.rate || "";
-          
-          setFormData(prev => ({
-            ...prev,
-            product_id: productDetails.product_id,
-            category_id: productDetails.category_id,
-            product_name: productDetails.product_name,
-            barcode: productDetails.barcode,
-            metal_type_id: productDetails.metal_type_id,
-            metal_type: productDetails.metal_type,
-            purity_id: productDetails.purity_id,
-            purity: productDetails.purity,
-            design_id: productDetails.design_id,
-            design_name: productDetails.design,
-            gross_weight: productDetails.gross_wt,
-            stone_weight: productDetails.stone_wt,
-            net_weight: productDetails.net_wt,
-            stone_price: productDetails.stone_price,
-            weight_bw: (parseFloat(productDetails.gross_wt) - parseFloat(productDetails.stone_wt)).toFixed(3),
-            pricing: productDetails.pricing || "By Weight",
-            va_on: productDetails.va_on || "Gross Weight",
-            va_percent: productDetails.va_percent || "",
-            wastage_weight: productDetails.wastage_weight || "",
-            total_weight_av: productDetails.total_weight_av || "",
-            mc_on: productDetails.mc_on || "MC %",
-            mc_per_gram: productDetails.mc_per_gram || "",
-            making_charges: productDetails.making_charges || "",
-            rate: productRate, // Use the rate from product details
-            rate_amt: productDetails.rate_amt || "",
-            hm_charges: productDetails.hm_charges || "60.00",
-            tax_percent: productDetails.tax_percent || "03% GST",
-            tax_amt: productDetails.tax_amt || "",
-            total_price: productDetails.total_price || "",
-            pieace_cost: productDetails.pieace_cost || "",
-            disscount_percentage: productDetails.disscount_percentage || "",
-            disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1
-          }));
-          setIsQtyEditable(true);
-        }
+        await fetchProductDetails(selectedProduct.product_id);
+        setIsQtyEditable(true);
       } else {
         // Check in tags data
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
-        
         if (selectedTag) {
-          // Get rate from tag data or calculate from current rates
+          // Get rate from tag data or calculate from current rates based on purity
           let tagRate = selectedTag.rate || "";
-          
+
           // If no rate in tag, calculate from current rates based on purity
           if (!tagRate && selectedTag.Purity && selectedTag.metal_type) {
             if (selectedTag.metal_type?.toLowerCase() === "gold" && selectedTag.Purity) {
@@ -340,7 +424,12 @@ const EstimateForm = () => {
               tagRate = rates.silver_rate;
             }
           }
-          
+
+          // Calculate weight_bw
+          const grossWeight = parseFloat(selectedTag.Gross_Weight) || 0;
+          const stoneWeight = parseFloat(selectedTag.Stones_Weight) || 0;
+          const weightBW = (grossWeight - stoneWeight).toFixed(3);
+
           setFormData(prev => ({
             ...prev,
             product_id: selectedTag.product_id || "",
@@ -356,29 +445,33 @@ const EstimateForm = () => {
             gross_weight: selectedTag.Gross_Weight || "",
             stone_weight: selectedTag.Stones_Weight || "",
             net_weight: selectedTag.Net_Weight || "",
-            stone_price: selectedTag.Stones_Price || "",
-            weight_bw: selectedTag.Weight_BW || "",
+            stone_price: selectedTag.Stones_Price || "0.00",
+            weight_bw: weightBW,
             va_on: selectedTag.Wastage_On || "Gross Weight",
-            va_percent: selectedTag.Wastage_Percentage || "",
-            wastage_weight: selectedTag.WastageWeight || "",
-            total_weight_av: selectedTag.TotalWeight_AW || "",
+            va_percent: selectedTag.Wastage_Percentage || "0.00",
+            wastage_weight: selectedTag.WastageWeight || "0.000",
+            msp_va_percent: selectedTag.msp_va_percent || "0.00",
+            msp_wastage_weight: selectedTag.msp_wastage_weight || "0.000",
+            total_weight_av: selectedTag.TotalWeight_AW || "0.000",
             mc_on: selectedTag.Making_Charges_On || "MC %",
-            mc_per_gram: selectedTag.MC_Per_Gram || "",
-            making_charges: selectedTag.Making_Charges || "",
-            rate: tagRate, // Use the calculated rate
-            rate_amt: selectedTag.rate_amt || "",
+            mc_per_gram: selectedTag.MC_Per_Gram || "0.00",
+            making_charges: selectedTag.Making_Charges || "0.00",
+            rate: tagRate,
+            rate_amt: selectedTag.rate_amt || "0.00",
             hm_charges: selectedTag.hm_charges || "60.00",
             tax_percent: selectedTag.tax_percent || "03% GST",
-            tax_amt: selectedTag.tax_amt || "",
-            total_price: selectedTag.total_price || "",
-            pieace_cost: selectedTag.pieace_cost || "",
-            disscount_percentage: selectedTag.disscount_percentage || "",
-            disscount: selectedTag.disscount || "",
+            tax_amt: selectedTag.tax_amt || "0.00",
+            total_price: selectedTag.total_price || "0.00",
+            pieace_cost: selectedTag.pieace_cost || "0.00",
+            disscount_percentage: selectedTag.disscount_percentage || "0.00",
+            disscount: selectedTag.disscount || "0.00",
             qty: selectedTag.qty || 1,
             opentag_id: selectedTag.opentag_id || "",
-            pricing: selectedTag.Pricing || "By Weight"
+            pricing: selectedTag.Pricing || "By Weight",
+            images: []
           }));
           setIsQtyEditable(false);
+          setCurrentProductImages([]);
         }
       }
     } catch (error) {
@@ -387,8 +480,15 @@ const EstimateForm = () => {
   };
 
   const resetFormData = () => {
-    setFormData(initialFormData);
+    setFormData(prev => ({
+      ...initialFormData,
+      customer_id: prev.customer_id,
+      customer_name: prev.customer_name,
+      salesperson_id: prev.salesperson_id,
+      date: today
+    }));
     setIsQtyEditable(true);
+    setCurrentProductImages([]);
   };
 
   const handleInputChange = (e) => {
@@ -411,10 +511,10 @@ const EstimateForm = () => {
       }
 
       // Handle manual metal type change - calculate rate if not from product/tag
-      if ((name === "metal_type" || name === "purity") && 
-          !prevData.product_id && !prevData.opentag_id && 
-          value && updatedData.metal_type && updatedData.purity) {
-        
+      if ((name === "metal_type" || name === "purity") &&
+        !prevData.product_id && !prevData.opentag_id &&
+        value && updatedData.metal_type && updatedData.purity) {
+
         let currentRate = "";
         if (updatedData.metal_type?.toLowerCase() === "gold" && updatedData.purity) {
           if (updatedData.purity.includes("24")) {
@@ -431,7 +531,7 @@ const EstimateForm = () => {
         } else if (updatedData.metal_type?.toLowerCase() === "silver" && updatedData.purity) {
           currentRate = rates.silver_rate;
         }
-        
+
         if (currentRate) {
           updatedData.rate = currentRate;
         }
@@ -520,7 +620,7 @@ const EstimateForm = () => {
     }
   }, [formData.mc_on, formData.mc_per_gram, formData.making_charges, formData.total_weight_av, formData.rate_amt]);
 
-  // Calculate rate amount - FIXED: Only depends on rate and total weight
+  // Calculate rate amount
   useEffect(() => {
     const rate = parseFloat(formData.rate) || 0;
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
@@ -535,9 +635,6 @@ const EstimateForm = () => {
       rate_amt: rateAmt.toFixed(2),
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
-
-  // REMOVED: The duplicate useEffect that was updating rate based on purity
-  // This was causing conflicts with the rate from product/tag data
 
   // Calculate tax and total price
   useEffect(() => {
@@ -585,34 +682,51 @@ const EstimateForm = () => {
       return;
     }
 
+    // Add user info to each entry
+    const entryWithUser = {
+      ...formData,
+      source_by: sourceBy,
+      customer_id: userInfo?.role === 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : formData.customer_id,
+      customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : formData.customer_name,
+      salesperson_id: userInfo?.role !== 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : formData.salesperson_id,
+      estimate_status: sourceBy === "customer" ? "Order" : "Pending",
+      net_weight: formData.net_weight || formData.weight_bw || "0.000",
+      msp_va_percent: formData.msp_va_percent || "0.00",
+      msp_wastage_weight: formData.msp_wastage_weight || "0.000"
+    };
+
     let updatedEntries;
     if (isEditing) {
       updatedEntries = entries.map((entry, index) =>
-        index === editIndex ? formData : entry
+        index === editIndex ? entryWithUser : entry
       );
       setIsEditing(false);
       setEditIndex(null);
     } else {
-      updatedEntries = [...entries, formData];
+      updatedEntries = [...entries, entryWithUser];
     }
-    
+
     setEntries(updatedEntries);
-    localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
-    
-    // Reset form but keep estimate number
+    localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEntries));
+
+    // Reset form but keep estimate number and user info
     setFormData(prev => ({
       ...initialFormData,
       estimate_number: prev.estimate_number,
+      customer_id: userInfo?.role === 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.customer_id,
+      customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
+      salesperson_id: userInfo?.role !== 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.salesperson_id,
       date: today
     }));
+    setCurrentProductImages([]);
   };
 
   // Load entries from localStorage
   useEffect(() => {
-    const storedEntries = JSON.parse(localStorage.getItem("estimateDetails")) || [];
+    const storedEntries = JSON.parse(localStorage.getItem("customerEstimateDetails")) || [];
     setEntries(storedEntries);
-    
-    const storedDiscount = parseFloat(localStorage.getItem("estimateDiscount")) || 0;
+
+    const storedDiscount = parseFloat(localStorage.getItem("customerEstimateDiscount")) || 0;
     setDiscount(storedDiscount);
   }, []);
 
@@ -620,13 +734,14 @@ const EstimateForm = () => {
     setFormData(entries[index]);
     setIsEditing(true);
     setEditIndex(index);
+    setCurrentProductImages(entries[index].images || []);
   };
 
   const handleDelete = (index) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
       const updatedEntries = entries.filter((_, i) => i !== index);
       setEntries(updatedEntries);
-      localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
+      localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEntries));
       alert("Entry deleted successfully!");
     }
   };
@@ -641,7 +756,7 @@ const EstimateForm = () => {
     }
 
     setDiscount(discountValue);
-    localStorage.setItem("estimateDiscount", discountValue);
+    localStorage.setItem("customerEstimateDiscount", discountValue);
 
     const updatedEstimateDetails = entries.map((item) => {
       const makingCharges = parseFloat(item.making_charges) || 0;
@@ -658,14 +773,20 @@ const EstimateForm = () => {
     });
 
     setEntries(updatedEstimateDetails);
-    localStorage.setItem("estimateDetails", JSON.stringify(updatedEstimateDetails));
+    localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEstimateDetails));
   };
 
   // Handle print/save
   const handlePrint = async () => {
     try {
       if (entries.length === 0) {
-        alert("Please add at least one item before printing");
+        alert("Please add at least one item before submitting");
+        return;
+      }
+
+      if (!userInfo) {
+        alert("User information is missing. Please login again.");
+        navigate('/login');
         return;
       }
 
@@ -682,15 +803,23 @@ const EstimateForm = () => {
       const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Save to database
+      // Save to database - each entry will have source_by and appropriate status
       await Promise.all(
         entries.map((entry) => {
           const requestData = {
             ...entry,
+            customer_id: userInfo.role === 'Customer' ? userInfo.id : entry.customer_id,
+            customer_name: userInfo.role === 'Customer' ? userInfo.full_name : entry.customer_name,
+            salesperson_id: userInfo.role !== 'Customer' ? userInfo.id : entry.salesperson_id,
+            source_by: sourceBy,
             total_amount: totalAmount.toFixed(2),
             taxable_amount: taxableAmount.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
             net_amount: netAmount.toFixed(2),
+            estimate_status: sourceBy === "customer" ? "Order" : "Pending",
+            net_weight: entry.net_weight || entry.weight_bw || "0.000",
+            msp_va_percent: entry.msp_va_percent || "0.00",
+            msp_wastage_weight: entry.msp_wastage_weight || "0.000"
           };
           return axios.post(`${baseURL}/add/estimate`, requestData);
         })
@@ -707,22 +836,39 @@ const EstimateForm = () => {
           date={today}
           estimateNumber={formData.estimate_number}
           sellerName="Sadashri Jewels"
+          customerName={userInfo.role === 'Customer' ? userInfo.full_name : entries[0]?.customer_name}
         />
       );
 
       const blob = await pdfDoc.toBlob();
       saveAs(blob, `estimate_${formData.estimate_number}.pdf`);
 
-      alert("Estimates saved successfully!");
+      if (sourceBy === "customer") {
+        alert("Order placed successfully!");
+      } else {
+        alert("Estimate request submitted successfully!");
+      }
 
       // Clear localStorage and reset state
-      localStorage.removeItem("estimateDetails");
-      localStorage.removeItem("estimateDiscount");
+      localStorage.removeItem("customerEstimateDetails");
+      localStorage.removeItem("customerEstimateDiscount");
       setEntries([]);
       setDiscount(0);
-      setFormData(initialFormData);
+      setFormData(prev => ({
+        ...initialFormData,
+        customer_id: userInfo?.role === 'Customer' ? userInfo.id : prev.customer_id,
+        customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
+        salesperson_id: userInfo?.role !== 'Customer' ? userInfo.id : prev.salesperson_id,
+        date: today
+      }));
+      setCurrentProductImages([]);
 
-      navigate("/estimation");
+      // Navigate based on user role
+      if (sourceBy === "customer") {
+        navigate("/customer-estimation");
+      } else {
+        navigate("/estimates");
+      }
     } catch (error) {
       console.error("Error:", error);
       alert("Failed to save or generate PDF. Please try again.");
@@ -730,11 +876,21 @@ const EstimateForm = () => {
   };
 
   const handleBack = () => {
-    navigate("/estimation");
+    if (sourceBy === "customer") {
+      navigate("/customer-estimation");
+    } else {
+      navigate("/estimates");
+    }
   };
 
   const handleClose = () => {
     navigate(-1);
+  };
+
+  // Function to show images modal
+  const showProductImages = (productImages) => {
+    setCurrentProductImages(productImages || []);
+    setShowImagesModal(true);
   };
 
   const isByFixed = formData.pricing === "By fixed";
@@ -753,13 +909,47 @@ const EstimateForm = () => {
   const taxAmount = entries.reduce((sum, item) => sum + parseFloat(item.tax_amt || 0), 0);
   const netAmount = taxableAmount + taxAmount;
 
+  // Check if user is authenticated
+  if (!userInfo) {
+    return (
+      <>
+        <CustomerNavbar />
+        <div className="main-container" style={{ marginTop: '60px' }}>
+          <Container className="text-center py-5">
+            <div className="alert alert-warning">
+              Please login to access this page.
+            </div>
+            <Button variant="primary" onClick={() => navigate('/login')}>
+              Go to Login
+            </Button>
+          </Container>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <CustomerNavbar />
-      <div className="main-container" style={{marginTop:'60px'}}>
+      <div className="main-container" style={{ marginTop: '60px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
-            <h2>Estimate</h2>
+            <h2>{sourceBy === "customer" ? "Place Order" : "Create Estimate"}</h2>
+            
+            {/* Display user info */}
+            <Row className="mb-3">
+              <Col xs={12} md={6}>
+                <div className="customer-info-card p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                  <h5>User Information</h5>
+                  <p><strong>Name:</strong> {userInfo.full_name}</p>
+                  <p><strong>Role:</strong> {userInfo.role}</p>
+                  <p><strong>Source:</strong> {sourceBy.charAt(0).toUpperCase() + sourceBy.slice(1)}</p>
+                  {userInfo.mobile && <p><strong>Mobile:</strong> {userInfo.mobile}</p>}
+                  {userInfo.email && <p><strong>Email:</strong> {userInfo.email}</p>}
+                </div>
+              </Col>
+            </Row>
+
             <Row className="d-flex justify-content-end align-items-center mb-3" style={{ marginLeft: '9px', marginTop: '-60px' }}>
               <Col xs={12} md={2}>
                 <InputField
@@ -893,7 +1083,7 @@ const EstimateForm = () => {
                   <InputField
                     label="Qty"
                     name="qty"
-                    value={formData.qty || ""}
+                    value={formData.qty || 1}
                     onChange={handleInputChange}
                     readOnly={!isQtyEditable}
                   />
@@ -911,16 +1101,36 @@ const EstimateForm = () => {
             ) : (
               <>
                 <Col xs={12} md={1}>
-                  <InputField label="Gross Wt" name="gross_weight" value={formData.gross_weight || ""} onChange={handleInputChange} />
+                  <InputField 
+                    label="Gross Wt" 
+                    name="gross_weight" 
+                    value={formData.gross_weight || ""} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="Stones Wt" name="stone_weight" value={formData.stone_weight || ""} onChange={handleInputChange} />
+                  <InputField 
+                    label="Stones Wt" 
+                    name="stone_weight" 
+                    value={formData.stone_weight || ""} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="St Price" name="stone_price" value={formData.stone_price || ""} onChange={handleInputChange} />
+                  <InputField 
+                    label="St Price" 
+                    name="stone_price" 
+                    value={formData.stone_price || "0.00"} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="Wt BW" name="weight_bw" value={formData.weight_bw || "0.000"} onChange={handleInputChange} />
+                  <InputField 
+                    label="Wt BW" 
+                    name="weight_bw" 
+                    value={formData.weight_bw || "0.000"} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={2}>
                   <InputField
@@ -936,16 +1146,36 @@ const EstimateForm = () => {
                   />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="Wastage %" name="va_percent" value={formData.va_percent || ""} onChange={handleInputChange} />
+                  <InputField 
+                    label="Wastage %" 
+                    name="va_percent" 
+                    value={formData.va_percent || "0.00"} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="W.Wt" name="wastage_weight" value={formData.wastage_weight || "0.000"} onChange={handleInputChange} />
+                  <InputField 
+                    label="W.Wt" 
+                    name="wastage_weight" 
+                    value={formData.wastage_weight || "0.000"} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={2}>
-                  <InputField label="Total Weight AW" name="total_weight_av" value={formData.total_weight_av || "0.000"} onChange={handleInputChange} />
+                  <InputField 
+                    label="Total Weight AW" 
+                    name="total_weight_av" 
+                    value={formData.total_weight_av || "0.000"} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
-                  <InputField label="Rate" name="rate" value={formData.rate || ""} onChange={handleInputChange} />
+                  <InputField 
+                    label="Rate" 
+                    name="rate" 
+                    value={formData.rate || ""} 
+                    onChange={handleInputChange} 
+                  />
                 </Col>
                 <Col xs={12} md={1}>
                   <InputField
@@ -973,7 +1203,7 @@ const EstimateForm = () => {
                   <InputField
                     label={formData.mc_on === "MC %" ? "MC %" : "MC/Gm"}
                     name="mc_per_gram"
-                    value={formData.mc_per_gram || ""}
+                    value={formData.mc_per_gram || "0.00"}
                     onChange={handleInputChange}
                   />
                 </Col>
@@ -1005,21 +1235,69 @@ const EstimateForm = () => {
               </>
             )}
 
-            <Col xs={12} md={1}>
-              <Button
-                style={{
-                  backgroundColor: "#a36e29",
-                  borderColor: "#a36e29",
-                  marginTop: "3px",
-                  marginLeft: "-1px",
-                  fontSize: "13px",
-                  padding: "5px 9px"
-                }}
-                onClick={handleAdd}
-              >
-                {isEditing ? "Update" : "Add"}
-              </Button>
+            {/* Image Preview Section */}
+            <Col xs={12} className="mt-2 mb-2">
+              <Row className="align-items-center">
+                <Col xs={12} md={2}>
+                  <div className="d-flex align-items-center">
+                    <span className="me-2" style={{ fontSize: "14px", fontWeight: "bold" }}>
+                      Product Images:
+                    </span>
+                  </div>
+                </Col>
+
+                {/* Small image preview thumbnails */}
+                {formData.images && formData.images.length > 0 && (
+                  <Col xs={12} md={8}>
+                    <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
+                      {formData.images.slice(0, 3).map((image, index) => (
+                        <div key={index} style={{ width: "60px", height: "60px", overflow: "hidden", border: "1px solid #ddd", borderRadius: "4px" }}>
+                          <Image
+                            src={getImageUrl(image)}
+                            alt={`Preview ${index + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/60x60?text=Image';
+                            }}
+                          />
+                        </div>
+                      ))}
+                      {formData.images.length > 3 && (
+                        <div style={{ 
+                          width: "60px", 
+                          height: "60px", 
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center",
+                          border: "1px solid #ddd", 
+                          borderRadius: "4px",
+                          backgroundColor: "#f8f9fa"
+                        }}>
+                          <span style={{ fontSize: "12px" }}>+{formData.images.length - 3}</span>
+                        </div>
+                      )}
+                    </div>
+                  </Col>
+                )}
+
+                {/* Add/Update Button */}
+                <Col xs={12} md={6} className="mt-2">
+                  <Button
+                    style={{
+                      backgroundColor: "#a36e29",
+                      borderColor: "#a36e29",
+                      fontSize: "14px",
+                      padding: "6px 20px"
+                    }}
+                    onClick={handleAdd}
+                  >
+                    {isEditing ? "Update Entry" : "Add Entry"}
+                  </Button>
+                </Col>
+              </Row>
             </Col>
+
           </Row>
 
           <Row className="estimate-form-section2">
@@ -1127,7 +1405,7 @@ const EstimateForm = () => {
                 </tr>
               </tbody>
             </Table>
-            
+
             <Col xs={12} md={12} className="d-flex justify-content-end" style={{ marginTop: "-10px" }}>
               <Button
                 onClick={handleClose}
@@ -1161,8 +1439,8 @@ const EstimateForm = () => {
               </Button>
               <Button
                 style={{
-                  backgroundColor: "#a36e29",
-                  borderColor: "#a36e29",
+                  backgroundColor: sourceBy === "customer" ? "#28a745" : "#a36e29",
+                  borderColor: sourceBy === "customer" ? "#28a745" : "#a36e29",
                   marginLeft: '15px',
                   fontSize: "14px",
                   marginTop: "1px",
@@ -1171,12 +1449,58 @@ const EstimateForm = () => {
                 }}
                 onClick={handlePrint}
               >
-                Print
+                {sourceBy === "customer" ? "Place Order" : "Submit Request"}
               </Button>
             </Col>
           </Row>
         </Container>
       </div>
+
+      {/* Images Modal */}
+      <Modal
+        show={showImagesModal}
+        onHide={() => setShowImagesModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Product Images</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {currentProductImages.length > 0 ? (
+            <Row>
+              {currentProductImages.map((image, index) => (
+                <Col xs={6} md={4} key={index} className="mb-3">
+                  <div className="text-center">
+                    <Image
+                      src={getImageUrl(image)}
+                      alt={`Product Image ${index + 1}`}
+                      fluid
+                      style={{ maxHeight: '200px', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/200x200?text=Image+Not+Found';
+                      }}
+                    />
+                    <small className="text-muted d-block mt-1">
+                      {image}
+                    </small>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          ) : (
+            <div className="text-center py-4">
+              <p>No images available for this product</p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImagesModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };

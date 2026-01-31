@@ -251,3 +251,34 @@
         font-size: 18px;
     }
 }
+
+
+/* Right section wrapper */
+.navbar-right-section {
+    margin-left: auto;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* FORCE username + logout to be SIDE BY SIDE */
+.user-logout-wrapper {
+    display: flex !important;
+    flex-direction: row !important;   /* 🔥 CRITICAL FIX */
+    align-items: center !important;
+    gap: 14px;
+}
+
+/* Username styling – simple gold text */
+.navbar-username {
+    font-size: 16px;
+    font-weight: 600;
+    color: #a36e29; /* Gold */
+    white-space: nowrap;
+}
+
+/* Ensure bootstrap doesn't stretch button */
+.logout-button {
+    width: auto !important;
+    white-space: nowrap;
+}
+

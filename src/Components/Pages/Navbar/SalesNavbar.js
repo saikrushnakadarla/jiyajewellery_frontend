@@ -1,26 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { FaSignOutAlt } from "react-icons/fa";
-import logo from '../images/jiya_logo.png'; // Uncomment when you have the logo
-import './Navbar.css';
+import logo from '../images/jiya_logo.png';
+import './SalesNavbar.css';
 import Swal from 'sweetalert2';
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [mastersDropdownOpen, setMastersDropdownOpen] = useState(false);
   const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
-   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [userName, setUserName] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserName(user.full_name || user.name || 'User');
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUserName('User');
+      }
+    }
+  }, []);
+
   const toggleMenu = () => {
     setIsOpen(!isOpen);
-  };
-
-  const toggleDropdown = () => {
-    setMastersDropdownOpen(!mastersDropdownOpen);
   };
 
   const toggletransactionDropdown = () => {
@@ -32,7 +41,6 @@ function Navbar() {
   };
 
   const handleItemClick = () => {
-    setMastersDropdownOpen(false);
     setIsOpen(false);
   };
 
@@ -48,6 +56,7 @@ function Navbar() {
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem('user');
         navigate('/');
       }
     });
@@ -61,9 +70,7 @@ function Navbar() {
     <header className="navbar-header">
       {/* Logo on the left side */}
       <div className="navbar-brand">
-        {/* Uncomment the line below when you have the logo file */}
         <img src={logo} alt="Logo" className="navbar-logo" />
-        {/* <div className="navbar-logo-placeholder">Company Logo</div> */}
       </div>
 
       <div
@@ -78,20 +85,13 @@ function Navbar() {
       {/* Centered nav links */}
       <nav className={`navbar-links ${isOpen ? 'open' : ''}`}>
         <div>
-          <span>
-            <Link
-              to="/salesperson-dashboard"
-              onClick={handleItemClick}
-              className={isActive('/dashboard')}
-              style={{
-                color: window.location.pathname === '/dashboard' ? '#a36e29' : 'black',
-                backgroundColor: 'transparent',
-                textDecoration: 'none',
-              }}
-            >
-              DASHBOARD
-            </Link>
-          </span>
+          <Link
+            to="/salesperson-dashboard"
+            onClick={handleItemClick}
+            className={isActive('/dashboard')}
+          >
+            DASHBOARD
+          </Link>
         </div>
 
         <div
@@ -127,21 +127,24 @@ function Navbar() {
               className="dropdown-arrow-icon"
             />
           </span>
-          {/* {reportsDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
-                Sales Reports
-              </Link>
-            </div>
-          )} */}
         </div>
       </nav>
 
-      <div className="navbar-logout">
-        <button className="logout-button" onClick={handleLogout}>
-          <FaSignOutAlt size={18} /> Logout
-        </button>
-      </div>
+      {/* User name and logout section */}
+        {/* User name and logout section */}
+          <div className="navbar-right-section">
+            <div className="user-logout-wrapper">
+              <span className="navbar-username">
+                {userName}
+              </span>
+
+              <button className="logout-button" onClick={handleLogout}>
+                <FaSignOutAlt size={16} /> Logout
+              </button>
+            </div>
+          </div>
+
+
     </header>
   );
 }

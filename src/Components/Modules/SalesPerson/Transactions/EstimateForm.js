@@ -10,7 +10,7 @@ import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
 import PDFContent from "./EstimateReceipt";
 import { useLocation } from "react-router-dom";
-import Navbar from "../../../Pages/Navbar/Navbar";
+import Navbar from "../../../Pages/Navbar/SalesNavbar";
 
 const EstimateForm = () => {
   const navigate = useNavigate();
