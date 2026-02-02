@@ -1,0 +1,137 @@
+/* Dashboard.css */
+.dashboard-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px !important;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important;
+}
+
+.dashboard-card .card-body {
+  width: 100%;
+  padding: 1.5rem !important;
+}
+
+.clickable-card {
+  transition: all 0.3s ease;
+}
+
+.clickable-card:hover {
+  cursor: pointer;
+  transform: scale(1.02);
+}
+
+.clickable-card:active {
+  transform: scale(0.98);
+}
+
+.dashboard-icon {
+  font-size: 2.8rem !important;
+}
+
+.summary-card {
+  transition: transform 0.2s ease;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.summary-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+/* Progress bar animation */
+.progress-bar {
+  transition: width 1s ease-in-out;
+  border-radius: 5px;
+}
+
+.progress {
+  border-radius: 5px;
+  background-color: #f0f0f0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .display-4 {
+    font-size: 2.2rem;
+  }
+  
+  .dashboard-card {
+    min-height: 200px;
+  }
+  
+  .dashboard-icon {
+    font-size: 2.2rem !important;
+  }
+  
+  .card-body {
+    padding: 1rem !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .display-4 {
+    font-size: 1.8rem;
+  }
+  
+  .dashboard-card {
+    min-height: 180px;
+  }
+  
+  h5.card-title {
+    font-size: 1rem;
+  }
+  
+  .text-muted {
+    font-size: 0.85rem;
+  }
+}
+
+/* Card hover effects for all cards */
+.card {
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+/* Badge styling */
+.badge {
+  padding: 0.4em 0.8em;
+  font-size: 0.85em;
+  transition: all 0.3s ease;
+}
+
+.clickable-card:hover .badge {
+  transform: scale(1.05);
+}
+
+/* Animation for counts */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.display-4 {
+  animation: countUp 0.8s ease-out;
+}

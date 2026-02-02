@@ -1,0 +1,280 @@
+/* CustomerDashboard.css */
+
+/* Welcome Card */
+.customer-welcome-card {
+  border-radius: 12px;
+  min-height: 100px;
+}
+
+/* Main Dashboard Cards - Fixed Height and Width */
+.customer-products-card,
+.customer-estimates-card,
+.customer-pending-card,
+.customer-orders-card {
+  min-height: 220px;
+  max-height: 220px;
+  width: 100%;
+  border-radius: 12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Ensure card content fits within fixed height */
+.customer-products-card .card-body,
+.customer-estimates-card .card-body,
+.customer-pending-card .card-body,
+.customer-orders-card .card-body {
+  height: 100%;
+  padding: 1.5rem !important;
+}
+
+/* Progress Cards */
+.customer-pending-progress-card,
+.customer-orders-progress-card {
+  min-height: 250px;
+  max-height: 250px;
+  border-radius: 12px;
+}
+
+.customer-pending-progress-card .card-body,
+.customer-orders-progress-card .card-body {
+  height: 100%;
+  padding: 1.5rem !important;
+}
+
+/* Status Cards */
+.customer-accepted-card,
+.customer-rejected-card {
+  min-height: 250px;
+  max-height: 250px;
+  border-radius: 12px;
+}
+
+.customer-accepted-card .card-body,
+.customer-rejected-card .card-body {
+  height: 100%;
+  padding: 1.5rem !important;
+}
+
+/* Big count styling for status cards */
+.customer-big-count {
+  font-size: 3.5rem;
+  line-height: 1;
+  margin: 0.5rem 0;
+}
+
+/* Summary Card */
+.customer-summary-card {
+  min-height: 200px;
+  border-radius: 12px;
+}
+
+.customer-summary-card .card-body {
+  padding: 1.5rem !important;
+}
+
+.customer-summary-list {
+  min-height: 150px;
+}
+
+/* General Card Styling */
+.dashboard-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important;
+}
+
+.dashboard-icon {
+  font-size: 2.5rem !important;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clickable Card Effects */
+.clickable-card {
+  transition: all 0.3s ease;
+}
+
+.clickable-card:hover {
+  cursor: pointer;
+  transform: scale(1.02);
+}
+
+.clickable-card:active {
+  transform: scale(0.98);
+}
+
+/* Gradient Background */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+/* Progress Bar Styling */
+.progress {
+  border-radius: 10px;
+  background-color: #f0f0f0;
+}
+
+.progress-bar {
+  border-radius: 10px;
+  transition: width 1s ease-in-out;
+}
+
+/* Badge Styling */
+.badge {
+  padding: 0.4em 0.8em;
+  font-size: 0.85em;
+  transition: all 0.3s ease;
+  border-radius: 20px;
+}
+
+.clickable-card:hover .badge {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* List Group Item Styling */
+.list-group-item {
+  border: none;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+}
+
+.list-group-item:last-child {
+  border-bottom: none;
+}
+
+/* Animation for Counts */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.display-4 {
+  animation: countUp 0.8s ease-out;
+  font-size: 2.8rem;
+  line-height: 1;
+  margin: 0.5rem 0;
+}
+
+/* Card Header Styling */
+.card-header {
+  font-weight: 600;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0 !important;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+}
+
+/* Border Colors for Visual Hierarchy */
+.border-warning { border-color: #ffc107 !important; }
+.border-primary { border-color: #0d6efd !important; }
+.border-info { border-color: #0dcaf0 !important; }
+.border-success { border-color: #198754 !important; }
+.border-danger { border-color: #dc3545 !important; }
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .customer-products-card,
+  .customer-estimates-card,
+  .customer-pending-card,
+  .customer-orders-card {
+    min-height: 200px;
+    max-height: 200px;
+  }
+  
+  .customer-pending-progress-card,
+  .customer-orders-progress-card,
+  .customer-accepted-card,
+  .customer-rejected-card {
+    min-height: 220px;
+    max-height: 220px;
+  }
+  
+  .display-4 {
+    font-size: 2.2rem;
+  }
+  
+  .customer-big-count {
+    font-size: 2.8rem;
+  }
+  
+  .dashboard-icon {
+    font-size: 2rem !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .customer-products-card,
+  .customer-estimates-card,
+  .customer-pending-card,
+  .customer-orders-card {
+    min-height: 180px;
+    max-height: 180px;
+  }
+  
+  .customer-pending-progress-card,
+  .customer-orders-progress-card,
+  .customer-accepted-card,
+  .customer-rejected-card {
+    min-height: 200px;
+    max-height: 200px;
+  }
+  
+  .display-4 {
+    font-size: 1.8rem;
+  }
+  
+  .customer-big-count {
+    font-size: 2.2rem;
+  }
+  
+  .dashboard-icon {
+    font-size: 1.8rem !important;
+  }
+  
+  h5.card-title {
+    font-size: 1rem;
+  }
+  
+  .text-muted {
+    font-size: 0.85rem;
+  }
+  
+  .customer-welcome-card .card-body {
+    padding: 1rem !important;
+  }
+}
+
+/* Flexbox for card content alignment */
+.card-body.d-flex {
+  flex-direction: column;
+}
+
+/* Ensure text doesn't overflow */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Card hover effects */
+.card:hover:not(.customer-welcome-card) {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+}

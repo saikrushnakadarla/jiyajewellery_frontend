@@ -1,0 +1,420 @@
+/* SalesDashboard.css */
+
+/* Main container */
+.sales-dashboard-container {
+  margin-top: 100px;
+  padding-bottom: 30px;
+}
+
+/* Welcome Card */
+.sales-welcome-card {
+  border-radius: 12px;
+  min-height: 120px;
+  overflow: hidden;
+}
+
+.bg-gradient-sales {
+  background: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%) !important;
+}
+
+/* Main Stats Cards - Fixed Height and Width */
+.sales-stats-card {
+  min-height: 220px;
+  max-height: 220px;
+  width: 100%;
+  border-radius: 12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+.sales-total-sales-card,
+.sales-target-card,
+.sales-customers-card,
+.sales-estimates-card {
+  min-height: 220px;
+  max-height: 220px;
+}
+
+.sales-stats-card .card-body {
+  height: 100%;
+  padding: 1.5rem !important;
+}
+
+/* Dashboard Icons */
+.sales-dashboard-icon {
+  font-size: 2.5rem !important;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Breakdown Card - Reduced height significantly */
+.sales-estimate-breakdown-card {
+  min-height: 240px;
+  max-height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sales-estimate-breakdown-card .card-body {
+  padding: 0.5rem !important;
+}
+
+/* Small estimate boxes styling - More compact */
+.estimate-small-box {
+  transition: all 0.3s ease;
+  min-height: 65px;
+  max-height: 65px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.estimate-small-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-color: rgba(0,0,0,0.1);
+}
+
+/* Small icon circles - 40x40px (reduced from 50px) */
+.small-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.small-box-icon i {
+  font-size: 1.2rem;
+}
+
+/* Small box typography - More compact */
+.estimate-small-box h4 {
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.estimate-small-box .small {
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-bottom: 0;
+}
+
+/* Recent Estimates Card - Reduced height to match */
+.sales-recent-estimates-card {
+  min-height: 240px;
+  max-height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sales-recent-estimates-card .card-body {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Recent Customers Card */
+.sales-recent-customers-card {
+  min-height: 350px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sales-recent-customers-card .card-body {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Card Header Styling - More compact */
+.card-header {
+  font-weight: 600;
+  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+  border-radius: 12px 12px 0 0 !important;
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+/* Table Styling - More compact */
+.table {
+  margin-bottom: 0;
+}
+
+.table-borderless tbody tr {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.table-borderless tbody tr:last-child {
+  border-bottom: none;
+}
+
+.table thead th {
+  font-weight: 500;
+  color: #6c757d;
+  background-color: transparent;
+  border-top: none;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  padding: 0.5rem;
+}
+
+/* Hover effect for table rows */
+.hover-row:hover {
+  background-color: rgba(13, 110, 253, 0.04);
+  transition: background-color 0.2s ease;
+}
+
+/* Badge Styling */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  font-size: 0.75rem;
+}
+
+/* Clickable Card Effects */
+.clickable-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.clickable-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+.clickable-card:active {
+  transform: translateY(-1px);
+}
+
+/* Progress Bar Styling */
+.progress {
+  border-radius: 10px;
+  background-color: #e9ecef;
+  overflow: hidden;
+}
+
+.progress-bar {
+  border-radius: 10px;
+  transition: width 1s ease-in-out;
+}
+
+/* Display Numbers */
+.display-4 {
+  font-size: 2.8rem;
+  line-height: 1;
+  margin: 0.5rem 0;
+  animation: countUp 0.8s ease-out;
+}
+
+/* Border Colors */
+.border-primary { border-color: #0d6efd !important; }
+.border-success { border-color: #198754 !important; }
+.border-info { border-color: #0dcaf0 !important; }
+.border-warning { border-color: #ffc107 !important; }
+
+/* Button Styling */
+.btn-outline-primary {
+  border-color: #0d6efd;
+  color: #0d6efd;
+}
+
+.btn-outline-primary:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255,255,255,0.2);
+}
+
+/* Background utility classes */
+.bg-warning-subtle {
+  background-color: rgba(255, 193, 7, 0.15) !important;
+}
+
+.bg-success-subtle {
+  background-color: rgba(25, 135, 84, 0.15) !important;
+}
+
+.bg-primary-subtle {
+  background-color: rgba(13, 110, 253, 0.15) !important;
+}
+
+.bg-info-subtle {
+  background-color: rgba(13, 202, 240, 0.15) !important;
+}
+
+/* Opacity utilities */
+.opacity-75 {
+  opacity: 0.75 !important;
+}
+
+/* Spacing utilities */
+.g-2 {
+  gap: 0.5rem !important;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .sales-stats-card {
+    min-height: 200px;
+    max-height: 200px;
+  }
+  
+  .sales-estimate-breakdown-card,
+  .sales-recent-estimates-card {
+    min-height: 220px;
+    max-height: 220px;
+  }
+  
+  .display-4 {
+    font-size: 2.2rem;
+  }
+  
+  .sales-dashboard-icon {
+    font-size: 2rem !important;
+  }
+  
+  .sales-welcome-card .card-body {
+    padding: 1rem !important;
+  }
+  
+  .card-header {
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .estimate-small-box {
+    min-height: 60px;
+    max-height: 60px;
+    padding: 0.5rem !important;
+  }
+  
+  .small-icon-circle {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .small-box-icon i {
+    font-size: 1rem;
+  }
+  
+  .estimate-small-box h4 {
+    font-size: 1rem;
+  }
+  
+  .estimate-small-box .small {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .sales-stats-card {
+    min-height: 180px;
+    max-height: 180px;
+  }
+  
+  .sales-estimate-breakdown-card,
+  .sales-recent-estimates-card {
+    min-height: 200px;
+    max-height: 200px;
+  }
+  
+  .display-4 {
+    font-size: 1.8rem;
+  }
+  
+  .sales-dashboard-icon {
+    font-size: 1.8rem !important;
+  }
+  
+  h5.card-title {
+    font-size: 0.9rem;
+  }
+  
+  .text-muted {
+    font-size: 0.8rem;
+  }
+  
+  .sales-dashboard-container {
+    margin-top: 80px;
+  }
+  
+  .estimate-small-box {
+    min-height: 55px;
+    max-height: 55px;
+    padding: 0.4rem !important;
+  }
+  
+  .small-icon-circle {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .small-box-icon i {
+    font-size: 0.9rem;
+  }
+  
+  .estimate-small-box h4 {
+    font-size: 0.9rem;
+  }
+  
+  .estimate-small-box .small {
+    font-size: 0.6rem;
+  }
+  
+  .table thead th {
+    font-size: 0.7rem;
+    padding: 0.4rem;
+  }
+}
+
+/* Animation for counts */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Table row hover effect */
+.table-hover tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+/* Ensure text doesn't overflow */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Card body padding adjustments */
+.card-body.p-0 .table {
+  margin-bottom: 0;
+}
+
+/* Custom badge colors */
+.bg-warning.text-dark {
+  color: #212529 !important;
+}
+
+/* Improved typography */
+.small {
+  font-size: 0.875rem;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Flex utilities */
+.flex-grow-1 {
+  flex-grow: 1 !important;
+}

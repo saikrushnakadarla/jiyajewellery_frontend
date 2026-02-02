@@ -1,46 +1,93 @@
 import React, { useState, useEffect } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
-import CustomerNavbar from "../../Pages/Navbar/CustomerNavbar";
-import { Card, Row, Col, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css";
+import Navbar from "../../Pages/Navbar/CustomerNavbar";
+import "./CustomerDashboard.css";
 
-function CustomerDashboard() {
+function Dashboard() {
   const navigate = useNavigate();
-  const [customerData, setCustomerData] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [productsCount, setProductsCount] = useState(0);
+  const [estimatesCount, setEstimatesCount] = useState({
+    pending: 0,
+    order: 0,
+    accepted: 0,
+    rejected: 0,
+    total: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pendingOrders, setPendingOrders] = useState(0);
-  const [totalOrders, setTotalOrders] = useState(0);
 
   useEffect(() => {
-    const fetchCustomerData = async () => {
+    // Get current user from localStorage
+    const userData = localStorage.getItem("user");
+    if (userData) {
       try {
-        // Get current logged-in user from localStorage
-        const userStr = localStorage.getItem("user");
-        if (!userStr) {
-          navigate("/login");
-          return;
-        }
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+      }
+    }
 
-        const user = JSON.parse(userStr);
-        
-        // Fetch customer-specific data
-        const response = await fetch(`http://localhost:5000/api/users/${user.id}`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    const fetchData = async () => {
+      try {
+        // Fetch products data
+        const productsResponse = await fetch("http://localhost:5000/get/products");
+        if (!productsResponse.ok) {
+          throw new Error(`HTTP error! status: ${productsResponse.status}`);
         }
-        
-        const customer = await response.json();
-        setCustomerData(customer);
+        const products = await productsResponse.json();
+        setProductsCount(products.length);
 
-        // In a real application, you would fetch orders from a separate API
-        // For now, we'll simulate or fetch from your orders endpoint if it exists
-        // Example: const ordersResponse = await fetch(`http://localhost:5000/api/orders?customerId=${user.id}`);
+        // Fetch estimates data
+        const estimatesResponse = await fetch("http://localhost:5000/get-unique-estimates");
+        if (!estimatesResponse.ok) {
+          throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
+        }
+        const estimates = await estimatesResponse.json();
         
-        // Simulated data for demo
-        setPendingOrders(3); // You would get this from API
-        setTotalOrders(12); // You would get this from API
+        // Get current user ID from localStorage
+        const userData = localStorage.getItem("user");
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            const customerId = user.id.toString();
+            
+            // Filter estimates for current customer only
+            const customerEstimates = estimates.filter(estimate => 
+              estimate.customer_id && estimate.customer_id.toString() === customerId
+            );
+            
+            // Count estimates by status for current customer
+            const pending = customerEstimates.filter(estimate => 
+              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "pending"
+            ).length;
+            
+            const order = customerEstimates.filter(estimate => 
+              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "order"
+            ).length;
+            
+            const accepted = customerEstimates.filter(estimate => 
+              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "accepted"
+            ).length;
+            
+            const rejected = customerEstimates.filter(estimate => 
+              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "rejected"
+            ).length;
+            
+            setEstimatesCount({
+              pending,
+              order,
+              accepted,
+              rejected,
+              total: customerEstimates.length
+            });
+            
+          } catch (err) {
+            console.error("Error processing user data:", err);
+          }
+        }
         
         setLoading(false);
       } catch (err) {
@@ -49,137 +96,349 @@ function CustomerDashboard() {
       }
     };
 
-    fetchCustomerData();
-  }, [navigate]);
+    fetchData();
+  }, []);
+
+  const handleCardClick = (path) => {
+    navigate(path);
+  };
 
   if (loading) {
     return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-          <p className="mt-2">Loading your dashboard...</p>
+      <>
+        <Navbar/>
+        <div className="container mt-5">
+          <div className="text-center">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <p className="mt-2">Loading dashboard data...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="container mt-5">
-        <Alert variant="danger">
-          Error loading dashboard: {error}
-        </Alert>
-      </div>
+      <>
+        <Navbar/>
+        <div className="container mt-5">
+          <div className="alert alert-danger" role="alert">
+            Error loading data: {error}
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      <CustomerNavbar />
-      <div className="container mt-5" style={{ marginTop: '80px' }}>
-        <h2 className="mb-4">Customer Dashboard</h2>
+      <Navbar/>
+      <div className="container mt-5">
+        {/* Welcome Message */}
+        {currentUser && (
+          <div className="row mb-4" style={{marginTop:"100px"}}>
+            <div className="col-12">
+              <div className="card shadow-sm border-0 bg-gradient-primary text-white customer-welcome-card">
+                <div className="card-body">
+                  <h3 className="card-title mb-1">Welcome, {currentUser.full_name}!</h3>
+                  {/* <p className="mb-0">Here's your dashboard overview</p> */}
+                  {/* <div className="mt-2 d-flex flex-wrap">
+                    <span className="badge bg-light text-dark me-2 mb-1">
+                      <i className="bi bi-envelope me-1"></i>{currentUser.email_id}
+                    </span>
+                    <span className="badge bg-light text-dark me-2 mb-1">
+                      <i className="bi bi-person-circle me-1"></i>{currentUser.role}
+                    </span>
+                    {currentUser.company_name && (
+                      <span className="badge bg-light text-dark mb-1">
+                        <i className="bi bi-building me-1"></i>{currentUser.company_name}
+                      </span>
+                    )}
+                  </div> */}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <h2 className="mb-4 text-center text-primary fw-bold">Customer Dashboard</h2>
         
-        {/* Welcome Section */}
-        <Card className="mb-4 shadow-sm">
-          <Card.Body>
-            <h4>Welcome, {customerData?.full_name}!</h4>
-            <p className="text-muted">
-              Email: {customerData?.email_id} | Phone: {customerData?.phone || 'Not provided'}
-            </p>
-          </Card.Body>
-        </Card>
+        <div className="row">
+          {/* Products Card */}
+          <div className="col-md-6 col-lg-3 mb-4">
+            <div 
+              className="card dashboard-card customer-products-card shadow-sm text-center p-4 border-top border-4 border-warning clickable-card"
+              onClick={() => handleCardClick("/product-catalog")}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <i className="bi bi-box-seam-fill text-warning mb-3 dashboard-icon"></i>
+                  <h5 className="card-title fw-semibold">Products</h5>
+                  <p className="display-4 fw-bold text-warning">{productsCount}</p>
+                  <p className="text-muted">Available products</p>
+                </div>
+                <div className="mt-2">
+                  <span className="badge bg-warning text-dark">Browse Products</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        {/* Stats Section */}
-        <Row className="mb-4">
-          <Col md={4} className="mb-3">
-            <Card className="text-center shadow-sm h-100">
-              <Card.Body>
-                <Card.Title>Total Orders</Card.Title>
-                <Card.Text className="display-4 fw-bold text-primary">
-                  {totalOrders}
-                </Card.Text>
-              </Card.Body>
-            </Card>
-          </Col>
+          {/* Total Estimates Card */}
+          <div className="col-md-6 col-lg-3 mb-4">
+            <div 
+              className="card dashboard-card customer-estimates-card shadow-sm text-center p-4 border-top border-4 border-info clickable-card"
+              onClick={() => handleCardClick("/customer-estimation")}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <i className="bi bi-file-earmark-text-fill text-info mb-3 dashboard-icon"></i>
+                  <h5 className="card-title fw-semibold">My Estimates</h5>
+                  <p className="display-4 fw-bold text-info">{estimatesCount.total}</p>
+                  <p className="text-muted">All my estimates</p>
+                </div>
+                <div className="mt-2">
+                  <span className="badge bg-info">View All</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <Col md={4} className="mb-3">
-            <Card className="text-center shadow-sm h-100">
-              <Card.Body>
-                <Card.Title>Pending Orders</Card.Title>
-                <Card.Text className="display-4 fw-bold text-warning">
-                  {pendingOrders}
-                </Card.Text>
-              </Card.Body>
-            </Card>
-          </Col>
+          {/* Pending Estimates Card */}
+          <div className="col-md-6 col-lg-3 mb-4">
+            <div 
+              className="card dashboard-card customer-pending-card shadow-sm text-center p-4 border-top border-4 border-warning clickable-card"
+              onClick={() => handleCardClick("/customer-estimation")}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <i className="bi bi-clock-fill text-warning mb-3 dashboard-icon"></i>
+                  <h5 className="card-title fw-semibold">Pending</h5>
+                  <p className="display-4 fw-bold text-warning">{estimatesCount.pending}</p>
+                  <p className="text-muted">Awaiting approval</p>
+                </div>
+                <div className="mt-2">
+                  <span className="badge bg-warning text-dark">View Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <Col md={4} className="mb-3">
-            <Card className="text-center shadow-sm h-100">
-              <Card.Body>
-                <Card.Title>Account Status</Card.Title>
-                <Card.Text>
-                  <span className={`badge bg-${customerData?.status === 'approved' ? 'success' : 'warning'} p-2`}>
-                    {customerData?.status?.toUpperCase() || 'PENDING'}
-                  </span>
-                </Card.Text>
-                <small className="text-muted">
-                  {customerData?.status === 'approved' 
-                    ? 'Your account is active' 
-                    : 'Waiting for approval'}
-                </small>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+          {/* Orders Card */}
+          <div className="col-md-6 col-lg-3 mb-4">
+            <div 
+              className="card dashboard-card customer-orders-card shadow-sm text-center p-4 border-top border-4 border-primary clickable-card"
+              onClick={() => handleCardClick("/customer-estimation")}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <i className="bi bi-cart-check-fill text-primary mb-3 dashboard-icon"></i>
+                  <h5 className="card-title fw-semibold">My Orders</h5>
+                  <p className="display-4 fw-bold text-primary">{estimatesCount.order}</p>
+                  <p className="text-muted">Confirmed orders</p>
+                </div>
+                <div className="mt-2">
+                  <span className="badge bg-primary">View Orders</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {/* Quick Actions */}
-        <Card className="shadow-sm">
-          <Card.Body>
-            <Card.Title>Quick Actions</Card.Title>
-            <Row>
-              <Col md={3} className="mb-2">
-                <button 
-                  className="btn btn-outline-primary w-100"
-                  onClick={() => navigate('/products')} // Update this path
-                >
-                  Browse Products
-                </button>
-              </Col>
-              <Col md={3} className="mb-2">
-                <button 
-                  className="btn btn-outline-success w-100"
-                  onClick={() => navigate('/my-orders')} // Update this path
-                >
-                  My Orders
-                </button>
-              </Col>
-              <Col md={3} className="mb-2">
-                <button 
-                  className="btn btn-outline-info w-100"
-                  onClick={() => navigate('/profile')} // Update this path
-                >
-                  Update Profile
-                </button>
-              </Col>
-              <Col md={3} className="mb-2">
-                <button 
-                  className="btn btn-outline-secondary w-100"
-                  onClick={() => {
-                    localStorage.removeItem('user');
-                    navigate('/login');
-                  }}
-                >
-                  Logout
-                </button>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
+        {/* Estimates Breakdown Section */}
+        <div className="row mt-4">
+          <div className="col-12">
+            <h4 className="mb-4 text-center text-secondary fw-bold">My Estimates Overview</h4>
+            <div className="row">
+              {/* Pending Estimates Progress Card */}
+              <div className="col-md-6 mb-4">
+                <div className="card shadow-sm h-100 customer-pending-progress-card">
+                  <div className="card-header bg-warning text-white">
+                    <h5 className="card-title mb-0">
+                      <i className="bi bi-clock me-2"></i>Pending Estimates
+                    </h5>
+                  </div>
+                  <div className="card-body d-flex flex-column">
+                    <div className="d-flex align-items-center justify-content-between mb-3">
+                      <h2 className="fw-bold text-warning mb-0">{estimatesCount.pending}</h2>
+                      <div className="text-end">
+                        <small className="text-muted d-block">Awaiting approval</small>
+                        <small className="text-muted">
+                          {estimatesCount.total > 0 ? Math.round((estimatesCount.pending / estimatesCount.total) * 100) : 0}% of total
+                        </small>
+                      </div>
+                    </div>
+                    <div className="progress mb-3" style={{ height: "15px" }}>
+                      <div 
+                        className="progress-bar bg-warning" 
+                        role="progressbar" 
+                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.pending / estimatesCount.total * 100) : 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="mt-auto mb-0">
+                      <small className="text-muted">
+                        These estimates are currently under review by our team.
+                      </small>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Orders Progress Card */}
+              <div className="col-md-6 mb-4">
+                <div className="card shadow-sm h-100 customer-orders-progress-card">
+                  <div className="card-header bg-primary text-white">
+                    <h5 className="card-title mb-0">
+                      <i className="bi bi-cart-check me-2"></i>My Orders
+                    </h5>
+                  </div>
+                  <div className="card-body d-flex flex-column">
+                    <div className="d-flex align-items-center justify-content-between mb-3">
+                      <h2 className="fw-bold text-primary mb-0">{estimatesCount.order}</h2>
+                      <div className="text-end">
+                        <small className="text-muted d-block">Confirmed orders</small>
+                        <small className="text-muted">
+                          {estimatesCount.total > 0 ? Math.round((estimatesCount.order / estimatesCount.total) * 100) : 0}% of total
+                        </small>
+                      </div>
+                    </div>
+                    <div className="progress mb-3" style={{ height: "15px" }}>
+                      <div 
+                        className="progress-bar bg-primary" 
+                        role="progressbar" 
+                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.order / estimatesCount.total * 100) : 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="mt-auto mb-0">
+                      <small className="text-muted">
+                        These are estimates that have been converted to confirmed orders.
+                      </small>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Status Cards */}
+        <div className="row mt-4">
+          <div className="col-md-6 mb-4">
+            <div className="card shadow-sm h-100 customer-accepted-card">
+              <div className="card-header bg-success text-white">
+                <h5 className="card-title mb-0">
+                  <i className="bi bi-check-circle me-2"></i>Accepted Estimates
+                </h5>
+              </div>
+              <div className="card-body d-flex flex-column justify-content-between text-center">
+                <div>
+                  <h2 className="fw-bold text-success customer-big-count">{estimatesCount.accepted}</h2>
+                  <p className="text-muted">Approved by sales team</p>
+                </div>
+                <div className="mt-3">
+                  <small className="text-muted">
+                    Estimates approved by our sales team for your consideration.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-6 mb-4">
+            <div className="card shadow-sm h-100 customer-rejected-card">
+              <div className="card-header bg-danger text-white">
+                <h5 className="card-title mb-0">
+                  <i className="bi bi-x-circle me-2"></i>Rejected Estimates
+                </h5>
+              </div>
+              <div className="card-body d-flex flex-column justify-content-between text-center">
+                <div>
+                  <h2 className="fw-bold text-danger customer-big-count">{estimatesCount.rejected}</h2>
+                  <p className="text-muted">Declined estimates</p>
+                </div>
+                <div className="mt-3">
+                  <small className="text-muted">
+                    Estimates that were not approved by our team.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Summary */}
+        <div className="row mt-4">
+          <div className="col-12">
+            <div className="card shadow-sm customer-summary-card">
+              <div className="card-header bg-secondary text-white">
+                <h5 className="card-title mb-0">Quick Summary</h5>
+              </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-6">
+                    <ul className="list-group list-group-flush customer-summary-list">
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-box text-warning me-2"></i>
+                          Available Products
+                        </div>
+                        <span className="badge bg-warning rounded-pill">{productsCount}</span>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-file-text text-info me-2"></i>
+                          Total Estimates
+                        </div>
+                        <span className="badge bg-info rounded-pill">{estimatesCount.total}</span>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-clock text-warning me-2"></i>
+                          Pending Review
+                        </div>
+                        <span className="badge bg-warning rounded-pill">{estimatesCount.pending}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="col-md-6">
+                    <ul className="list-group list-group-flush customer-summary-list">
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-cart-check text-primary me-2"></i>
+                          My Orders
+                        </div>
+                        <span className="badge bg-primary rounded-pill">{estimatesCount.order}</span>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-check-circle text-success me-2"></i>
+                          Accepted
+                        </div>
+                        <span className="badge bg-success rounded-pill">{estimatesCount.accepted}</span>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <i className="bi bi-x-circle text-danger me-2"></i>
+                          Rejected
+                        </div>
+                        <span className="badge bg-danger rounded-pill">{estimatesCount.rejected}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
 }
 
-export default CustomerDashboard;
+export default Dashboard;
