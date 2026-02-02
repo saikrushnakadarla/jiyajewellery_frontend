@@ -134,18 +134,14 @@ function Dashboard() {
           {/* Customers Card */}
           <div className="col-md-6 col-lg-3 mb-4">
             <div 
-              className="card dashboard-card shadow-sm text-center p-4 border-top border-4 border-primary clickable-card"
+              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-primary"
               onClick={() => handleCardClick("/customers")}
               style={{ cursor: "pointer" }}
             >
-              <div className="card-body">
-                <i className="bi bi-people-fill text-primary mb-3 dashboard-icon"></i>
-                <h5 className="card-title fw-semibold">Customers</h5>
-                <p className="display-4 fw-bold text-primary">{customersCount}</p>
-                {/* <p className="text-muted">Total registered customers</p>
-                <div className="mt-2">
-                  <span className="badge bg-primary">Click to view</span>
-                </div> */}
+              <div className="card-body admin-card-body">
+                <i className="bi bi-people-fill text-primary mb-2 admin-dashboard-icon"></i>
+                <h5 className="card-title fw-semibold admin-card-title">Customers</h5>
+                <p className="display-4 fw-bold text-primary admin-card-count">{customersCount}</p>
               </div>
             </div>
           </div>
@@ -153,18 +149,14 @@ function Dashboard() {
           {/* Salespersons Card */}
           <div className="col-md-6 col-lg-3 mb-4">
             <div 
-              className="card dashboard-card shadow-sm text-center p-4 border-top border-4 border-success clickable-card"
+              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-success"
               onClick={() => handleCardClick("/salespersontable")}
               style={{ cursor: "pointer" }}
             >
-              <div className="card-body">
-                <i className="bi bi-person-badge-fill text-success mb-3 dashboard-icon"></i>
-                <h5 className="card-title fw-semibold">Salespersons</h5>
-                <p className="display-4 fw-bold text-success">{salespersonsCount}</p>
-                {/* <p className="text-muted">Active sales team</p>
-                <div className="mt-2">
-                  <span className="badge bg-success">Click to view</span>
-                </div> */}
+              <div className="card-body admin-card-body">
+                <i className="bi bi-person-badge-fill text-success mb-2 admin-dashboard-icon"></i>
+                <h5 className="card-title fw-semibold admin-card-title">Salespersons</h5>
+                <p className="display-4 fw-bold text-success admin-card-count">{salespersonsCount}</p>
               </div>
             </div>
           </div>
@@ -172,18 +164,14 @@ function Dashboard() {
           {/* Products Card */}
           <div className="col-md-6 col-lg-3 mb-4">
             <div 
-              className="card dashboard-card shadow-sm text-center p-4 border-top border-4 border-warning clickable-card"
+              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-warning"
               onClick={() => handleCardClick("/productmaster")}
               style={{ cursor: "pointer" }}
             >
-              <div className="card-body">
-                <i className="bi bi-box-seam-fill text-warning mb-3 dashboard-icon"></i>
-                <h5 className="card-title fw-semibold">Products</h5>
-                <p className="display-4 fw-bold text-warning">{productsCount}</p>
-                {/* <p className="text-muted">Available products</p>
-                <div className="mt-2">
-                  <span className="badge bg-warning text-dark">Click to view</span>
-                </div> */}
+              <div className="card-body admin-card-body">
+                <i className="bi bi-box-seam-fill text-warning mb-2 admin-dashboard-icon"></i>
+                <h5 className="card-title fw-semibold admin-card-title">Products</h5>
+                <p className="display-4 fw-bold text-warning admin-card-count">{productsCount}</p>
               </div>
             </div>
           </div>
@@ -191,18 +179,14 @@ function Dashboard() {
           {/* Total Estimates Card */}
           <div className="col-md-6 col-lg-3 mb-4">
             <div 
-              className="card dashboard-card shadow-sm text-center p-4 border-top border-4 border-info clickable-card"
+              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-info"
               onClick={() => handleCardClick("/estimation")}
               style={{ cursor: "pointer" }}
             >
-              <div className="card-body">
-                <i className="bi bi-file-earmark-text-fill text-info mb-3 dashboard-icon"></i>
-                <h5 className="card-title fw-semibold">Total Estimates</h5>
-                <p className="display-4 fw-bold text-info">{estimatesCount.total}</p>
-                {/* <p className="text-muted">All estimates created</p>
-                <div className="mt-2">
-                  <span className="badge bg-info">Click to view</span>
-                </div> */}
+              <div className="card-body admin-card-body">
+                <i className="bi bi-file-earmark-text-fill text-info mb-2 admin-dashboard-icon"></i>
+                <h5 className="card-title fw-semibold admin-card-title">Total Estimates</h5>
+                <p className="display-4 fw-bold text-info admin-card-count">{estimatesCount.total}</p>
               </div>
             </div>
           </div>
@@ -215,19 +199,19 @@ function Dashboard() {
             <div className="row">
               {/* Pending Estimates Card */}
               <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card shadow-sm text-center p-4 border-top border-4 border-warning">
-                  <div className="card-body">
-                    <i className="bi bi-clock-fill text-warning mb-3 dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold">Pending</h5>
-                    <p className="display-4 fw-bold text-warning">{estimatesCount.pending}</p>
-                    <div className="progress mt-2" style={{ height: "10px" }}>
+                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-warning">
+                  <div className="card-body admin-card-body">
+                    <i className="bi bi-clock-fill text-warning mb-2 admin-dashboard-icon"></i>
+                    <h5 className="card-title fw-semibold admin-card-title">Pending</h5>
+                    <p className="display-4 fw-bold text-warning admin-card-count">{estimatesCount.pending}</p>
+                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
                       <div 
-                        className="progress-bar bg-warning" 
+                        className="admin-progress-bar bg-warning" 
                         role="progressbar" 
                         style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.pending / estimatesCount.total * 100) : 0}%` }}
                       ></div>
                     </div>
-                    <small className="text-muted d-block mt-2">
+                    <small className="text-muted d-block mt-2 admin-card-percentage">
                       {estimatesCount.total > 0 ? Math.round((estimatesCount.pending / estimatesCount.total) * 100) : 0}% of total
                     </small>
                   </div>
@@ -236,19 +220,19 @@ function Dashboard() {
 
               {/* Accepted Estimates Card */}
               <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card shadow-sm text-center p-4 border-top border-4 border-success">
-                  <div className="card-body">
-                    <i className="bi bi-check-circle-fill text-success mb-3 dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold">Accepted</h5>
-                    <p className="display-4 fw-bold text-success">{estimatesCount.accepted}</p>
-                    <div className="progress mt-2" style={{ height: "10px" }}>
+                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-success">
+                  <div className="card-body admin-card-body">
+                    <i className="bi bi-check-circle-fill text-success mb-2 admin-dashboard-icon"></i>
+                    <h5 className="card-title fw-semibold admin-card-title">Accepted</h5>
+                    <p className="display-4 fw-bold text-success admin-card-count">{estimatesCount.accepted}</p>
+                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
                       <div 
-                        className="progress-bar bg-success" 
+                        className="admin-progress-bar bg-success" 
                         role="progressbar" 
                         style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.accepted / estimatesCount.total * 100) : 0}%` }}
                       ></div>
                     </div>
-                    <small className="text-muted d-block mt-2">
+                    <small className="text-muted d-block mt-2 admin-card-percentage">
                       {estimatesCount.total > 0 ? Math.round((estimatesCount.accepted / estimatesCount.total) * 100) : 0}% of total
                     </small>
                   </div>
@@ -257,19 +241,19 @@ function Dashboard() {
 
               {/* Order Estimates Card */}
               <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card shadow-sm text-center p-4 border-top border-4 border-primary">
-                  <div className="card-body">
-                    <i className="bi bi-cart-check-fill text-primary mb-3 dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold">Orders</h5>
-                    <p className="display-4 fw-bold text-primary">{estimatesCount.order}</p>
-                    <div className="progress mt-2" style={{ height: "10px" }}>
+                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-primary">
+                  <div className="card-body admin-card-body">
+                    <i className="bi bi-cart-check-fill text-primary mb-2 admin-dashboard-icon"></i>
+                    <h5 className="card-title fw-semibold admin-card-title">Orders</h5>
+                    <p className="display-4 fw-bold text-primary admin-card-count">{estimatesCount.order}</p>
+                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
                       <div 
-                        className="progress-bar bg-primary" 
+                        className="admin-progress-bar bg-primary" 
                         role="progressbar" 
                         style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.order / estimatesCount.total * 100) : 0}%` }}
                       ></div>
                     </div>
-                    <small className="text-muted d-block mt-2">
+                    <small className="text-muted d-block mt-2 admin-card-percentage">
                       {estimatesCount.total > 0 ? Math.round((estimatesCount.order / estimatesCount.total) * 100) : 0}% of total
                     </small>
                   </div>
@@ -278,19 +262,19 @@ function Dashboard() {
 
               {/* Rejected Estimates Card */}
               <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card shadow-sm text-center p-4 border-top border-4 border-danger">
-                  <div className="card-body">
-                    <i className="bi bi-x-circle-fill text-danger mb-3 dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold">Rejected</h5>
-                    <p className="display-4 fw-bold text-danger">{estimatesCount.rejected}</p>
-                    <div className="progress mt-2" style={{ height: "10px" }}>
+                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-danger">
+                  <div className="card-body admin-card-body">
+                    <i className="bi bi-x-circle-fill text-danger mb-2 admin-dashboard-icon"></i>
+                    <h5 className="card-title fw-semibold admin-card-title">Rejected</h5>
+                    <p className="display-4 fw-bold text-danger admin-card-count">{estimatesCount.rejected}</p>
+                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
                       <div 
-                        className="progress-bar bg-danger" 
+                        className="admin-progress-bar bg-danger" 
                         role="progressbar" 
                         style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.rejected / estimatesCount.total * 100) : 0}%` }}
                       ></div>
                     </div>
-                    <small className="text-muted d-block mt-2">
+                    <small className="text-muted d-block mt-2 admin-card-percentage">
                       {estimatesCount.total > 0 ? Math.round((estimatesCount.rejected / estimatesCount.total) * 100) : 0}% of total
                     </small>
                   </div>
@@ -303,16 +287,16 @@ function Dashboard() {
         {/* Summary Section */}
         <div className="row mt-4">
           <div className="col-12">
-            <div className="card shadow-sm">
+            <div className="card shadow-sm admin-summary-card">
               <div className="card-header bg-gradient-primary text-white">
                 <h5 className="card-title mb-0">Quick Summary</h5>
               </div>
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-4 mb-3">
-                    <div className="summary-card p-3 bg-light rounded">
+                    <div className="admin-summary-item p-3 bg-light rounded">
                       <h6 className="text-muted">Total Users</h6>
-                      <h3 className="fw-bold text-primary">{customersCount + salespersonsCount}</h3>
+                      <h3 className="fw-bold text-primary admin-summary-count">{customersCount + salespersonsCount}</h3>
                       <div className="d-flex justify-content-between mt-2">
                         <small className="text-muted">Customers: {customersCount}</small>
                         <small className="text-muted">Salespersons: {salespersonsCount}</small>
@@ -320,9 +304,9 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="col-md-4 mb-3">
-                    <div className="summary-card p-3 bg-light rounded">
+                    <div className="admin-summary-item p-3 bg-light rounded">
                       <h6 className="text-muted">Products & Estimates</h6>
-                      <h3 className="fw-bold text-warning">{productsCount + estimatesCount.total}</h3>
+                      <h3 className="fw-bold text-warning admin-summary-count">{productsCount + estimatesCount.total}</h3>
                       <div className="d-flex justify-content-between mt-2">
                         <small className="text-muted">Products: {productsCount}</small>
                         <small className="text-muted">Estimates: {estimatesCount.total}</small>
@@ -330,9 +314,9 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="col-md-4 mb-3">
-                    <div className="summary-card p-3 bg-light rounded">
+                    <div className="admin-summary-item p-3 bg-light rounded">
                       <h6 className="text-muted">Conversion Rate</h6>
-                      <h3 className="fw-bold text-success">
+                      <h3 className="fw-bold text-success admin-summary-count">
                         {estimatesCount.total > 0 ? 
                           Math.round(((estimatesCount.accepted + estimatesCount.order) / estimatesCount.total) * 100) : 0}%
                       </h3>
