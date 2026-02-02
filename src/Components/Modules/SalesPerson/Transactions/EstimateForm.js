@@ -122,7 +122,7 @@ const EstimateForm = () => {
         if (!response.ok) {
           throw new Error('Failed to fetch products');
         }
-        const result = await response.json();
+        const result = await response.json();    
         setAllProducts(result);
 
         // Create product name options
