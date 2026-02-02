@@ -1,127 +1,117 @@
-/* Dashboard.css */
-.dashboard-card {
+/* Dashboard.css - Admin specific styles */
+
+/* Main dashboard cards */
+.admin-dashboard-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  min-height: 120px;
+  height: 140px; /* Reduced height */
+  min-height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
+  margin-bottom: 1rem;
 }
 
-.dashboard-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important;
+.admin-estimate-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 150px; /* Reduced height */
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px !important;
+  margin-bottom: 1rem;
 }
 
-.dashboard-card .card-body {
+.admin-dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.12) !important;
+}
+
+.admin-estimate-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
+}
+
+.admin-card-body {
   width: 100%;
-  padding: 1.5rem !important;
+  padding: 0.5rem !important; /* Reduced padding */
 }
 
-.clickable-card {
+.admin-clickable-card {
   transition: all 0.3s ease;
 }
 
-.clickable-card:hover {
+.admin-clickable-card:hover {
   cursor: pointer;
   transform: scale(1.02);
 }
 
-.clickable-card:active {
+.admin-clickable-card:active {
   transform: scale(0.98);
 }
 
-.dashboard-icon {
-  font-size: 2.8rem !important;
+.admin-dashboard-icon {
+  font-size: 2rem !important; /* Reduced icon size */
 }
 
-.summary-card {
+.admin-card-title {
+  font-size: 0.9rem; /* Smaller title */
+  margin-bottom: 0.5rem;
+}
+
+.admin-card-count {
+  font-size: 2.2rem !important; /* Smaller count number */
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.admin-card-percentage {
+  font-size: 0.8rem;
+}
+
+/* Progress bars */
+.admin-progress-bar {
+  transition: width 1s ease-in-out;
+  border-radius: 4px;
+}
+
+.admin-progress {
+  border-radius: 4px;
+  background-color: #f0f0f0;
+}
+
+/* Summary section */
+.admin-summary-card {
+  border-radius: 10px !important;
+}
+
+.admin-summary-item {
   transition: transform 0.2s ease;
-  min-height: 130px;
+  height: 120px; /* Reduced height */
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  border-radius: 8px;
 }
 
-.summary-card:hover {
+.admin-summary-item:hover {
   transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+  box-shadow: 0 5px 12px rgba(0,0,0,0.08);
+}
+
+.admin-summary-count {
+  font-size: 1.8rem; /* Smaller summary count */
+  margin: 0.5rem 0;
 }
 
 .bg-gradient-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
 }
 
-/* Progress bar animation */
-.progress-bar {
-  transition: width 1s ease-in-out;
-  border-radius: 5px;
-}
-
-.progress {
-  border-radius: 5px;
-  background-color: #f0f0f0;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .display-4 {
-    font-size: 2.2rem;
-  }
-  
-  .dashboard-card {
-    min-height: 200px;
-  }
-  
-  .dashboard-icon {
-    font-size: 2.2rem !important;
-  }
-  
-  .card-body {
-    padding: 1rem !important;
-  }
-}
-
-@media (max-width: 576px) {
-  .display-4 {
-    font-size: 1.8rem;
-  }
-  
-  .dashboard-card {
-    min-height: 180px;
-  }
-  
-  h5.card-title {
-    font-size: 1rem;
-  }
-  
-  .text-muted {
-    font-size: 0.85rem;
-  }
-}
-
-/* Card hover effects for all cards */
-.card {
-  transition: box-shadow 0.3s ease;
-}
-
-.card:hover {
-  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
-}
-
-/* Badge styling */
-.badge {
-  padding: 0.4em 0.8em;
-  font-size: 0.85em;
-  transition: all 0.3s ease;
-}
-
-.clickable-card:hover .badge {
-  transform: scale(1.05);
-}
-
 /* Animation for counts */
-@keyframes countUp {
+@keyframes adminCountUp {
   from {
     opacity: 0;
     transform: translateY(10px);
@@ -132,6 +122,84 @@
   }
 }
 
-.display-4 {
-  animation: countUp 0.8s ease-out;
+.admin-card-count {
+  animation: adminCountUp 0.8s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-dashboard-card,
+  .admin-estimate-card {
+    height: 130px;
+    min-height: 130px;
+  }
+  
+  .admin-dashboard-icon {
+    font-size: 1.8rem !important;
+  }
+  
+  .admin-card-count {
+    font-size: 1.8rem !important;
+  }
+  
+  .admin-card-body {
+    padding: 0.5rem !important;
+  }
+  
+  .admin-summary-item {
+    height: 110px;
+    min-height: 110px;
+  }
+  
+  .admin-summary-count {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .admin-dashboard-card,
+  .admin-estimate-card {
+    height: 120px;
+    min-height: 120px;
+  }
+  
+  .admin-card-count {
+    font-size: 1.6rem !important;
+  }
+  
+  .admin-card-title {
+    font-size: 0.85rem;
+  }
+  
+  .admin-dashboard-icon {
+    font-size: 1.6rem !important;
+  }
+  
+  .admin-summary-item {
+    height: 100px;
+    min-height: 100px;
+  }
+  
+  .admin-summary-count {
+    font-size: 1.4rem;
+  }
+}
+
+/* Card spacing adjustments */
+.row {
+  margin-left: -8px;
+  margin-right: -8px;
+}
+
+.col-md-6, .col-lg-3 {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.mb-4 {
+  margin-bottom: 1.2rem !important;
+}
+
+.mt-4 {
+  margin-top: 1.5rem !important;
 }
