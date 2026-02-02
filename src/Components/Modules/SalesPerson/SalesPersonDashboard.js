@@ -141,7 +141,7 @@ function SalesPersonDashboard() {
         {/* Welcome Section */}
         {currentUser && (
           <div className="row mb-4">
-            <div className="col-12" style={{marginTop: "100px"}}>
+            <div className="col-12" style={{marginTop: "-37px"}}>
               <div className="card shadow-sm border-0 bg-gradient-sales text-white sales-welcome-card">
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-center">
@@ -192,7 +192,7 @@ function SalesPersonDashboard() {
                   <i className="bi bi-currency-rupee text-primary mb-3 sales-dashboard-icon"></i>
                   <h5 className="card-title fw-semibold">Total Sales</h5>
                   <p className="display-4 fw-bold text-primary">₹{stats.totalSales.toLocaleString()}</p>
-                  <p className="text-muted">Monthly revenue</p>
+                
                 </div>
                 {/* <div className="mt-2">
                   <span className="badge bg-primary">View Report</span>
@@ -216,9 +216,9 @@ function SalesPersonDashboard() {
                       style={{ width: `${calculateProgress()}%` }}
                     ></div>
                   </div>
-                  <small className="text-muted d-block mt-2">
+                  {/* <small className="text-muted d-block mt-2">
                     {calculateProgress().toFixed(1)}% achieved
-                  </small>
+                  </small> */}
                 </div>
                 {/* <div className="mt-2">
                   <small className="text-muted">Target: ₹{monthlyTarget.toLocaleString()}</small>
@@ -239,7 +239,7 @@ function SalesPersonDashboard() {
                   <i className="bi bi-people-fill text-info mb-3 sales-dashboard-icon"></i>
                   <h5 className="card-title fw-semibold">Customers</h5>
                   <p className="display-4 fw-bold text-info">{stats.totalCustomers}</p>
-                  <p className="text-muted">Assigned customers</p>
+                  {/* <p className="text-muted">Assigned customers</p> */}
                 </div>
                 {/* <div className="mt-2">
                   <span className="badge bg-info">Manage</span>
@@ -260,7 +260,7 @@ function SalesPersonDashboard() {
                   <i className="bi bi-file-earmark-text-fill text-warning mb-3 sales-dashboard-icon"></i>
                   <h5 className="card-title fw-semibold">Estimates</h5>
                   <p className="display-4 fw-bold text-warning">{stats.totalEstimates}</p>
-                  <p className="text-muted">Total created</p>
+                  {/* <p className="text-muted">Total created</p> */}
                 </div>
                 {/* <div className="mt-2">
                   <span className="badge bg-warning text-dark">View All</span>
@@ -272,8 +272,7 @@ function SalesPersonDashboard() {
 
         {/* Estimates Breakdown - Updated to match image */}
 
-        {/* Estimates Breakdown with Compact Layout */}
-        {/* <div className="row mt-4">
+       <div className="row mt-4">
           <div className="col-md-6 mb-4">
             <div className="card shadow-sm h-100 sales-estimate-breakdown-card">
               <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
@@ -423,7 +422,7 @@ function SalesPersonDashboard() {
               </div>
             </div>
           </div>
-        </div> */}
+        </div> 
 
 
         {/* Recent Customers */}

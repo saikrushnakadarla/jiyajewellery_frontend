@@ -25,6 +25,7 @@ const ProductCatalog = () => {
   useEffect(() => {
     fetchProducts()
     loadUserData()
+      fetchCartCount(); // Add this line
   }, [])
 
   const loadUserData = () => {
@@ -40,6 +41,27 @@ const ProductCatalog = () => {
       console.error('Error loading user data:', error)
     }
   }
+
+
+
+const fetchCartCount = async () => {
+  try {
+    const userString = localStorage.getItem('user');
+    if (userString) {
+      const user = JSON.parse(userString);
+      const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          localStorage.setItem('cartCount', data.summary.total_quantity.toString());
+          window.dispatchEvent(new Event('cartCountChanged'));
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching cart count:', error);
+  }
+};
 
   const fetchProducts = async () => {
     try {
@@ -80,49 +102,56 @@ const ProductCatalog = () => {
 
   // Add to cart function
   const handleAddToCart = async (productId) => {
-    if (!userData) {
-      alert('Please login to add items to cart')
-      return
-    }
-
-    setIsAddingToCart(prev => ({ ...prev, [productId]: true }))
-
-    try {
-      const response = await fetch('http://localhost:5000/api/cart/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userData.id,
-          product_id: productId,
-          quantity: 1
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        // Show success feedback
-        setAddedToCart(prev => ({ ...prev, [productId]: true }))
-        
-        // Reset success indicator after 2 seconds
-        setTimeout(() => {
-          setAddedToCart(prev => ({ ...prev, [productId]: false }))
-        }, 2000)
-        
-        // Optional: Show notification
-        alert('Product added to cart successfully!')
-      } else {
-        alert(data.message || 'Failed to add to cart')
-      }
-    } catch (error) {
-      console.error('Error adding to cart:', error)
-      alert('Error adding product to cart. Please try again.')
-    } finally {
-      setIsAddingToCart(prev => ({ ...prev, [productId]: false }))
-    }
+  if (!userData) {
+    alert('Please login to add items to cart');
+    return;
   }
+
+  setIsAddingToCart(prev => ({ ...prev, [productId]: true }));
+
+  try {
+    const response = await fetch('http://localhost:5000/api/cart/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userData.id,
+        product_id: productId,
+        quantity: 1
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // Show success feedback
+      setAddedToCart(prev => ({ ...prev, [productId]: true }));
+      
+      // Update cart count in localStorage
+      const currentCount = parseInt(localStorage.getItem('cartCount') || '0');
+      localStorage.setItem('cartCount', (currentCount + 1).toString());
+      
+      // Dispatch event to update navbar
+      window.dispatchEvent(new Event('cartCountChanged'));
+      
+      // Reset success indicator after 2 seconds
+      setTimeout(() => {
+        setAddedToCart(prev => ({ ...prev, [productId]: false }));
+      }, 2000);
+      
+      // Optional: Show notification
+      alert('Product added to cart successfully!');
+    } else {
+      alert(data.message || 'Failed to add to cart');
+    }
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    alert('Error adding product to cart. Please try again.');
+  } finally {
+    setIsAddingToCart(prev => ({ ...prev, [productId]: false }));
+  }
+};
 
   // NEW: Handle Order Now button click
  // NEW: Handle Order Now button click

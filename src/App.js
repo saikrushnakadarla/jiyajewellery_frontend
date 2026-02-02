@@ -30,6 +30,7 @@ import SalesPersonEstimateTable from './Components/Modules/SalesPerson/Transacti
 import SalesPersonEstimateForm from './Components/Modules/SalesPerson/Transactions/EstimateForm';
 
 import RatesForm from './Components/Modules/Admin/Masters/RatesMaster/RatesForm';
+import CartCatalog from './Components/Modules/Customer/CartCatalog/CartCatalog';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -66,6 +67,7 @@ function App() {
         <Route path='/customer-estimation' element={<CustomerEstimateTable />} />
         <Route path='/customer-estimates' element={<CustomerEstimateForm />} />
         <Route path='/product-catalog' element={<ProductCatalog />} />
+        <Route path='/cart-catalog' element={<CartCatalog />} />
 
         <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
         <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />

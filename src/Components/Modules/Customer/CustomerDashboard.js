@@ -152,90 +152,78 @@ function Dashboard() {
         <h2 className="mb-4 text-center text-primary fw-bold customer-dashboard-title">Customer Dashboard</h2>
         
         <div className="row">
-          {/* Products Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-warning"
-              onClick={() => handleCardClick("/product-catalog")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body customer-card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-box-seam-fill text-warning mb-2 customer-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold customer-card-title">Products</h5>
-                  <p className="customer-card-count fw-bold text-warning">{productsCount}</p>
-                  {/* <p className="text-muted customer-card-subtitle">Available products</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-warning text-dark customer-badge">Browse Products</span>
-                </div> */}
-              </div>
-            </div>
-          </div>
-
-          {/* Total Estimates Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-info"
-              onClick={() => handleCardClick("/customer-estimation")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body customer-card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-file-earmark-text-fill text-info mb-2 customer-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold customer-card-title">My Estimates</h5>
-                  <p className="customer-card-count fw-bold text-info">{estimatesCount.total}</p>
-                  {/* <p className="text-muted customer-card-subtitle">All my estimates</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-info customer-badge">View All</span>
-                </div> */}
-              </div>
-            </div>
-          </div>
-
-          {/* Pending Estimates Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-warning"
-              onClick={() => handleCardClick("/customer-estimation")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body customer-card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-clock-fill text-warning mb-2 customer-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold customer-card-title">Pending</h5>
-                  <p className="customer-card-count fw-bold text-warning">{estimatesCount.pending}</p>
-                  {/* <p className="text-muted customer-card-subtitle">Awaiting approval</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-warning text-dark customer-badge">View Pending</span>
-                </div> */}
-              </div>
-            </div>
-          </div>
-
-          {/* Orders Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-primary"
-              onClick={() => handleCardClick("/customer-estimation")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body customer-card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-cart-check-fill text-primary mb-2 customer-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold customer-card-title">My Orders</h5>
-                  <p className="customer-card-count fw-bold text-primary">{estimatesCount.order}</p>
-                  {/* <p className="text-muted customer-card-subtitle">Confirmed orders</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-primary customer-badge">View Orders</span>
-                </div> */}
-              </div>
-            </div>
-          </div>
+  {/* Total Estimates Card */}
+  <div className="col-md-6 col-lg-3 mb-4">
+    <div 
+      className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-info"
+      onClick={() => handleCardClick("/customer-estimation")}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="card-body customer-card-body d-flex flex-column justify-content-between">
+        <div>
+          <i className="bi bi-file-earmark-text-fill text-info mb-2 customer-dashboard-icon"></i>
+          <h5 className="card-title fw-semibold customer-card-title">My Estimates</h5>
+          <p className="admin-card-count fw-bold text-info">{estimatesCount.total}</p>
+          {/* <p className="text-muted customer-card-subtitle">All my estimates</p> */}
         </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Pending Estimates Card */}
+  <div className="col-md-6 col-lg-3 mb-4">
+    <div 
+      className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-warning"
+      onClick={() => handleCardClick("/customer-estimation")}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="card-body customer-card-body d-flex flex-column justify-content-between">
+        <div>
+          <i className="bi bi-clock-fill text-warning mb-2 customer-dashboard-icon"></i>
+          <h5 className="card-title fw-semibold customer-card-title">Pending</h5>
+          <p className="admin-card-count fw-bold text-warning">{estimatesCount.pending}</p>
+          {/* <p className="text-muted customer-card-subtitle">Awaiting approval</p> */}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Rejected Estimates Card */}
+  <div className="col-md-6 col-lg-3 mb-4">
+    <div 
+      className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-danger"
+      onClick={() => handleCardClick("/customer-estimation")}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="card-body customer-card-body d-flex flex-column justify-content-between">
+        <div>
+          <i className="bi bi-x-circle-fill text-danger mb-2 customer-dashboard-icon"></i>
+          <h5 className="card-title fw-semibold customer-card-title">Rejected</h5>
+          <p className="admin-card-count fw-bold text-danger">{estimatesCount.rejected || 0}</p>
+          {/* <p className="text-muted customer-card-subtitle">Declined estimates</p> */}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Orders Card */}
+  <div className="col-md-6 col-lg-3 mb-4">
+    <div 
+      className="card customer-dashboard-card customer-clickable-card shadow-sm text-center p-3 border-top border-4 border-success"
+      onClick={() => handleCardClick("/customer-estimation")}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="card-body customer-card-body d-flex flex-column justify-content-between">
+        <div>
+          <i className="bi bi-cart-check-fill text-success mb-2 customer-dashboard-icon"></i>
+          <h5 className="card-title fw-semibold customer-card-title">My Orders</h5>
+          <p className="admin-card-count fw-bold text-success">{estimatesCount.order}</p>
+          {/* <p className="text-muted customer-card-subtitle">Confirmed orders</p> */}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
         {/* Estimates Breakdown Section */}
         <div className="row mt-4">
@@ -252,7 +240,7 @@ function Dashboard() {
                   </div>
                   <div className="card-body customer-card-body d-flex flex-column">
                     <div className="d-flex align-items-center justify-content-between mb-3">
-                      <h2 className="fw-bold text-warning mb-0 customer-card-count">{estimatesCount.pending}</h2>
+                      <h2 className="fw-bold text-warning mb-0 admin-card-count">{estimatesCount.pending}</h2>
                       <div className="text-end">
                         <small className="text-muted d-block">Awaiting approval</small>
                         <small className="text-muted customer-card-percentage">
@@ -286,7 +274,7 @@ function Dashboard() {
                   </div>
                   <div className="card-body customer-card-body d-flex flex-column">
                     <div className="d-flex align-items-center justify-content-between mb-3">
-                      <h2 className="fw-bold text-primary mb-0 customer-card-count">{estimatesCount.order}</h2>
+                      <h2 className="fw-bold text-primary mb-0 admin-card-count">{estimatesCount.order}</h2>
                       <div className="text-end">
                         <small className="text-muted d-block">Confirmed orders</small>
                         <small className="text-muted customer-card-percentage">

@@ -251,3 +251,46 @@
         font-size: 18px;
     }
 }
+
+.navbar-cart-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 11px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: rgba(163, 110, 41, 0.12);
+}
+
+.navbar-cart-icon {
+    font-size: 22px;
+    color: #a36e29; /* GOLD */
+}
+
+.navbar-cart-container:hover .navbar-cart-icon {
+    color: #864c1a;
+    transform: scale(1.08);
+}
+
+.cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #dc3545;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.navbar-right-section {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}

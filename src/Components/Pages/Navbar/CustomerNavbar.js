@@ -1,149 +1,108 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
-import { FaSignOutAlt } from "react-icons/fa";
-import logo from '../images/jiya_logo.png'; // Uncomment when you have the logo
-import './Navbar.css';
+import { FaShoppingCart, FaChevronDown, FaChevronUp, FaSignOutAlt } from 'react-icons/fa';
+import logo from '../images/jiya_logo.png';
+import './CustomerNavbar.css';
 import Swal from 'sweetalert2';
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [mastersDropdownOpen, setMastersDropdownOpen] = useState(false);
   const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
+  useEffect(() => {
+    const count = parseInt(localStorage.getItem('cartCount') || '0');
+    setCartCount(count);
 
-  const toggleDropdown = () => {
-    setMastersDropdownOpen(!mastersDropdownOpen);
-  };
+    const handleCartCountChange = () => {
+      const newCount = parseInt(localStorage.getItem('cartCount') || '0');
+      setCartCount(newCount);
+    };
 
-  const toggletransactionDropdown = () => {
-    setTransactionsDropdownOpen(!transactionsDropdownOpen);
-  };
-
-  const togglereportsDropdown = () => {
-    setReportsDropdownOpen(!reportsDropdownOpen);
-  };
-
-  const handleItemClick = () => {
-    setMastersDropdownOpen(false);
-    setIsOpen(false);
-  };
+    window.addEventListener('cartCountChanged', handleCartCountChange);
+    return () => window.removeEventListener('cartCountChanged', handleCartCountChange);
+  }, []);
 
   const handleLogout = () => {
     Swal.fire({
       title: 'Are you sure?',
-      text: "Do you really want to log out?",
+      text: 'Do you really want to log out?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
       confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem('cartCount');
         navigate('/');
       }
     });
   };
 
-  const isActive = (path) => {
-    return location.pathname === path ? 'active' : '';
-  };
-
   return (
     <header className="navbar-header">
-      {/* Logo on the left side */}
+      {/* Logo */}
       <div className="navbar-brand">
-        {/* Uncomment the line below when you have the logo file */}
         <img src={logo} alt="Logo" className="navbar-logo" />
-        {/* <div className="navbar-logo-placeholder">Company Logo</div> */}
       </div>
 
-      <div
-        className={`navbar-hamburger ${isOpen ? 'open' : ''}`}
-        onClick={toggleMenu}
-      >
-        <div className="navbar-bar"></div>
-        <div className="navbar-bar"></div>
-        <div className="navbar-bar"></div>
-      </div>
-
-      {/* Centered nav links */}
+      {/* Center Menu */}
       <nav className={`navbar-links ${isOpen ? 'open' : ''}`}>
-        <div>
-          <span>
-            <Link
-              to="/customer-dashboard"
-              onClick={handleItemClick}
-              className={isActive('/dashboard')}
-              style={{
-                color: window.location.pathname === '/dashboard' ? '#a36e29' : 'black',
-                backgroundColor: 'transparent',
-                textDecoration: 'none',
-              }}
-            >
-              DASHBOARD
-            </Link>
-          </span>
-        </div>
+        <Link
+          to="/customer-dashboard"
+          className={location.pathname === '/customer-dashboard' ? 'active' : ''}
+        >
+          DASHBOARD
+        </Link>
 
         <div
           className="navbar-dropdown"
-          onMouseEnter={toggletransactionDropdown}
-          onMouseLeave={toggletransactionDropdown}
+          onMouseEnter={() => setTransactionsDropdownOpen(true)}
+          onMouseLeave={() => setTransactionsDropdownOpen(false)}
         >
           <span className="navbar-dropdown-title">
-            TRANSACTIONS{' '}
-            <FontAwesomeIcon
-              icon={transactionsDropdownOpen ? faChevronUp : faChevronDown}
-              className="dropdown-arrow-icon"
-            />
+            TRANSACTIONS
+            {transactionsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
           </span>
+
           {transactionsDropdownOpen && (
             <div className="navbar-dropdown-content">
-              <Link to="/customer-estimation" onClick={handleItemClick} className={isActive('/customer-estimation')}>
-                Estimation
-              </Link>
-              {/* Add Product Catalog here */}
-              <Link to="/product-catalog" onClick={handleItemClick} className={isActive('/product-catalog')}>
-                Product Catalog
-              </Link>
+              <Link to="/customer-estimation">Estimation</Link>
+              <Link to="/product-catalog">Product Catalog</Link>
             </div>
           )}
         </div>
 
         <div
           className="navbar-dropdown"
-          onMouseEnter={togglereportsDropdown}
-          onMouseLeave={togglereportsDropdown}
+          onMouseEnter={() => setReportsDropdownOpen(true)}
+          onMouseLeave={() => setReportsDropdownOpen(false)}
         >
           <span className="navbar-dropdown-title">
-            REPORTS{' '}
-            <FontAwesomeIcon
-              icon={reportsDropdownOpen ? faChevronUp : faChevronDown}
-              className="dropdown-arrow-icon"
-            />
+            REPORTS
+            {reportsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
           </span>
-          {/* {reportsDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
-                Sales Reports
-              </Link>
-            </div>
-          )} */}
         </div>
       </nav>
 
-      <div className="navbar-logout">
+      {/* Right Section */}
+      <div className="navbar-right-section">
+        {/* CART */}
+        <div
+          className="navbar-cart-container"
+          onClick={() => navigate('/cart-catalog')}
+        >
+          <FaShoppingCart className="navbar-cart-icon" />
+          {cartCount > 0 && (
+            <span className="cart-badge">{cartCount > 99 ? '99+' : cartCount}</span>
+          )}
+        </div>
+
+        {/* LOGOUT */}
         <button className="logout-button" onClick={handleLogout}>
-          <FaSignOutAlt size={18} /> Logout
+          <FaSignOutAlt size={16} /> Logout
         </button>
       </div>
     </header>
