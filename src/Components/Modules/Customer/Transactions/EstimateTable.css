@@ -148,7 +148,7 @@
 
 /* Loading Spinner */
 .text-center {
-    min-height: 300px;
+    min-height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
