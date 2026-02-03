@@ -929,7 +929,7 @@ const EstimateForm = () => {
       });
       setCurrentProductImages([]);
 
-      navigate("/estimation");
+      navigate("/salesperson-estimation");
     } catch (error) {
       console.error("Error in handlePrint:", error);
       console.error("Error details:", error.response?.data || error.message);
