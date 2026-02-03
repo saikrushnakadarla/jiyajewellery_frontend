@@ -283,28 +283,28 @@ const EstimateForm = () => {
   }, []);
 
   // Fetch tags data
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        const response = await fetch(`${baseURL}/get/opening-tags-entry`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch tags");
-        }
-        const result = await response.json();
-        setTagsData(result.result || []);
-      } catch (error) {
-        console.error("Error fetching tags:", error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchTags = async () => {
+  //     try {
+  //       const response = await fetch(`${baseURL}/get/opening-tags-entry`);
+  //       if (!response.ok) {
+  //         throw new Error("Failed to fetch tags");
+  //       }
+  //       const result = await response.json();
+  //       setTagsData(result.result || []);
+  //     } catch (error) {
+  //       console.error("Error fetching tags:", error);
+  //     }
+  //   };
 
-    fetchTags();
-  }, []);
+  //   fetchTags();
+  // }, []);
 
   // Fetch current rates
   useEffect(() => {
     const fetchCurrentRates = async () => {
       try {
-        const response = await axios.get(`${baseURL}/get/current-rates`);
+        const response = await axios.get(`${baseURL}/rates/current`);
         setRates({
           rate_24crt: response.data.rate_24crt || "",
           rate_22crt: response.data.rate_22crt || "",

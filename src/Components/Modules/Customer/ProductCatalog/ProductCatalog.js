@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import CustomerNavbar from "../../../Pages/Navbar/CustomerNavbar"
 import './ProductCatalog.css'
-import { FaChevronLeft, FaChevronRight, FaTimes, FaShoppingCart, FaCheck } from 'react-icons/fa'
+import { FaChevronLeft, FaChevronRight, FaTimes, FaShoppingCart, FaCheck, FaSpinner } from 'react-icons/fa'
 import { useNavigate } from 'react-router-dom'
 
 const ProductCatalog = () => {
@@ -17,23 +17,27 @@ const ProductCatalog = () => {
   
   // Cart state
   const [isAddingToCart, setIsAddingToCart] = useState({})
-  const [addedToCart, setAddedToCart] = useState({})
+  const [inCartProducts, setInCartProducts] = useState({}) // Track which products are in cart
   const [userData, setUserData] = useState(null)
+  const [checkingCartStatus, setCheckingCartStatus] = useState(false)
   
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchProducts()
     loadUserData()
-      fetchCartCount(); // Add this line
   }, [])
 
-  const loadUserData = () => {
+  // Load user data and check cart status
+  const loadUserData = async () => {
     try {
       const userString = localStorage.getItem('user')
       if (userString) {
         const user = JSON.parse(userString)
         setUserData(user)
+        
+        // After setting user data, check cart status
+        await checkCartStatus(user.id)
       } else {
         console.warn('No user data found in localStorage')
       }
@@ -42,26 +46,66 @@ const ProductCatalog = () => {
     }
   }
 
-
-
-const fetchCartCount = async () => {
-  try {
-    const userString = localStorage.getItem('user');
-    if (userString) {
-      const user = JSON.parse(userString);
-      const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`);
+  // Check cart status for all products
+  const checkCartStatus = async (userId) => {
+    if (!userId) return
+    
+    setCheckingCartStatus(true)
+    try {
+      // First, fetch current cart items
+      const response = await fetch(`http://localhost:5000/api/cart/user/${userId}`)
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json()
         if (data.success) {
-          localStorage.setItem('cartCount', data.summary.total_quantity.toString());
-          window.dispatchEvent(new Event('cartCountChanged'));
+          // Create a map of product IDs that are in cart
+          const inCartMap = {}
+          data.cart_items.forEach(item => {
+            inCartMap[item.product_id] = true
+          })
+          setInCartProducts(inCartMap)
         }
       }
+    } catch (error) {
+      console.error('Error checking cart status:', error)
+    } finally {
+      setCheckingCartStatus(false)
     }
-  } catch (error) {
-    console.error('Error fetching cart count:', error);
   }
-};
+
+  // Check if a specific product is in cart
+  const checkProductInCart = async (productId) => {
+    if (!userData) return false
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/cart/check/${userData.id}/${productId}`)
+      if (response.ok) {
+        const data = await response.json()
+        return data.success && data.inCart
+      }
+    } catch (error) {
+      console.error('Error checking product in cart:', error)
+    }
+    return false
+  }
+
+  const fetchCartCount = async () => {
+    try {
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            localStorage.setItem('cartCount', data.summary.total_quantity.toString())
+            window.dispatchEvent(new Event('cartCountChanged'))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching cart count:', error)
+    }
+  }
 
   const fetchProducts = async () => {
     try {
@@ -102,95 +146,95 @@ const fetchCartCount = async () => {
 
   // Add to cart function
   const handleAddToCart = async (productId) => {
-  if (!userData) {
-    alert('Please login to add items to cart');
-    return;
-  }
-
-  setIsAddingToCart(prev => ({ ...prev, [productId]: true }));
-
-  try {
-    const response = await fetch('http://localhost:5000/api/cart/add', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_id: userData.id,
-        product_id: productId,
-        quantity: 1
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      // Show success feedback
-      setAddedToCart(prev => ({ ...prev, [productId]: true }));
-      
-      // Update cart count in localStorage
-      const currentCount = parseInt(localStorage.getItem('cartCount') || '0');
-      localStorage.setItem('cartCount', (currentCount + 1).toString());
-      
-      // Dispatch event to update navbar
-      window.dispatchEvent(new Event('cartCountChanged'));
-      
-      // Reset success indicator after 2 seconds
-      setTimeout(() => {
-        setAddedToCart(prev => ({ ...prev, [productId]: false }));
-      }, 2000);
-      
-      // Optional: Show notification
-      alert('Product added to cart successfully!');
-    } else {
-      alert(data.message || 'Failed to add to cart');
+    if (!userData) {
+      alert('Please login to add items to cart')
+      return
     }
-  } catch (error) {
-    console.error('Error adding to cart:', error);
-    alert('Error adding product to cart. Please try again.');
-  } finally {
-    setIsAddingToCart(prev => ({ ...prev, [productId]: false }));
-  }
-};
 
-  // NEW: Handle Order Now button click
- // NEW: Handle Order Now button click
-const handleOrderNow = (product) => {
-  if (!userData) {
-    alert('Please login to place an order')
-    return
-  }
-  
-  // Check if user is a customer
-  if (userData.role !== 'Customer') {
-    alert('Only customers can place orders')
-    return
-  }
-  
-  // Store the selected product in localStorage to pass to estimate form
-  const orderData = {
-    product_id: product.product_id,
-    product_name: product.product_name,
-    barcode: product.barcode,
-    metal_type: product.metal_type,
-    design_name: product.design,
-    purity: product.purity,
-    gross_weight: product.gross_wt,
-    stone_weight: product.stone_wt,
-    stone_price: product.stone_price,
-    making_charges: product.making_charges,
-    tax_percent: product.tax_percent,
-    tax_amt: product.tax_amt,
-    total_price: product.total_price,
-    images: product.images || []
-  }
-  
-  localStorage.setItem('quickOrderProduct', JSON.stringify(orderData))
-  
-  // Navigate to customer estimates page - FIXED PATH
-  navigate('/customer-estimates')
-}
+    // Check if already in cart
+    if (inCartProducts[productId]) {
+      alert('This product is already in your cart')
+      return
+    }
 
+    setIsAddingToCart(prev => ({ ...prev, [productId]: true }))
+
+    try {
+      const response = await fetch('http://localhost:5000/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userData.id,
+          product_id: productId,
+          quantity: 1
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update local state to mark product as in cart
+        setInCartProducts(prev => ({
+          ...prev,
+          [productId]: true
+        }))
+        
+        // Update cart count
+        await fetchCartCount()
+        
+        // Show success message
+        alert('Product added to cart successfully!')
+      } else {
+        alert(data.message || 'Failed to add to cart')
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      alert('Error adding product to cart. Please try again.')
+    } finally {
+      setIsAddingToCart(prev => ({ ...prev, [productId]: false }))
+    }
+  }
+
+  // Handle Order Now button click
+  const handleOrderNow = (product) => {
+    if (!userData) {
+      alert('Please login to place an order')
+      return
+    }
+    
+    // Check if user is a customer
+    if (userData.role !== 'Customer') {
+      alert('Only customers can place orders')
+      return
+    }
+    
+    // Store the selected product in localStorage to pass to estimate form
+    const orderData = {
+      product_id: product.product_id,
+      product_name: product.product_name,
+      barcode: product.barcode,
+      metal_type: product.metal_type,
+      design_name: product.design,
+      purity: product.purity,
+      gross_weight: product.gross_wt,
+      stone_weight: product.stone_wt,
+      stone_price: product.stone_price,
+      making_charges: product.making_charges,
+      tax_percent: product.tax_percent,
+      tax_amt: product.tax_amt,
+      total_price: product.total_price,
+      images: product.images || []
+    }
+    
+    localStorage.setItem('quickOrderProduct', JSON.stringify(orderData))
+    
+    // Navigate to customer estimates page
+    navigate('/customer-estimates')
+  }
+
+  // Rest of your existing functions remain the same...
   const nextImage = (productId, e) => {
     e?.stopPropagation()
     const product = products.find(p => p.product_id === productId)
@@ -213,7 +257,6 @@ const handleOrderNow = (product) => {
     }))
   }
 
-  // Modal functions
   const openModal = (product) => {
     if (product.images && product.images.length > 0) {
       setModalProduct(product)
@@ -248,7 +291,6 @@ const handleOrderNow = (product) => {
     setModalCurrentIndex(index)
   }
 
-  // Close modal on ESC key
   useEffect(() => {
     const handleEscKey = (e) => {
       if (e.key === 'Escape' && isModalOpen) {
@@ -262,13 +304,13 @@ const handleOrderNow = (product) => {
     }
   }, [isModalOpen])
 
-  if (loading) {
+  if (loading || checkingCartStatus) {
     return (
       <div>
         <CustomerNavbar />
         <div className="product-catalog-loading-container">
           <div className="product-catalog-loading-spinner"></div>
-          <p>Loading products...</p>
+          <p>{checkingCartStatus ? 'Checking cart status...' : 'Loading products...'}</p>
         </div>
       </div>
     )
@@ -299,7 +341,7 @@ const handleOrderNow = (product) => {
             const hasImages = product.images && product.images.length > 0
             const currentIndex = currentImageIndexes[product.product_id] || 0
             const isAdding = isAddingToCart[product.product_id] || false
-            const isAdded = addedToCart[product.product_id] || false
+            const isInCart = inCartProducts[product.product_id] || false
             
             return (
               <div key={product.product_id} className="product-catalog-card">
@@ -414,15 +456,17 @@ const handleOrderNow = (product) => {
                   {/* Actions */}
                   <div className="product-catalog-actions">
                     <button 
-                      className={`product-catalog-add-to-cart-btn ${isAdded ? 'added-to-cart' : ''}`}
+                      className={`product-catalog-add-to-cart-btn ${isInCart ? 'product-catalog-in-cart' : ''}`}
                       onClick={() => handleAddToCart(product.product_id)}
-                      disabled={isAdding || isAdded}
+                      disabled={isAdding || isInCart}
                     >
                       {isAdding ? (
-                        'Adding...'
-                      ) : isAdded ? (
                         <>
-                          <FaCheck /> Added
+                          <FaSpinner className="product-catalog-spinner" /> Adding...
+                        </>
+                      ) : isInCart ? (
+                        <>
+                          <FaCheck /> In Cart
                         </>
                       ) : (
                         <>
@@ -514,14 +558,22 @@ const handleOrderNow = (product) => {
               </div>
               <div className="product-catalog-modal-actions">
                 <button 
-                  className="product-catalog-modal-add-to-cart"
+                  className={`product-catalog-modal-add-to-cart ${inCartProducts[modalProduct.product_id] ? 'product-catalog-modal-in-cart' : ''}`}
                   onClick={() => {
                     handleAddToCart(modalProduct.product_id)
                     closeModal()
                   }}
-                  disabled={isAddingToCart[modalProduct.product_id] || addedToCart[modalProduct.product_id]}
+                  disabled={isAddingToCart[modalProduct.product_id] || inCartProducts[modalProduct.product_id]}
                 >
-                  {isAddingToCart[modalProduct.product_id] ? 'Adding...' : 'Add to Cart'}
+                  {isAddingToCart[modalProduct.product_id] ? (
+                    <>
+                      <FaSpinner className="product-catalog-modal-spinner" /> Adding...
+                    </>
+                  ) : inCartProducts[modalProduct.product_id] ? (
+                    'Already in Cart'
+                  ) : (
+                    'Add to Cart'
+                  )}
                 </button>
                 <button 
                   className="product-catalog-modal-order-now"

@@ -43,6 +43,9 @@ const CartCatalog = () => {
       const data = await response.json();
       
       if (data.success) {
+        // Log the full cart item structure so you can see exactly what fields are returned
+        console.log('Full cart_items response:', JSON.stringify(data.cart_items, null, 2));
+
         // Initialize current image index for each product with images
         const initialIndexes = {};
         data.cart_items.forEach(item => {
@@ -114,7 +117,13 @@ const CartCatalog = () => {
     window.dispatchEvent(new Event('cartCountChanged'));
   };
 
-  const handleOrderNow = (product) => {
+  // ---------------------------------------------------------------
+  // FIX: handleOrderNow now reads from item.product correctly and
+  // also fetches the full product from the /get/products endpoint
+  // as a fallback so that fields like rate, stone_wt, metal_type,
+  // design, purity are always included — matching ProductCatalog.
+  // ---------------------------------------------------------------
+  const handleOrderNow = async (cartItem) => {
     const userString = localStorage.getItem('user');
     if (!userString) {
       alert('Please login to place an order');
@@ -123,33 +132,54 @@ const CartCatalog = () => {
     
     const user = JSON.parse(userString);
     
-    // Check if user is a customer
     if (user.role !== 'Customer') {
       alert('Only customers can place orders');
       return;
     }
-    
-    // Store the selected product in localStorage to pass to estimate form
+
+    // cartItem here is the full cart row (has .product nested inside)
+    const product = cartItem.product;
+
+    // Fallback: fetch the full product details from the products endpoint
+    // in case the cart API doesn't return all fields (rate, stone_wt, etc.)
+    let fullProduct = product;
+    try {
+      const res = await fetch(`http://localhost:5000/get/products`);
+      if (res.ok) {
+        const allProducts = await res.json();
+        const found = allProducts.find(p => p.product_id === cartItem.product_id);
+        if (found) {
+          fullProduct = found; // Use the complete product object
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch full product details, using cart data:', err);
+    }
+
+    // Now build orderData using fullProduct — all fields will be present
     const orderData = {
-      product_id: product.product_id,
-      product_name: product.product_name,
-      barcode: product.barcode,
-      metal_type: product.metal_type,
-      design_name: product.design,
-      purity: product.purity,
-      gross_weight: product.gross_wt,
-      stone_weight: product.stone_wt,
-      stone_price: product.stone_price,
-      making_charges: product.making_charges,
-      tax_percent: product.tax_percent,
-      tax_amt: product.tax_amt,
-      total_price: product.total_price,
-      images: product.images || []
+      product_id:      fullProduct.product_id,
+      product_name:    fullProduct.product_name,
+      barcode:         fullProduct.barcode,
+      metal_type:      fullProduct.metal_type,
+      design_name:     fullProduct.design,
+      purity:          fullProduct.purity,
+      rate:            fullProduct.rate,                          // ← was missing
+      gross_weight:    fullProduct.gross_wt,
+      net_weight:      fullProduct.net_wt,                        // ← added for completeness
+      stone_weight:    fullProduct.stone_wt,                     // ← was missing
+      stone_price:     fullProduct.stone_price,
+      making_charges:  fullProduct.making_charges,
+      tax_percent:     fullProduct.tax_percent,
+      tax_amt:         fullProduct.tax_amt,
+      total_price:     fullProduct.total_price,
+      images:          fullProduct.images || []
     };
-    
+
+    console.log('orderData being saved:', orderData); // debug — remove later
+
     localStorage.setItem('quickOrderProduct', JSON.stringify(orderData));
     
-    // Navigate to customer estimates page
     navigate('/customer-estimates');
   };
 
@@ -275,21 +305,21 @@ const CartCatalog = () => {
         ) : (
           <>
             <div className="cart-summary">
-  <div className="cart-summary-item">
-    <span>Total Items:</span>
-    <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
-  </div>
-  <div className="cart-summary-item">
-    <span>Subtotal:</span>
-    <span className="cart-total-price">{formatPrice(calculateTotal())}</span>
-  </div>
-  <button 
-    className="product-catalog-buy-now-btn"
-    onClick={() => alert('Proceed to checkout functionality to be implemented')}
-  >
-    Proceed to Checkout
-  </button>
-</div>
+              <div className="cart-summary-item">
+                <span>Total Items:</span>
+                <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+              </div>
+              <div className="cart-summary-item">
+                <span>Subtotal:</span>
+                <span className="cart-total-price">{formatPrice(calculateTotal())}</span>
+              </div>
+              <button 
+                className="product-catalog-buy-now-btn"
+                onClick={() => alert('Proceed to checkout functionality to be implemented')}
+              >
+                Proceed to Checkout
+              </button>
+            </div>
 
             
             <div className="product-catalog-grid">
@@ -436,7 +466,7 @@ const CartCatalog = () => {
                         </button>
                         <button 
                           className="product-catalog-buy-now-btn"
-                          onClick={() => handleOrderNow(item.product)}
+                          onClick={() => handleOrderNow(item)}
                         >
                           Order Now
                         </button>
@@ -531,12 +561,14 @@ const CartCatalog = () => {
                   }}
                   disabled={isRemovingFromCart[modalProduct.cart_id]}
                 >
-                  {isRemovingFromCart[modalProduct.cart_id] ? 'Removing...' : 'Remove from Cart'}
+                  {isRemovingFromCart[modalProduct.cart_id] ? 'Removing...' : (
+                    <><FaTrash /> Remove from Cart</>
+                  )}
                 </button>
                 <button 
                   className="product-catalog-modal-order-now"
                   onClick={() => {
-                    handleOrderNow(modalProduct.product);
+                    handleOrderNow(modalProduct);
                     closeModal();
                   }}
                 >

@@ -155,7 +155,7 @@ function Dashboard() {
             >
               <div className="card-body admin-card-body">
                 <i className="bi bi-person-badge-fill text-success mb-2 admin-dashboard-icon"></i>
-                <h5 className="card-title fw-semibold admin-card-title">Salespersons</h5>
+                <h5 className="card-title fw-semibold admin-card-title">Sales Persons</h5>
                 <p className="display-4 fw-bold text-success admin-card-count">{salespersonsCount}</p>
               </div>
             </div>
@@ -285,7 +285,7 @@ function Dashboard() {
         </div>
 
         {/* Summary Section */}
-        <div className="row mt-4">
+        {/* <div className="row mt-4">
           <div className="col-12">
             <div className="card shadow-sm admin-summary-card">
               <div className="card-header bg-gradient-primary text-white">
@@ -330,7 +330,7 @@ function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </>
   );

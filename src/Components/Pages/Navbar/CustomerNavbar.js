@@ -5,7 +5,7 @@ import logo from '../images/jiya_logo.png';
 import './CustomerNavbar.css';
 import Swal from 'sweetalert2';
 
-function Navbar() {
+function CustomerNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
@@ -13,18 +13,48 @@ function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const count = parseInt(localStorage.getItem('cartCount') || '0');
-    setCartCount(count);
+  const fetchCartCount = async () => {
+    try {
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            const count = data.summary.total_quantity || 0
+            localStorage.setItem('cartCount', count.toString())
+            setCartCount(count)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching cart count:', error)
+    }
+  }
 
+  useEffect(() => {
+    // Fetch cart count on component mount
+    fetchCartCount()
+    
+    // Listen for cart count changes
     const handleCartCountChange = () => {
-      const newCount = parseInt(localStorage.getItem('cartCount') || '0');
-      setCartCount(newCount);
+      const newCount = parseInt(localStorage.getItem('cartCount') || '0')
+      setCartCount(newCount)
     };
 
-    window.addEventListener('cartCountChanged', handleCartCountChange);
-    return () => window.removeEventListener('cartCountChanged', handleCartCountChange);
-  }, []);
+    window.addEventListener('cartCountChanged', handleCartCountChange)
+    
+    // Also fetch cart count when user data might be available
+    const userString = localStorage.getItem('user')
+    if (userString) {
+      fetchCartCount()
+    }
+    
+    return () => {
+      window.removeEventListener('cartCountChanged', handleCartCountChange)
+    }
+  }, [])
 
   const handleLogout = () => {
     Swal.fire({
@@ -35,11 +65,12 @@ function Navbar() {
       confirmButtonText: 'Yes, log out!',
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.removeItem('cartCount');
-        navigate('/');
+        localStorage.removeItem('cartCount')
+        localStorage.removeItem('user')
+        navigate('/')
       }
-    });
-  };
+    })
+  }
 
   return (
     <header className="navbar-header">
@@ -93,6 +124,7 @@ function Navbar() {
         <div
           className="navbar-cart-container"
           onClick={() => navigate('/cart-catalog')}
+          title={`${cartCount} items in cart`}
         >
           <FaShoppingCart className="navbar-cart-icon" />
           {cartCount > 0 && (
@@ -106,7 +138,7 @@ function Navbar() {
         </button>
       </div>
     </header>
-  );
+  )
 }
 
-export default Navbar;
+export default CustomerNavbar
