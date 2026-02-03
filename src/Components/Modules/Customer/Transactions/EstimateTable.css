@@ -222,3 +222,28 @@
 .action-icons svg:hover {
     transform: scale(1.2);
 }
+
+
+
+/* Add to your EstimateTable.css or existing CSS */
+.dataTable_headerCell {
+  white-space: nowrap;
+  padding: 12px 8px;
+  font-weight: bold;
+}
+
+.dataTable_cell {
+  padding: 10px 8px;
+  vertical-align: middle;
+}
+
+/* Style for order number cell */
+.order-number-cell {
+  font-weight: bold;
+  color: #17a2b8;
+}
+
+.order-number-na {
+  color: #6c757d;
+  font-style: italic;
+}

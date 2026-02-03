@@ -123,25 +123,29 @@ const CartCatalog = () => {
   // as a fallback so that fields like rate, stone_wt, metal_type,
   // design, purity are always included — matching ProductCatalog.
   // ---------------------------------------------------------------
-  const handleOrderNow = async (cartItem) => {
-    const userString = localStorage.getItem('user');
-    if (!userString) {
-      alert('Please login to place an order');
-      return;
-    }
-    
-    const user = JSON.parse(userString);
-    
-    if (user.role !== 'Customer') {
-      alert('Only customers can place orders');
-      return;
-    }
+ 
 
-    // cartItem here is the full cart row (has .product nested inside)
+
+  // Fixed handleOrderNow function in CartCatalog.js
+const handleOrderNow = async (cartItem) => {
+  const userString = localStorage.getItem('user');
+  if (!userString) {
+    alert('Please login to place an order');
+    return;
+  }
+  
+  const user = JSON.parse(userString);
+  
+  if (user.role !== 'Customer') {
+    alert('Only customers can place orders');
+    return;
+  }
+
+  try {
+    // cartItem here is the full cart row
     const product = cartItem.product;
 
-    // Fallback: fetch the full product details from the products endpoint
-    // in case the cart API doesn't return all fields (rate, stone_wt, etc.)
+    // Fallback: fetch the full product details
     let fullProduct = product;
     try {
       const res = await fetch(`http://localhost:5000/get/products`);
@@ -149,39 +153,98 @@ const CartCatalog = () => {
         const allProducts = await res.json();
         const found = allProducts.find(p => p.product_id === cartItem.product_id);
         if (found) {
-          fullProduct = found; // Use the complete product object
+          fullProduct = found;
         }
       }
     } catch (err) {
       console.warn('Could not fetch full product details, using cart data:', err);
     }
 
-    // Now build orderData using fullProduct — all fields will be present
-    const orderData = {
-      product_id:      fullProduct.product_id,
-      product_name:    fullProduct.product_name,
-      barcode:         fullProduct.barcode,
-      metal_type:      fullProduct.metal_type,
-      design_name:     fullProduct.design,
-      purity:          fullProduct.purity,
-      rate:            fullProduct.rate,                          // ← was missing
-      gross_weight:    fullProduct.gross_wt,
-      net_weight:      fullProduct.net_wt,                        // ← added for completeness
-      stone_weight:    fullProduct.stone_wt,                     // ← was missing
-      stone_price:     fullProduct.stone_price,
-      making_charges:  fullProduct.making_charges,
-      tax_percent:     fullProduct.tax_percent,
-      tax_amt:         fullProduct.tax_amt,
-      total_price:     fullProduct.total_price,
-      images:          fullProduct.images || []
+    // Store product data in localStorage for the estimate form
+    const productData = {
+      product_id: fullProduct.product_id,
+      product_name: fullProduct.product_name,
+      barcode: fullProduct.barcode || '',
+      metal_type: fullProduct.metal_type || 'Gold',
+      design: fullProduct.design || '',
+      design_name: fullProduct.design || fullProduct.design_name || '', // Add design_name
+      purity: fullProduct.purity || '22K',
+      gross_weight: parseFloat(fullProduct.gross_wt) || 0, // Changed from gross_wt to gross_weight
+      net_wt: parseFloat(fullProduct.net_wt) || 0,
+      stone_weight: parseFloat(fullProduct.stone_wt) || 0, // Changed from stone_wt to stone_weight
+      stone_price: parseFloat(fullProduct.stone_price) || 0,
+      making_charges: parseFloat(fullProduct.making_charges) || 0,
+      tax_percent: parseFloat(fullProduct.tax_percent) || 0,
+      tax_amt: parseFloat(fullProduct.tax_amt) || 0,
+      rate: parseFloat(fullProduct.rate) || 0,
+      total_price: parseFloat(fullProduct.total_price) || 0,
+      images: fullProduct.images || [],
+      customer_id: user.id,
+      customer_name: user.name,
+      quantity: cartItem.quantity || 1,
+      
+      // CRITICAL: Add these fields for order number generation
+      estimate_status: 'Ordered',
+      source_by: 'customer',
+      date: new Date().toISOString().split('T')[0], // Today's date
+      
+      // Add other required fields for estimate creation
+      pcode: fullProduct.pcode || '',
+      category: fullProduct.category || '',
+      sub_category: fullProduct.sub_category || '',
+      salesperson_id: '', // Empty for customer orders
+      weight_bw: 0,
+      va_on: '',
+      va_percent: 0,
+      wastage_weight: 0,
+      msp_va_percent: 0,
+      msp_wastage_weight: 0,
+      total_weight_av: 0,
+      mc_on: '',
+      mc_per_gram: 0,
+      rate_amt: parseFloat(fullProduct.total_price) || 0,
+      pricing: 'standard',
+      pieace_cost: parseFloat(fullProduct.total_price) || 0,
+      disscount_percentage: 0,
+      disscount: 0,
+      hm_charges: 0,
+      total_amount: parseFloat(fullProduct.total_price) * (cartItem.quantity || 1),
+      taxable_amount: 0,
+      tax_amount: 0,
+      net_amount: parseFloat(fullProduct.total_price) * (cartItem.quantity || 1),
+      original_total_price: parseFloat(fullProduct.total_price) || 0,
+      opentag_id: 0,
+      qty: cartItem.quantity || 1
     };
 
-    console.log('orderData being saved:', orderData); // debug — remove later
+    console.log('Storing cart product data for estimate form:', productData);
 
-    localStorage.setItem('quickOrderProduct', JSON.stringify(orderData));
+    // Store in localStorage
+    localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
     
+    // Optionally remove item from cart after selecting for order
+    const removeResponse = await fetch(`http://localhost:5000/api/cart/remove/${cartItem.cart_id}`, {
+      method: 'DELETE'
+    });
+    
+    if (removeResponse.ok) {
+      // Update cart items list
+      setCartItems(prev => prev.filter(item => item.cart_id !== cartItem.cart_id));
+      updateCartCountInLocalStorage(-1);
+    }
+    
+    // Show message and navigate
+    alert('Product selected for ordering! Item removed from cart. Redirecting to estimate form...');
+    
+    // Navigate to customer estimates page
     navigate('/customer-estimates');
-  };
+  } catch (error) {
+    console.error('Error processing order from cart:', error);
+    alert('Error processing order. Please try again.');
+  }
+};
+
+
 
   const nextImage = (productId, e) => {
     e?.stopPropagation();

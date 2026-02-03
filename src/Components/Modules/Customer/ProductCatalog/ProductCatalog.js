@@ -198,41 +198,58 @@ const ProductCatalog = () => {
   }
 
   // Handle Order Now button click
-  const handleOrderNow = (product) => {
-    if (!userData) {
-      alert('Please login to place an order')
-      return
-    }
-    
-    // Check if user is a customer
-    if (userData.role !== 'Customer') {
-      alert('Only customers can place orders')
-      return
-    }
-    
-    // Store the selected product in localStorage to pass to estimate form
-    const orderData = {
-      product_id: product.product_id,
-      product_name: product.product_name,
-      barcode: product.barcode,
-      metal_type: product.metal_type,
-      design_name: product.design,
-      purity: product.purity,
-      gross_weight: product.gross_wt,
-      stone_weight: product.stone_wt,
-      stone_price: product.stone_price,
-      making_charges: product.making_charges,
-      tax_percent: product.tax_percent,
-      tax_amt: product.tax_amt,
-      total_price: product.total_price,
-      images: product.images || []
-    }
-    
-    localStorage.setItem('quickOrderProduct', JSON.stringify(orderData))
-    
-    // Navigate to customer estimates page
-    navigate('/customer-estimates')
+ // In ProductCatalog.js
+
+ // Updated handleOrderNow function
+const handleOrderNow = async (product) => {
+  if (!userData) {
+    alert('Please login to place an order');
+    return;
   }
+  
+  if (userData.role !== 'Customer') {
+    alert('Only customers can place orders');
+    return;
+  }
+
+  // Store product data
+  const productData = {
+    product_id: product.product_id,
+    product_name: product.product_name,
+    barcode: product.barcode || '',
+    metal_type: product.metal_type || 'Gold',
+    design: product.design || '',
+    purity: product.purity || '22K',
+    gross_wt: parseFloat(product.gross_wt) || 0,
+    net_wt: parseFloat(product.net_wt) || 0,
+    stone_wt: parseFloat(product.stone_wt) || 0,
+    stone_price: parseFloat(product.stone_price) || 0,
+    making_charges: parseFloat(product.making_charges) || 0,
+    tax_percent: parseFloat(product.tax_percent) || 0,
+    tax_amt: parseFloat(product.tax_amt) || 0,
+    rate: parseFloat(product.rate) || 0,
+    total_price: parseFloat(product.total_price) || 0,
+    images: product.images || [],
+    customer_id: userData.id,
+    customer_name: userData.name,
+    
+    // Add these new fields for direct ordering
+    estimate_status: 'Ordered',
+    source_by: 'customer',
+    date: new Date().toISOString().split('T')[0] // Today's date
+  };
+
+  console.log('Storing product data for estimate form:', productData);
+
+  // Store in localStorage
+  localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
+  
+  // Show message and navigate
+  alert('Product selected for ordering! Redirecting to estimate form...');
+  
+  navigate('/customer-estimates');
+};
+
 
   // Rest of your existing functions remain the same...
   const nextImage = (productId, e) => {

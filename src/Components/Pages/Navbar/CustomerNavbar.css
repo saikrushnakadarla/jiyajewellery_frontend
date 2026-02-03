@@ -53,8 +53,8 @@
 }
 
 .active {
-    background-color: #a36e29;
-    color: #fff;
+    color: #a36e29 !important;
+
 }
 
 .navbar-logout {
