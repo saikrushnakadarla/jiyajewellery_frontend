@@ -190,10 +190,20 @@ const PDFContent = ({ entries, totalAmount, date, estimateNumber, sellerName }) 
   const formattedDate = formatDate(currentDate);
   const currentTime = formatTime(currentDate);
 
+  // Check if this is an order (has order_number)
+  const hasOrderNumber = entries[0]?.order_number && entries[0]?.order_number !== 'NULL' && entries[0]?.order_number !== null;
+  const isOrder = hasOrderNumber;
+  
+  // Determine which number to display
+  const displayNumber = isOrder ? entries[0]?.order_number : entries[0]?.estimate_number;
+  
+  // Determine document type
+  const documentType = isOrder ? "ORDER" : "ESTIMATION";
+
   useEffect(() => {
     const generateQRCode = async () => {
       try {
-        const qrCodeDataUrl = await QRCode.toDataURL(entries[0]?.estimate_number || "", {
+        const qrCodeDataUrl = await QRCode.toDataURL(displayNumber || "", {
           width: 100,
           margin: 2,
         });
@@ -209,12 +219,14 @@ const PDFContent = ({ entries, totalAmount, date, estimateNumber, sellerName }) 
   return (
     <Document>
       <Page size={[226, 500]} style={styles.page}>
-        <Text style={styles.heading}>Estimation</Text>
+        <Text style={styles.heading}>{documentType}</Text>
 
         {entries.length > 0 && (
           <View>
             <View style={styles.row}>
-              <Text style={styles.leftText}>Est No: {entries[0].estimate_number}</Text>
+              <Text style={styles.leftText}>
+                {isOrder ? "Order No:" : "Est No:"} {displayNumber}
+              </Text>
               <Text style={styles.rightText}>S.E: Jiya Jewellery</Text>
             </View>
             <View style={styles.row}>

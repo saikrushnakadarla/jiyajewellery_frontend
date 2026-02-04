@@ -241,13 +241,12 @@ const handleStatusChange = async (rowData, newStatus) => {
     console.log('handleStatusChange called with row data:', rowData);
     console.log('New status:', newStatus);
     
-    // Check if the estimate was created by customer
     const sourceBy = rowData.source_by;
     const currentStatus = rowData.estimate_status;
     const currentOrderNumber = rowData.order_number;
     
-    // If estimate already has order number and status is "Ordered", don't allow any changes
-    if (currentOrderNumber && currentStatus === "Ordered") {
+    // Validate if status change is allowed
+    if (currentOrderNumber && currentOrderNumber.trim() !== '') {
       Swal.fire({
         icon: 'error',
         title: 'Cannot Change Status',
@@ -256,18 +255,17 @@ const handleStatusChange = async (rowData, newStatus) => {
       return;
     }
     
-    // If estimate was created by customer and status is "Ordered", don't allow any changes
-    if (sourceBy === "customer" && currentStatus === "Ordered") {
+    if (sourceBy === "customer") {
       Swal.fire({
         icon: 'error',
-        title: 'Cannot Change Status',
-        text: 'Customer cannot change status once estimate is Ordered',
+        title: 'Not Allowed',
+        text: 'Customer-created estimates cannot be modified from here',
       });
       return;
     }
     
-    // Extract identifier from rowData
-    const identifier = rowData.estimate_id || rowData.id || rowData.estimate_number;
+    // Use estimate_number as the primary identifier (it's more reliable)
+    const identifier = rowData.estimate_number;
     
     if (!identifier) {
       Swal.fire({
@@ -278,7 +276,7 @@ const handleStatusChange = async (rowData, newStatus) => {
       return;
     }
 
-    console.log('Using identifier:', identifier);
+    console.log('Using estimate_number as identifier:', identifier);
     
     // Show loading state
     setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
@@ -299,16 +297,14 @@ const handleStatusChange = async (rowData, newStatus) => {
     console.log('Update response:', response.data);
 
     if (response.data && response.data.success) {
-      // Check if order number was generated
       let successMessage = `Estimate status updated to "${newStatus}" successfully!`;
       
       if (newStatus === "Ordered" && response.data.order_number) {
         successMessage = `Order number generated: ${response.data.order_number}`;
         
-        // Also update the local data immediately
-        setData(prev => prev.map(item => {
-          if ((item.estimate_id === rowData.estimate_id) || 
-              (item.estimate_number === rowData.estimate_number)) {
+        // Immediately update local data
+        const updatedData = data.map(item => {
+          if (item.estimate_number === identifier) {
             return {
               ...item,
               estimate_status: newStatus,
@@ -317,31 +313,21 @@ const handleStatusChange = async (rowData, newStatus) => {
             };
           }
           return item;
-        }));
+        });
         
-        setFilteredData(prev => prev.map(item => {
-          if ((item.estimate_id === rowData.estimate_id) || 
-              (item.estimate_number === rowData.estimate_number)) {
-            return {
-              ...item,
-              estimate_status: newStatus,
-              order_number: response.data.order_number,
-              order_date: response.data.order_date
-            };
-          }
-          return item;
-        }));
+        setData(updatedData);
+        setFilteredData(updatedData);
       }
       
       Swal.fire({
         icon: 'success',
-        title: 'Status Updated',
+        title: 'Success',
         text: successMessage,
         timer: 3000,
         showConfirmButton: true
       });
       
-      // REFRESH DATA FROM SERVER after a delay
+      // Refresh data from server after a delay
       setTimeout(() => {
         fetchData();
       }, 1000);
@@ -353,18 +339,20 @@ const handleStatusChange = async (rowData, newStatus) => {
     console.error('Error updating estimate status:', error);
     console.error('Error details:', error.response?.data || error.message);
     
+    let errorMessage = 'Failed to update estimate status. Please try again.';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    }
+    
     Swal.fire({
       icon: 'error',
       title: 'Update Failed',
-      text: error.response?.data?.message || 'Failed to update estimate status. Please try again.',
+      text: errorMessage,
     });
   } finally {
     // Remove loading state after a delay
     setTimeout(() => {
-      const identifier = rowData.estimate_id || rowData.id || rowData.estimate_number;
-      if (identifier) {
-        setUpdatingStatus(prev => ({ ...prev, [identifier]: false }));
-      }
+      setUpdatingStatus(prev => ({ ...prev, [rowData.estimate_number]: false }));
     }, 500);
   }
 };
@@ -514,149 +502,134 @@ const columns = useMemo(() => [
     Header: 'Estimate Number',
     accessor: 'estimate_number',
   },
-  {
-    Header: 'Order Number',
-    accessor: 'order_number',
-    Cell: ({ value, row }) => {
-      const estimateStatus = row.original.estimate_status;
-      
-      // Show order number only if status is "Ordered"
-      if (estimateStatus === 'Ordered') {
-        return value || (
-          <span className="text-muted" style={{ fontStyle: 'italic' }}>
-            Generating...
-          </span>
-        );
-      }
-      
-      return (
+ {
+  Header: 'Order Number',
+  accessor: 'order_number',
+  Cell: ({ value, row }) => {
+    const estimateStatus = row.original.estimate_status;
+    
+    if (estimateStatus === 'Ordered') {
+      return value ? (
+        <strong style={{ color: '#17a2b8' }}>{value}</strong>
+      ) : (
         <span className="text-muted" style={{ fontStyle: 'italic' }}>
-          N/A
+          Generating...
         </span>
       );
-    },
+    }
+    
+    return (
+      <span className="text-muted" style={{ fontStyle: 'italic' }}>
+        N/A
+      </span>
+    );
   },
+},
   {
     Header: 'Total Amount',
     accessor: 'net_amount',
     Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
   },
-  {
-    Header: 'Status',
-    accessor: 'estimate_status',
-    Cell: ({ row, value }) => {
-      const estimate = row.original;
-      const sourceBy = estimate.source_by;
-      const currentStatus = value || 'Pending';
-      const hasOrderNumber = estimate.order_number && estimate.order_number.trim() !== '';
+ // In the columns definition, update the Status Cell renderer:
+{
+  Header: 'Status',
+  accessor: 'estimate_status',
+  Cell: ({ row, value }) => {
+    const estimate = row.original;
+    const sourceBy = estimate.source_by;
+    const currentStatus = value || 'Pending';
+    const currentOrderNumber = estimate.order_number;
+    const hasOrderNumber = currentOrderNumber && currentOrderNumber.trim() !== '';
+    
+    const loadingKey = estimate.estimate_number;
+    const isUpdating = updatingStatus[loadingKey];
+    
+    const getStatusColor = (status) => {
+      switch(status) {
+        case 'Pending': return '#ffc107';
+        case 'Ordered': return '#17a2b8';
+        case 'Rejected': return '#dc3545';
+        default: return '#6c757d';
+      }
+    };
+    
+    // Determine if status should be editable
+    const isEditable = () => {
+      // If estimate has order number, NOT editable
+      if (hasOrderNumber) {
+        return false;
+      }
       
-      // Create a unique key for loading state
-      const loadingKey = estimate.estimate_number || `row-${row.index}`;
-      const isUpdating = updatingStatus[loadingKey];
+      // If estimate was created by customer, NOT editable
+      if (sourceBy === "customer") {
+        return false;
+      }
       
-      const getStatusColor = (status) => {
-        switch(status) {
-          case 'Pending': return '#ffc107';
-          case 'Ordered': return '#17a2b8';
-          case 'Rejected': return '#dc3545';
-          default: return '#6c757d';
-        }
-      };
-      
-      // Get status display text
-      const getStatusDisplay = (status) => {
-        return status;
-      };
+      return true;
+    };
 
-      // Determine if status should be editable
-      const isEditable = () => {
-        // If estimate has order number and status is "Ordered", NOT editable
-        if (hasOrderNumber && currentStatus === "Ordered") {
-          return false;
-        }
-        
-        // If estimate was created by customer AND status is "Ordered", NOT editable
-        if (sourceBy === "customer" && currentStatus === "Ordered") {
-          return false;
-        }
-        
-        return true;
-      };
+    const editable = isEditable();
 
-      // Get available status options for this row
-      const getAvailableOptions = () => {
-        if (sourceBy === "customer") {
-          // Customer-created estimates - should not be editable if status is Ordered
-          if (currentStatus === "Ordered") {
-            return []; // No options, should not show dropdown
-          }
-          // For customer-created estimates that are not Ordered (shouldn't happen)
-          return statusOptions.filter(option => option.value !== 'Ordered');
-        } else {
-          // Admin/salesperson created estimates
-          return statusOptions;
-        }
-      };
-
-      const availableOptions = getAvailableOptions();
-      const editable = isEditable();
-
-      return (
-        <div style={{ minWidth: '120px' }}>
-          {isUpdating ? (
-            <div className="d-flex align-items-center">
-              <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                <span className="visually-hidden">Loading...</span>
+    return (
+      <div style={{ minWidth: '120px' }}>
+        {isUpdating ? (
+          <div className="d-flex align-items-center">
+            <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <span>Updating...</span>
+          </div>
+        ) : editable ? (
+          <Form.Select
+            value={currentStatus}
+            onChange={(e) => handleStatusChange(estimate, e.target.value)}
+            style={{
+              backgroundColor: getStatusColor(currentStatus),
+              color: 'white',
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+            disabled={isUpdating}
+          >
+            {statusOptions.map(option => (
+              <option 
+                key={option.value} 
+                value={option.value}
+                style={{ backgroundColor: option.color, color: 'white' }}
+              >
+                {option.label}
+              </option>
+            ))}
+          </Form.Select>
+        ) : (
+          <div 
+            style={{
+              backgroundColor: getStatusColor(currentStatus),
+              color: 'white',
+              border: 'none',
+              fontWeight: 'bold',
+              minWidth: '120px',
+              padding: '6px 12px',
+              borderRadius: '4px',
+              textAlign: 'center'
+            }}
+          >
+            {currentStatus}
+            {/* {hasOrderNumber && (
+              <div className="small mt-1" style={{ fontSize: '0.7em', opacity: 0.9 }}>
+                {currentOrderNumber}
               </div>
-              <span>Updating...</span>
-            </div>
-          ) : editable ? (
-            <Form.Select
-              value={currentStatus}
-              onChange={(e) => handleStatusChange(estimate, e.target.value)}
-              style={{
-                backgroundColor: getStatusColor(currentStatus),
-                color: 'white',
-                border: 'none',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                minWidth: '120px'
-              }}
-              disabled={isUpdating}
-            >
-              {availableOptions.map(option => (
-                <option 
-                  key={option.value} 
-                  value={option.value}
-                  style={{ backgroundColor: option.color, color: 'white' }}
-                >
-                  {getStatusDisplay(option.label)}
-                </option>
-              ))}
-            </Form.Select>
-          ) : (
-            // Show static badge for non-editable status
-            <div 
-              style={{
-                backgroundColor: getStatusColor(currentStatus),
-                color: 'white',
-                border: 'none',
-                fontWeight: 'bold',
-                minWidth: '120px',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                textAlign: 'center'
-              }}
-            >
-              {getStatusDisplay(currentStatus)}
-            </div>
-          )}
-        </div>
-      );
-    },
-    width: 150,
-    disableSortBy: true,
+            )} */}
+          </div>
+        )}
+      </div>
+    );
   },
+  width: 150,
+  disableSortBy: true,
+},
   {
     Header: 'Actions',
     id: 'actions',
@@ -757,13 +730,6 @@ const columns = useMemo(() => [
           <Row className="mb-3">
             <Col className="d-flex justify-content-between align-items-center">
               <h3>Your Estimates</h3>
-              <Button
-                className="create_but"
-                onClick={handleCreate}
-                style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
-              >
-                + Create
-              </Button>
             </Col>
           </Row>
 
@@ -960,7 +926,7 @@ const columns = useMemo(() => [
           <Modal.Body>
             {repairDetails && (
               <>
-                 // Update the modal in EstimateTable.js to show order number
+                 
 <Table bordered>
   <tbody>
     <tr>
