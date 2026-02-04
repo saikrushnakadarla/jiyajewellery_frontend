@@ -456,16 +456,58 @@ const handleStatusChange = async (rowData, newStatus) => {
     }
   }, [customerId, filterEstimatesByCustomerId]);
 
-  const handleViewDetails = useCallback(async (estimate_number) => {
-    try {
-      const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
-      setRepairDetails(response.data);
-      setShowModal(true);
-    } catch (error) {
-      console.error('Error fetching estimate details:', error);
-      Swal.fire('Error', 'Unable to fetch estimate details.', 'error');
+ const handleViewDetails = useCallback(async (estimate_number) => {
+  try {
+    const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
+    const details = response.data;
+    
+    // Fetch the latest estimate status from your database
+    // This ensures we get the most current status
+    const estimateResponse = await axios.get(`${baseURL}/get-unique-estimates`);
+    const allEstimates = estimateResponse.data || [];
+    
+    // Find the specific estimate with this estimate_number
+    const currentEstimate = allEstimates.find(
+      est => est.estimate_number === estimate_number
+    );
+    
+    // Update the repairDetails with the current status
+    if (currentEstimate) {
+      // Determine the status
+      let status = currentEstimate.estimate_status || currentEstimate.status;
+      
+      // Apply the same logic you use in fetchData
+      if (!status) {
+        if (currentEstimate.source_by === "customer") {
+          status = "Ordered";
+        } else {
+          status = "Pending";
+        }
+      }
+      
+      if (status === "Accepted") {
+        status = "Ordered";
+      }
+      
+      if (status === "Pending" && currentEstimate.source_by === "customer") {
+        status = "Ordered";
+      }
+      
+      // Update the details with the correct status
+      if (details.uniqueData) {
+        details.uniqueData.estimate_status = status;
+        details.uniqueData.order_number = currentEstimate.order_number || details.uniqueData?.order_number;
+        details.uniqueData.order_date = currentEstimate.order_date || details.uniqueData?.order_date;
+      }
     }
-  }, []);
+    
+    setRepairDetails(details);
+    setShowModal(true);
+  } catch (error) {
+    console.error('Error fetching estimate details:', error);
+    Swal.fire('Error', 'Unable to fetch estimate details.', 'error');
+  }
+}, []);
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
