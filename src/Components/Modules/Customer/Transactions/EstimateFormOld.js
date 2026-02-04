@@ -20,7 +20,6 @@ const EstimateForm = () => {
   const initialFormData = {
     date: today,
     estimate_number: "",
-    order_number: "", // Added order_number field
     product_id: "",
     product_name: "",
     barcode: "",
@@ -50,15 +49,15 @@ const EstimateForm = () => {
     pricing: "By Weight",
     opentag_id: "",
     images: [],
-    net_weight: "",
-    category_id: "",
-    metal_type_id: "",
-    purity_id: "",
-    design_id: "",
-    pieace_cost: "",
-    qty: 1,
-    msp_va_percent: "",
-    msp_wastage_weight: ""
+    net_weight: "", // Added net_weight
+    category_id: "", // Added category_id
+    metal_type_id: "", // Added metal_type_id
+    purity_id: "", // Added purity_id
+    design_id: "", // Added design_id
+    pieace_cost: "", // Added pieace_cost
+    qty: 1, // Added qty with default value
+    msp_va_percent: "", // Added msp_va_percent
+    msp_wastage_weight: "" // Added msp_wastage_weight
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -87,8 +86,7 @@ const EstimateForm = () => {
   
   // Get current logged-in user's information
   const [userInfo, setUserInfo] = useState(null);
-  const [sourceBy, setSourceBy] = useState("");
-  const [orderNumber, setOrderNumber] = useState(""); // State for order number
+  const [sourceBy, setSourceBy] = useState(""); // Track source by
 
   // Function to get full image URL
   const getImageUrl = (imageName) => {
@@ -145,28 +143,6 @@ const EstimateForm = () => {
       navigate('/login');
     }
   }, [navigate]);
-
-  // Generate order number for customers
-  useEffect(() => {
-    const generateOrderNumber = async () => {
-      if (sourceBy === "customer") {
-        try {
-          const response = await axios.get(`${baseURL}/next-order-number`);
-          setOrderNumber(response.data.order_number);
-          console.log("OrderNum:", response.data.order_number )
-        } catch (error) {
-          console.error("Error fetching order number:", error);
-          // Fallback: generate a temporary order number
-          const tempOrderNumber = `ORD${Date.now().toString().slice(-6)}`;
-          setOrderNumber(tempOrderNumber);
-        }
-      }
-    };
-
-    if (sourceBy === "customer") {
-      generateOrderNumber();
-    }
-  }, [sourceBy]);
 
   // Check for quick order product from ProductCatalog
   useEffect(() => {
@@ -306,8 +282,7 @@ const EstimateForm = () => {
     fetchProducts();
   }, []);
 
-
-   // Fetch tags data
+  // Fetch tags data
   // useEffect(() => {
   //   const fetchTags = async () => {
   //     try {
@@ -324,7 +299,6 @@ const EstimateForm = () => {
 
   //   fetchTags();
   // }, []);
-
 
   // Fetch current rates
   useEffect(() => {
@@ -511,9 +485,7 @@ const EstimateForm = () => {
       customer_id: prev.customer_id,
       customer_name: prev.customer_name,
       salesperson_id: prev.salesperson_id,
-      date: today,
-      order_number: sourceBy === "customer" ? orderNumber : "", // Preserve order number for customers
-      estimate_number: sourceBy !== "customer" ? prev.estimate_number : "" // Preserve estimate number for others
+      date: today
     }));
     setIsQtyEditable(true);
     setCurrentProductImages([]);
@@ -686,34 +658,22 @@ const EstimateForm = () => {
     }));
   }, [formData.tax_percent, formData.rate_amt, formData.stone_price, formData.making_charges, formData.disscount, formData.hm_charges]);
 
-  // Fetch last estimate number for non-customers
+  // Fetch last estimate number
   useEffect(() => {
     const fetchLastEstimateNumber = async () => {
-      if (sourceBy !== "customer") {
-        try {
-          const response = await axios.get(`${baseURL}/lastEstimateNumber`);
-          setFormData((prev) => ({
-            ...prev,
-            estimate_number: response.data.lastEstimateNumber,
-          }));
-        } catch (error) {
-          console.error("Error fetching estimate number:", error);
-        }
+      try {
+        const response = await axios.get(`${baseURL}/lastEstimateNumber`);
+        setFormData((prev) => ({
+          ...prev,
+          estimate_number: response.data.lastEstimateNumber,
+        }));
+      } catch (error) {
+        console.error("Error fetching estimate number:", error);
       }
     };
 
     fetchLastEstimateNumber();
-  }, [sourceBy]);
-
-  // Update formData with order number when sourceBy changes
-  useEffect(() => {
-    if (sourceBy === "customer" && orderNumber) {
-      setFormData(prev => ({
-        ...prev,
-        order_number: orderNumber
-      }));
-    }
-  }, [sourceBy, orderNumber]);
+  }, []);
 
   // Handle add/update entry
   const handleAdd = () => {
@@ -732,9 +692,7 @@ const EstimateForm = () => {
       estimate_status: sourceBy === "customer" ? "Order" : "Pending",
       net_weight: formData.net_weight || formData.weight_bw || "0.000",
       msp_va_percent: formData.msp_va_percent || "0.00",
-      msp_wastage_weight: formData.msp_wastage_weight || "0.000",
-      // Add order number for customers, estimate number for others
-      ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: formData.estimate_number })
+      msp_wastage_weight: formData.msp_wastage_weight || "0.000"
     };
 
     let updatedEntries;
@@ -751,10 +709,10 @@ const EstimateForm = () => {
     setEntries(updatedEntries);
     localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEntries));
 
-    // Reset form but keep numbers and user info
+    // Reset form but keep estimate number and user info
     setFormData(prev => ({
       ...initialFormData,
-      ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: prev.estimate_number }),
+      estimate_number: prev.estimate_number,
       customer_id: userInfo?.role === 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.customer_id,
       customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
       salesperson_id: userInfo?.role !== 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.salesperson_id,
@@ -876,17 +834,14 @@ const EstimateForm = () => {
           taxAmount={taxAmount.toFixed(2)}
           netAmount={netAmount.toFixed(2)}
           date={today}
-          estimateNumber={sourceBy === "customer" ? "" : formData.estimate_number}
-          orderNumber={sourceBy === "customer" ? orderNumber : ""}
+          estimateNumber={formData.estimate_number}
           sellerName="Sadashri Jewels"
           customerName={userInfo.role === 'Customer' ? userInfo.full_name : entries[0]?.customer_name}
-          sourceBy={sourceBy}
         />
       );
 
       const blob = await pdfDoc.toBlob();
-      const fileName = sourceBy === "customer" ? `order_${orderNumber}.pdf` : `estimate_${formData.estimate_number}.pdf`;
-      saveAs(blob, fileName);
+      saveAs(blob, `estimate_${formData.estimate_number}.pdf`);
 
       if (sourceBy === "customer") {
         alert("Order placed successfully!");
@@ -904,8 +859,7 @@ const EstimateForm = () => {
         customer_id: userInfo?.role === 'Customer' ? userInfo.id : prev.customer_id,
         customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
         salesperson_id: userInfo?.role !== 'Customer' ? userInfo.id : prev.salesperson_id,
-        date: today,
-        ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: prev.estimate_number })
+        date: today
       }));
       setCurrentProductImages([]);
 
@@ -954,10 +908,6 @@ const EstimateForm = () => {
   const taxableAmount = totalAmount - discountAmt;
   const taxAmount = entries.reduce((sum, item) => sum + parseFloat(item.tax_amt || 0), 0);
   const netAmount = taxableAmount + taxAmount;
-
-  // Display appropriate number in header
-  const displayNumber = sourceBy === "customer" ? orderNumber : formData.estimate_number;
-  const numberLabel = sourceBy === "customer" ? "Order Number:" : "Estimate Number:";
 
   // Check if user is authenticated
   if (!userInfo) {
@@ -1013,9 +963,9 @@ const EstimateForm = () => {
               </Col>
               <Col xs={12} md={2}>
                 <InputField
-                  label={numberLabel}
-                  name={sourceBy === "customer" ? "order_number" : "estimate_number"}
-                  value={displayNumber}
+                  label="Estimate Number:"
+                  name="estimate_number"
+                  value={formData.estimate_number}
                   onChange={handleInputChange}
                   readOnly
                 />
@@ -1046,7 +996,7 @@ const EstimateForm = () => {
                 options={[
                   { value: "", label: "Select Barcode", disabled: true },
                   ...barcodeOptions,
-                  ...(tagsData || []).map(tag => ({
+                  ...tagsData.map(tag => ({
                     value: tag.PCode_BarCode,
                     label: tag.PCode_BarCode
                   }))

@@ -184,32 +184,21 @@ const styles = StyleSheet.create({
   },
 });
 
-const PDFContent = ({ 
-  entries, 
-  totalAmount, 
-  date, 
-  estimateNumber, 
-  orderNumber, 
-  sellerName, 
-  customerName,
-  sourceBy 
-}) => {
+const PDFContent = ({ entries, totalAmount, date, estimateNumber, sellerName }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const currentDate = new Date();
   const formattedDate = formatDate(currentDate);
   const currentTime = formatTime(currentDate);
 
-  console.log("OrderNumber:", orderNumber )
-
-  // Determine if this is an order (customer) or estimate
-  const isOrder = sourceBy === "customer";
+  // Check if this is an order (has order_number)
+  const hasOrderNumber = entries[0]?.order_number && entries[0]?.order_number !== 'NULL' && entries[0]?.order_number !== null;
+  const isOrder = hasOrderNumber;
   
   // Determine which number to display
-  const displayNumber = isOrder ? orderNumber : estimateNumber;
+  const displayNumber = isOrder ? entries[0]?.order_number : entries[0]?.estimate_number;
   
-  // Determine document type and label
+  // Determine document type
   const documentType = isOrder ? "ORDER" : "ESTIMATION";
-  const numberLabel = isOrder ? "Order No:" : "Est No:";
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -225,7 +214,7 @@ const PDFContent = ({
     };
 
     generateQRCode();
-  }, [displayNumber]);
+  }, [entries]);
 
   return (
     <Document>
@@ -236,7 +225,7 @@ const PDFContent = ({
           <View>
             <View style={styles.row}>
               <Text style={styles.leftText}>
-                {numberLabel} {displayNumber}
+                {isOrder ? "Order No:" : "Est No:"} {displayNumber}
               </Text>
               <Text style={styles.rightText}>S.E: Jiya Jewellery</Text>
             </View>
@@ -270,15 +259,15 @@ const PDFContent = ({
               <View style={styles.row}>
                 <Text style={[styles.tableCell, styles.snHeader]}>{index + 1}</Text>
                 <Text style={[styles.tableCell, styles.itemHeader]}>{entry.product_name}</Text>
-                <Text style={[styles.tableCell, styles.stAmtHeader]}>{entry.stone_price || "0.00"}</Text>
+                <Text style={[styles.tableCell, styles.stAmtHeader]}>{entry.stones_price}</Text>
               </View>
               <View style={styles.tableHeader2}>
                 <Text style={[styles.tableCell, styles.snHeader]}></Text>
-                <Text style={[styles.tableCell, styles.grHeader]}>{entry.gross_weight || "0.000"}</Text>
-                <Text style={[styles.tableCell, styles.ntHeader]}>{entry.total_weight_av || "0.000"}</Text>
-                <Text style={[styles.tableCell, styles.vaHeader]}>{entry.va_percent || "0.00"}</Text>
-                <Text style={[styles.tableCell, styles.mcHeader]}>{entry.making_charges || "0.00"}</Text>
-                <Text style={[styles.tableCell, styles.stAmtHeader]}>{entry.rate_amt || "0.00"}</Text>
+                <Text style={[styles.tableCell, styles.grHeader]}>{entry.gross_weight}</Text>
+                <Text style={[styles.tableCell, styles.ntHeader]}>{entry.total_weight}</Text>
+                <Text style={[styles.tableCell, styles.vaHeader]}>{entry.wastage_percent}</Text>
+                <Text style={[styles.tableCell, styles.mcHeader]}>{entry.total_mc}</Text>
+                <Text style={[styles.tableCell, styles.stAmtHeader]}>{entry.rate_amt}</Text>
               </View>
             </View>
           ))}
@@ -286,15 +275,14 @@ const PDFContent = ({
 
         {(() => {
           const totalGrossWeight = entries.reduce((sum, entry) => sum + parseFloat(entry.gross_weight || 0), 0);
-          const totalNetWeight = entries.reduce((sum, entry) => sum + parseFloat(entry.total_weight_av || 0), 0);
+          const totalNetWeight = entries.reduce((sum, entry) => sum + parseFloat(entry.total_weight || 0), 0);
           const totalAmount = entries.reduce((sum, entry) => sum + parseFloat(entry.rate_amt || 0), 0);
-          const totalMakingCharge = entries.reduce((sum, entry) => sum + parseFloat(entry.making_charges || 0), 0);
-          const totalStoneAmount = entries.reduce((sum, entry) => sum + parseFloat(entry.stone_price || 0), 0);
+          const totalMakingCharge = entries.reduce((sum, entry) => sum + parseFloat(entry.total_mc || 0), 0);
+          const totalStoneAmount = entries.reduce((sum, entry) => sum + parseFloat(entry.stones_price || 0), 0);
           const hmCharges = entries.reduce((sum, entry) => sum + parseFloat(entry.hm_charges || 0), 0);
           const discountAmount = entries.reduce((sum, entry) => sum + parseFloat(entry.disscount || 0), 0);
 
-          const taxPercentStr = entries[0]?.tax_percent || "3% GST";
-          const taxPercent = parseFloat(taxPercentStr.replace('% GST', '').trim()) || 3;
+          const taxPercent = parseFloat(entries[0]?.tax_percent || 0);
           const taxableAmount = totalAmount + totalMakingCharge + totalStoneAmount + hmCharges - discountAmount;
           const gstAmount = taxableAmount * (taxPercent / 100);
           const cgst = gstAmount / 2;
