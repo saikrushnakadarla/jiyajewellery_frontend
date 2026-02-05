@@ -3,8 +3,8 @@ import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import { Button, Row, Col } from 'react-bootstrap';
+import { FaEdit, FaTrash, FaQrcode } from 'react-icons/fa';
+import { Button, Row, Col, Modal } from 'react-bootstrap';
 import Navbar from '../../../../Pages/Navbar/Navbar';
 import './ProductMaster.css';
 
@@ -52,6 +52,11 @@ function ProductMaster() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filteredData, setFilteredData] = useState([]);
+  
+  // Modal state for QR Code
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedQRCode, setSelectedQRCode] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   // Fetch products on component mount
   useEffect(() => {
@@ -117,6 +122,69 @@ function ProductMaster() {
         console.error('Error deleting product:', error);
         Swal.fire('Error!', 'Failed to delete product.', 'error');
       }
+    }
+  };
+
+  // Handle viewing QR Code
+  const handleViewQRCode = async (barcode) => {
+    try {
+      setSelectedQRCode(barcode);
+      
+      // Check if QR PDF exists on server
+      const response = await fetch(`http://localhost:5000/invoices/${barcode}.pdf`, {
+        method: 'HEAD' // HEAD request to check if file exists without downloading
+      });
+      
+      if (response.ok) {
+        // File exists, set the URL for iframe
+        setQrCodeUrl(`http://localhost:5000/invoices/${barcode}.pdf`);
+        setShowQRModal(true);
+      } else {
+        // File doesn't exist, show message
+        Swal.fire({
+          icon: 'warning',
+          title: 'QR Code Not Found',
+          text: `QR Code PDF for barcode ${barcode} has not been generated yet.`,
+          confirmButtonColor: '#3085d6',
+        });
+      }
+    } catch (error) {
+      console.error('Error checking QR Code:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Unable to check QR Code. Please try again.',
+        confirmButtonColor: '#3085d6',
+      });
+    }
+  };
+
+  // Download QR Code PDF
+  const handleDownloadQRCode = async (barcode) => {
+    try {
+      const response = await fetch(`http://localhost:5000/invoices/${barcode}.pdf`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `QR_${barcode}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        throw new Error('File not found');
+      }
+    } catch (error) {
+      console.error('Error downloading QR Code:', error);
+      Swal.fire({
+        icon: 'warning',
+        title: 'QR Code Not Found',
+        text: `QR Code PDF for barcode ${barcode} has not been generated yet.`,
+        confirmButtonColor: '#3085d6',
+      });
     }
   };
 
@@ -207,6 +275,30 @@ function ProductMaster() {
           year: 'numeric'
         });
       },
+    },
+    {
+      Header: 'Barcode Scan',
+      Cell: ({ row }) => {
+        const barcode = row.original.barcode;
+        return (
+          <div className="d-flex align-items-center gap-2">
+            <FaQrcode
+              style={{ cursor: 'pointer', color: '#28a745' }}
+              onClick={() => handleViewQRCode(barcode)}
+              title="View QR Code"
+              size={18}
+            />
+            {/* <button
+              className="btn btn-sm btn-outline-primary"
+              onClick={() => handleDownloadQRCode(barcode)}
+              title="Download QR Code"
+            >
+              Download
+            </button> */}
+          </div>
+        );
+      },
+      width: 150,
     },
     {
       Header: 'Actions',
@@ -376,6 +468,39 @@ function ProductMaster() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      <Modal show={showQRModal} onHide={() => setShowQRModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>QR Code - {selectedQRCode}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {qrCodeUrl ? (
+            <div style={{ width: '100%', height: '500px' }}>
+              <iframe
+                src={qrCodeUrl}
+                title={`QR Code for ${selectedQRCode}`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p>Loading QR Code...</p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowQRModal(false)}>
+            Close
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={() => selectedQRCode && handleDownloadQRCode(selectedQRCode)}
+          >
+            Download PDF
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }

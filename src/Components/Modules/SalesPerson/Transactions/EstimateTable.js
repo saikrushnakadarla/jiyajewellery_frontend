@@ -71,7 +71,7 @@ const EstimateTable = () => {
           const role = parsedUser.role;
           
           // Check if user is a salesperson
-          if (role === 'salesman' || role === 'salesman' || role === 'salesman') {
+          if (role === 'salesman' || role === 'salesperson' || role === 'sales') {
             setSalespersonId(salespersonId);
             setSalespersonName(salespersonName);
             return { id: salespersonId, name: salespersonName };
@@ -336,10 +336,31 @@ const EstimateTable = () => {
     }
   }, [data, salespersonId, filterEstimatesBySalespersonId]);
 
+  // Update the handleViewDetails function
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
       const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
-      setRepairDetails(response.data);
+      const details = response.data;
+      
+      // Fetch the latest estimate status from database
+      const estimateResponse = await axios.get(`${baseURL}/get-unique-estimates`);
+      const allEstimates = estimateResponse.data || [];
+      
+      // Find the specific estimate with this estimate_number
+      const currentEstimate = allEstimates.find(
+        est => est.estimate_number === estimate_number
+      );
+      
+      // Update the repairDetails with the current status and order info
+      if (currentEstimate) {
+        if (details.uniqueData) {
+          details.uniqueData.estimate_status = currentEstimate.estimate_status || currentEstimate.status || 'Pending';
+          details.uniqueData.order_number = currentEstimate.order_number || details.uniqueData?.order_number;
+          details.uniqueData.order_date = currentEstimate.order_date || details.uniqueData?.order_date;
+        }
+      }
+      
+      setRepairDetails(details);
       setShowModal(true);
     } catch (error) {
       console.error('Error fetching estimate details:', error);
@@ -382,12 +403,31 @@ const EstimateTable = () => {
       accessor: 'estimate_number',
     },
     {
-      Header: 'Customer Name',
-      accessor: 'customer_name',
+      Header: 'Order Number',
+      accessor: 'order_number',
+      Cell: ({ value, row }) => {
+        const estimateStatus = row.original.estimate_status;
+        
+        if (estimateStatus === 'Accepted' || estimateStatus === 'Ordered') {
+          return value ? (
+            <strong style={{ color: '#17a2b8' }}>{value}</strong>
+          ) : (
+            <span className="text-muted" style={{ fontStyle: 'italic' }}>
+              N/A
+            </span>
+          );
+        }
+        
+        return (
+          <span className="text-muted" style={{ fontStyle: 'italic' }}>
+            N/A
+          </span>
+        );
+      },
     },
     {
-      Header: 'Product Name',
-      accessor: 'product_name',
+      Header: 'Customer Name',
+      accessor: 'customer_name',
     },
     {
       Header: 'Total Amount',
@@ -417,6 +457,7 @@ const EstimateTable = () => {
                 textAlign: 'center'
               };
             case 'Accepted':
+            case 'Ordered':
               return {
                 backgroundColor: '#28a745',
                 color: 'white',
@@ -724,14 +765,48 @@ const EstimateTable = () => {
                       <td>Estimate Number</td>
                       <td>{repairDetails.uniqueData?.estimate_number}</td>
                     </tr>
-                    {/* <tr>
-                      <td>Customer Name</td>
-                      <td>{repairDetails.uniqueData?.customer_name || 'N/A'}</td>
+                    <tr>
+                      <td>Order Number</td>
+                      <td>
+                        {repairDetails.uniqueData?.order_number ? (
+                          <strong>{repairDetails.uniqueData.order_number}</strong>
+                        ) : (
+                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
+                            N/A
+                          </span>
+                        )}
+                      </td>
                     </tr>
                     <tr>
-                      <td>Created By</td>
-                      <td>{repairDetails.uniqueData?.salesperson_name || 'N/A'}</td>
-                    </tr> */}
+                      <td>Order Date</td>
+                      <td>
+                        {repairDetails.uniqueData?.order_date ? (
+                          formatDate(repairDetails.uniqueData.order_date)
+                        ) : (
+                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
+                            N/A
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Status</td>
+                      <td>
+                        <span 
+                          className="badge px-3 py-2"
+                          style={{
+                            backgroundColor: 
+                              repairDetails.uniqueData?.estimate_status === 'Accepted' || repairDetails.uniqueData?.estimate_status === 'Ordered' ? '#28a745' :
+                              repairDetails.uniqueData?.estimate_status === 'Rejected' ? '#dc3545' : '#ffc107',
+                            color: 
+                              repairDetails.uniqueData?.estimate_status === 'Pending' ? '#212529' : 'white',
+                            fontSize: '0.9em'
+                          }}
+                        >
+                          {repairDetails.uniqueData?.estimate_status || 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
                     <tr>
                       <td>Total Amount</td>
                       <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
@@ -763,7 +838,7 @@ const EstimateTable = () => {
                       {repairDetails.repeatedData?.map((product, index) => (
                         <tr key={index}>
                           <td>{product.code}</td>
-                           <td>{product.product_name}</td> 
+                          <td>{product.product_name}</td>
                           <td>{product.metal_type}</td>
                           <td>{product.purity}</td>
                           <td>{product.gross_weight}</td>

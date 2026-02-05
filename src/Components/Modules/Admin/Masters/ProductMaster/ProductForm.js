@@ -4,8 +4,12 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import { Container, Row, Col, Button, Table } from "react-bootstrap";
 import Navbar from "../../../../Pages/Navbar/Navbar";
-import { FaEdit, FaTrash, FaCloudUploadAlt } from "react-icons/fa";
+import { FaEdit, FaTrash, FaCloudUploadAlt, FaQrcode } from "react-icons/fa";
 import "./ProductForm.css";
+
+// Import jsPDF and QRCode
+import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 
 function ProductForm() {
   const navigate = useNavigate();
@@ -24,6 +28,9 @@ function ProductForm() {
     barcode: true,
     rate: false
   });
+  
+  // QR Code state
+  const [isGenerateQRCode, setIsGenerateQRCode] = useState(true);
 
   // Get editing record if exists
   const editingRecord = location.state?.editingRecord || null;
@@ -257,6 +264,120 @@ function ProductForm() {
       setCurrentRateInfo(prev => ({ ...prev, isLoading: false }));
     } finally {
       setLoading(prev => ({ ...prev, rate: false }));
+    }
+  };
+
+  // Function to generate and download QR Code PDF
+  const generateAndDownloadPDF = async (productData) => {
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [75, 25] // height: 75mm (with tail), width: 25mm
+      });
+
+      // Generate QR Code content based on pricing type
+      let qrContent = "";
+      if (productData.pricing === "By Weight") {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Gross Wt: ${productData.gross_wt || '0'}, Net Wt: ${productData.net_wt || '0'}, Total Price: ${productData.total_price || '0'}`;
+      } else if (productData.pricing === "By fixed") {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Piece Cost: ${productData.pieace_cost || '0'}, Total Price: ${productData.total_price || '0'}`;
+      } else {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}`;
+      }
+
+      // Generate QR code image
+      const qrImageData = await QRCode.toDataURL(qrContent, {
+        width: 400,
+        margin: 0
+      });
+
+      // Background white
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, 25, 75, "F");
+
+      // ---------------------------------------------------
+      // TOP TAG AREA = 30mm
+      // ---------------------------------------------------
+
+      // QR BLOCK 0–15mm
+      const leftMargin = 2;
+      const qrSize = 21;
+      const qrHeight = 13;
+      const qrStartY = 1;
+
+      // Add QR Code
+      doc.addImage(qrImageData, "PNG", leftMargin, qrStartY, qrSize, qrHeight);
+
+      // PRODUCT DETAILS BLOCK 15–30mm
+      let textY = 16;
+      const textX = 2;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(4);
+      doc.setTextColor(0, 0, 0);
+
+      // Barcode
+      doc.text(`Barcode: ${productData.barcode}`, textX, textY);
+      textY += 2;
+
+      // Product Name
+      doc.text(`Product: ${productData.product_name || "Product"}`, textX, textY);
+      textY += 2;
+
+      // Gross weight (if exists)
+      if (productData.gross_wt) {
+        doc.text(`Gross Wt: ${productData.gross_wt}g`, textX, textY);
+        textY += 2;
+      }
+
+      // Net weight (if exists)
+      if (productData.net_wt) {
+        doc.text(`Net Wt: ${productData.net_wt}g`, textX, textY);
+        textY += 2;
+      }
+
+      // Price
+      if (productData.total_price) {
+        doc.text(`Price: ₹${productData.total_price}`, textX, textY);
+      }
+
+      // Generate PDF blob
+      const pdfBlob = doc.output("blob");
+      
+      // Save PDF to server
+      await handleSavePDFToServer(pdfBlob, productData.barcode);
+
+      // Download PDF to client
+      doc.save(`QR_${productData.barcode}.pdf`);
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating QR Code PDF:", error);
+      return false;
+    }
+  };
+
+  // Function to save PDF to server
+  const handleSavePDFToServer = async (pdfBlob, barcode) => {
+    const formData = new FormData();
+    formData.append("invoice", pdfBlob, `${barcode}.pdf`);
+
+    try {
+      const response = await fetch(`http://localhost:5000/upload-invoice`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload invoice");
+      }
+
+      console.log(`QR PDF ${barcode} saved on server`);
+      return true;
+    } catch (error) {
+      console.error("Error uploading QR PDF:", error);
+      return false;
     }
   };
 
@@ -839,117 +960,147 @@ function ProductForm() {
     }
   }, [formData.disscount_percentage, formData.making_charges]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage("");
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setErrorMessage("");
 
-    // Validation
-    if (!formData.product_name || !formData.barcode || !formData.category_id ||
-      !formData.metal_type_id || !formData.purity_id || !formData.design_id) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: 'All required fields must be filled!',
-        confirmButtonColor: '#3085d6',
-      });
-      setIsSubmitting(false);
-      return;
+  // Validation
+  if (!formData.product_name || !formData.barcode || !formData.category_id ||
+    !formData.metal_type_id || !formData.purity_id || !formData.design_id) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Validation Error',
+      text: 'All required fields must be filled!',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Validate barcode format
+  if (!/^[A-Z]{2,}\d{3}$/.test(formData.barcode)) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Invalid Barcode Format',
+      text: 'Barcode should be in format: Prefix + 3 digits (e.g., GC001)',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Prepare FormData for file upload
+  const formDataToSend = new FormData();
+  
+  // Add all form fields to FormData
+  Object.keys(formData).forEach(key => {
+    formDataToSend.append(key, formData[key] || "");
+  });
+
+  // Add existing images to delete (for edit mode)
+  if (editingRecord && imagesToDelete.length > 0) {
+    formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
+  }
+
+  // Add new image files
+  uploadedImages.forEach((imageObj, index) => {
+    if (imageObj.file) {
+      formDataToSend.append('images', imageObj.file);
+    }
+  });
+
+  console.log("Submitting data...");
+
+  try {
+    let url = "http://localhost:5000/post/product";
+    let method = "POST";
+
+    if (editingRecord) {
+      url = `http://localhost:5000/update/product/${editingRecord.product_id}`;
+      method = "PUT";
     }
 
-    // Validate barcode format
-    if (!/^[A-Z]{2,}\d{3}$/.test(formData.barcode)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Invalid Barcode Format',
-        text: 'Barcode should be in format: Prefix + 3 digits (e.g., GC001)',
-        confirmButtonColor: '#3085d6',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Prepare FormData for file upload
-    const formDataToSend = new FormData();
-    
-    // Add all form fields to FormData
-    Object.keys(formData).forEach(key => {
-      formDataToSend.append(key, formData[key] || "");
+    const response = await fetch(url, {
+      method: method,
+      body: formDataToSend,
     });
 
-    // Add existing images to delete (for edit mode)
-    if (editingRecord && imagesToDelete.length > 0) {
-      formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
-    }
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Success:", result);
 
-    // Add new image files
-    uploadedImages.forEach((imageObj, index) => {
-      if (imageObj.file) {
-        formDataToSend.append('images', imageObj.file);
-      }
-    });
-
-    console.log("Submitting data...");
-
-    try {
-      let url = "http://localhost:5000/post/product";
-      let method = "POST";
-
-      if (editingRecord) {
-        url = `http://localhost:5000/update/product/${editingRecord.product_id}`;
-        method = "PUT";
-      }
-
-      const response = await fetch(url, {
-        method: method,
-        body: formDataToSend,
-        // Note: Don't set Content-Type header for FormData, browser sets it automatically with boundary
+      // Clean up preview URLs
+      uploadedImages.forEach(img => {
+        if (img.preview && img.preview.startsWith('blob:')) {
+          URL.revokeObjectURL(img.preview);
+        }
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Success:", result);
-
-        // Clean up preview URLs
-        uploadedImages.forEach(img => {
-          if (img.preview && img.preview.startsWith('blob:')) {
-            URL.revokeObjectURL(img.preview);
+      // Generate QR Code PDF if checkbox is checked
+      if (isGenerateQRCode && !editingRecord) {
+        try {
+          const qrGenerated = await generateAndDownloadPDF(formData);
+          if (qrGenerated) {
+            console.log("QR Code PDF generated successfully");
+            
+            // Update product with QR status
+            try {
+              const qrResponse = await fetch(`http://localhost:5000/update-product-qr/${result.product_id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ qr_generated: true })
+              });
+              
+              if (qrResponse.ok) {
+                console.log('QR status updated in database');
+              }
+            } catch (qrUpdateError) {
+              console.error('Error updating QR status:', qrUpdateError);
+              // Continue even if QR status update fails
+            }
           }
-        });
-
-        Swal.fire({
-          icon: 'success',
-          title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
-          text: editingRecord
-            ? 'Product details have been updated successfully.'
-            : `Product added with barcode: ${formData.barcode}`,
-          confirmButtonColor: '#3085d6',
-        }).then((result) => {
-          if (result.isConfirmed) {
-            navigate("/productmaster");
-          }
-        });
-      } else {
-        const errorData = await response.json();
-        Swal.fire({
-          icon: 'error',
-          title: 'Submission Failed',
-          text: errorData.message || 'Failed to save product details. Please try again.',
-          confirmButtonColor: '#3085d6',
-        });
+        } catch (qrError) {
+          console.error("Error generating QR Code:", qrError);
+          // Don't show error to user if QR generation fails
+        }
       }
-    } catch (error) {
-      console.error("Error:", error);
+
+      Swal.fire({
+        icon: 'success',
+        title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
+        text: editingRecord
+          ? 'Product details have been updated successfully.'
+          : `Product added with barcode: ${formData.barcode}`,
+        confirmButtonColor: '#3085d6',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/productmaster");
+        }
+      });
+    } else {
+      const errorData = await response.json();
       Swal.fire({
         icon: 'error',
-        title: 'Network Error',
-        text: 'Please check your connection and try again.',
+        title: 'Submission Failed',
+        text: errorData.message || 'Failed to save product details. Please try again.',
         confirmButtonColor: '#3085d6',
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error) {
+    console.error("Error:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Network Error',
+      text: 'Please check your connection and try again.',
+      confirmButtonColor: '#3085d6',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleBack = () => {
     navigate(-1);
@@ -1392,6 +1543,22 @@ function ProductForm() {
                   />
                 </Col>
               )}
+
+
+                {/* QR Code Checkbox */}
+            {!editingRecord && (
+              <div className="qr-code-checkbox mt-3 mb-3">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={isGenerateQRCode}
+                    onChange={(e) => setIsGenerateQRCode(e.target.checked)}
+                  />
+                  <FaQrcode className="qr-icon" />
+                  Generate QR Code for Barcode
+                </label>
+              </div>
+            )}
 
               {/* Product Images Section */}
               <Col xs={12} className="mt-4">

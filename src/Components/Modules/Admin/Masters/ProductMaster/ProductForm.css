@@ -593,3 +593,107 @@
 .image-overlay {
   display: none !important;
 }
+
+
+/* QR Code Checkbox Styles */
+.qr-code-checkbox {
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  border: 1px solid #dee2e6;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: #495057;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.qr-icon {
+  margin-left: 10px;
+  margin-right: 5px;
+  color: #007bff;
+  font-size: 1.2rem;
+}
+
+/* Rate loading field */
+.rate-loading-field {
+  background-color: #f8f9fa !important;
+  color: #6c757d !important;
+}
+
+
+/* QR Code column styles */
+.qr-code-column {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.qr-code-icon {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.qr-code-icon:hover {
+  transform: scale(1.2);
+}
+
+/* Modal styles */
+.qr-modal-body {
+  padding: 20px;
+  text-align: center;
+}
+
+.qr-preview {
+  max-width: 300px;
+  margin: 0 auto;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  background: white;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Table responsiveness */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dataTable_cell {
+  white-space: nowrap;
+  padding: 12px 8px !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .dataTable_cell {
+    font-size: 0.875rem;
+    padding: 8px 4px !important;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 5px;
+  }
+}
