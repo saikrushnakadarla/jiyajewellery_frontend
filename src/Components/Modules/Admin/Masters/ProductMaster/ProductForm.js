@@ -339,7 +339,7 @@ function ProductForm() {
 
       // Price
       if (productData.total_price) {
-        doc.text(`Price: ₹${productData.total_price}`, textX, textY);
+        doc.text(`Price: ${productData.total_price}`, textX, textY);
       }
 
       // Generate PDF blob

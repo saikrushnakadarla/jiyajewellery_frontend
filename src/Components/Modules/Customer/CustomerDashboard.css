@@ -169,7 +169,7 @@
   animation: countUp 0.8s ease-out;
   font-size: 2.8rem;
   line-height: 1;
-  margin: 0.5rem 0;
+  /* margin: 0.5rem 0; */
 }
 
 /* Card Header Styling */

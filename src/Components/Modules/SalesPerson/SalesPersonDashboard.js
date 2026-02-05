@@ -190,7 +190,7 @@ function SalesPersonDashboard() {
               <div className="card-body d-flex flex-column justify-content-between">
                 <div>
                   <i className="bi bi-currency-rupee text-primary mb-3 sales-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold">Total Sales</h5>
+                  <h5 className="sales-card-title fw-semibold">Total Sales</h5>
                   <p className="display-4 fw-bold text-primary">₹{stats.totalSales.toLocaleString()}</p>
                 
                 </div>
@@ -207,22 +207,9 @@ function SalesPersonDashboard() {
               <div className="card-body d-flex flex-column justify-content-between">
                 <div>
                   <i className="bi bi-bullseye text-success mb-3 sales-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold">Monthly Target</h5>
+                  <h5 className="sales-card-title fw-semibold">Monthly Target</h5>
                   <p className="display-4 fw-bold text-success">₹{monthlyTarget.toLocaleString()}</p>
-                  <div className="progress mt-2" style={{ height: "10px" }}>
-                    <div 
-                      className="progress-bar bg-success" 
-                      role="progressbar" 
-                      style={{ width: `${calculateProgress()}%` }}
-                    ></div>
-                  </div>
-                  {/* <small className="text-muted d-block mt-2">
-                    {calculateProgress().toFixed(1)}% achieved
-                  </small> */}
                 </div>
-                {/* <div className="mt-2">
-                  <small className="text-muted">Target: ₹{monthlyTarget.toLocaleString()}</small>
-                </div> */}
               </div>
             </div>
           </div>
@@ -237,7 +224,7 @@ function SalesPersonDashboard() {
               <div className="card-body d-flex flex-column justify-content-between">
                 <div>
                   <i className="bi bi-people-fill text-info mb-3 sales-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold">Customers</h5>
+                  <h5 className="sales-card-title fw-semibold">Customers</h5>
                   <p className="display-4 fw-bold text-info">{stats.totalCustomers}</p>
                   {/* <p className="text-muted">Assigned customers</p> */}
                 </div>
@@ -258,7 +245,7 @@ function SalesPersonDashboard() {
               <div className="card-body d-flex flex-column justify-content-between">
                 <div>
                   <i className="bi bi-file-earmark-text-fill text-warning mb-3 sales-dashboard-icon"></i>
-                  <h5 className="card-title fw-semibold">Estimates</h5>
+                  <h5 className="sales-card-title fw-semibold">Estimates</h5>
                   <p className="display-4 fw-bold text-warning">{stats.totalEstimates}</p>
                   {/* <p className="text-muted">Total created</p> */}
                 </div>
