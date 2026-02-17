@@ -4,6 +4,27 @@ import SalesNavbar from "../../Pages/Navbar/SalesNavbar";
 import { Card, Row, Col, Alert, Spinner, Table, Button, ProgressBar } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "./SalesDashboard.css";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 function SalesPersonDashboard() {
   const navigate = useNavigate();
@@ -16,11 +37,20 @@ function SalesPersonDashboard() {
     totalEstimates: 0,
     pendingEstimates: 0,
     acceptedEstimates: 0,
-    completedOrders: 0
+    completedOrders: 0,
+    rejectedEstimates: 0
   });
   const [recentCustomers, setRecentCustomers] = useState([]);
   const [recentEstimates, setRecentEstimates] = useState([]);
   const [monthlyTarget] = useState(100000);
+
+  // Monthly data for charts
+  const monthlyData = {
+    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
+    estimates: [45, 52, 48, 45, 52, 58],
+    orders: [28, 35, 38, 32, 42, 45],
+    revenue: [45, 52, 48, 58, 62, 68]
+  };
 
   useEffect(() => {
     const fetchSalesPersonData = async () => {
@@ -73,6 +103,10 @@ function SalesPersonDashboard() {
           estimate.estimate_status && estimate.estimate_status.toLowerCase() === "order"
         ).length;
 
+        const rejected = salespersonCreatedEstimates.filter(estimate => 
+          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "rejected"
+        ).length;
+
         const recentEst = salespersonCreatedEstimates
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
           .slice(0, 5);
@@ -84,7 +118,8 @@ function SalesPersonDashboard() {
           totalEstimates: salespersonCreatedEstimates.length,
           pendingEstimates: pending,
           acceptedEstimates: accepted,
-          completedOrders: completed
+          completedOrders: completed,
+          rejectedEstimates: rejected
         });
 
         setLoading(false);
@@ -97,12 +132,152 @@ function SalesPersonDashboard() {
     fetchSalesPersonData();
   }, [navigate]);
 
-  const calculateProgress = () => {
-    return Math.min((stats.totalSales / monthlyTarget) * 100, 100);
-  };
-
   const handleCardClick = (path) => {
     navigate(path);
+  };
+
+  // Bar chart configuration for Monthly Overview
+  const monthlyOverviewData = {
+    labels: monthlyData.labels,
+    datasets: [
+      {
+        label: 'Estimates',
+        data: monthlyData.estimates,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+      },
+      {
+        label: 'Orders',
+        data: monthlyData.orders,
+        backgroundColor: '#22c55e',
+        borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+      }
+    ]
+  };
+
+  // Bar chart configuration for Revenue Trend
+  const revenueData = {
+    labels: monthlyData.labels,
+    datasets: [
+      {
+        label: 'Revenue',
+        data: monthlyData.revenue,
+        backgroundColor: '#f97316',
+        borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+      }
+    ]
+  };
+
+  // Pie chart configuration for Estimate Status
+  const pieChartData = {
+    labels: ['Pending', 'Accepted', 'Rejected'],
+    datasets: [
+      {
+        data: [
+          stats.pendingEstimates,
+          stats.acceptedEstimates,
+          stats.rejectedEstimates
+        ],
+        backgroundColor: [
+          '#f59e0b',  // Orange for Pending
+          '#22c55e',  // Green for Accepted
+          '#ef4444',  // Red for Rejected
+        ],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'end',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 15,
+          font: {
+            size: 12,
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        padding: 10,
+        cornerRadius: 6,
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 70,
+        grid: {
+          color: '#e2e8f0',
+          drawBorder: false,
+        },
+        ticks: {
+          stepSize: 15,
+          color: '#64748b',
+          font: {
+            size: 11
+          }
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          color: '#64748b',
+          font: {
+            size: 11,
+          }
+        }
+      }
+    },
+  };
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 15,
+          font: {
+            size: 12,
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        }
+      }
+    },
   };
 
   if (loading) {
@@ -137,338 +312,304 @@ function SalesPersonDashboard() {
   return (
     <>
       <SalesNavbar />
-      <div className="container mt-5 sales-dashboard-container">
+      <div className="sales-dashboard-container">
         {/* Welcome Section */}
         {currentUser && (
-          <div className="row mb-4">
-            <div className="col-12" style={{marginTop: "-37px"}}>
-              <div className="card shadow-sm border-0 bg-gradient-sales text-white sales-welcome-card">
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <h3 className="card-title mb-1">Welcome, {currentUser.full_name}!</h3>
-                      <p className="mb-0">Sales Performance Dashboard</p>
-                      <div className="mt-2 d-flex flex-wrap">
-                        <span className="badge bg-light text-dark me-2 mb-1">
-                          <i className="bi bi-person-badge me-1"></i>{currentUser.designation || 'Sales Person'}
-                        </span>
-                        <span className="badge bg-light text-dark me-2 mb-1">
-                          <i className="bi bi-building me-1"></i>{currentUser.company_name || 'Company'}
-                        </span>
-                        <span className="badge bg-light text-dark me-2 mb-1">
-                          <i className="bi bi-envelope me-1"></i>{currentUser.email_id}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <Button 
-                        variant="light" 
-                        className="fw-bold"
-                        onClick={() => navigate('/add-sale')}
-                      >
-                        <i className="bi bi-plus-circle me-2"></i>Add New Sale
-                      </Button>
-                    </div>
-                  </div>
+          <div className="welcome-section">
+            <div className="welcome-card">
+              <div className="welcome-content">
+                <h1>Welcome, {currentUser.full_name}!</h1>
+                <p>Sales Performance Dashboard</p>
+                <div className="welcome-badges">
+                  <span className="badge">
+                    <i className="bi bi-person-badge"></i>
+                    {currentUser.designation || 'Sales Person'}
+                  </span>
+                  <span className="badge">
+                    <i className="bi bi-building"></i>
+                    {currentUser.company_name || 'Company'}
+                  </span>
+                  <span className="badge">
+                    <i className="bi bi-envelope"></i>
+                    {currentUser.email_id}
+                  </span>
                 </div>
               </div>
+              <Button 
+                variant="light" 
+                className="add-sale-btn"
+                onClick={() => navigate('/add-sale')}
+              >
+                <i className="bi bi-plus-circle"></i>
+                Add New Sale
+              </Button>
             </div>
           </div>
         )}
 
-        <h2 className="mb-4 text-center text-primary fw-bold">Sales Dashboard</h2>
-        
-        {/* Stats Cards Section */}
-        <div className="row">
-          {/* Total Sales Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card sales-stats-card sales-total-sales-card shadow-sm text-center p-4 border-top border-4 border-primary clickable-card"
-              onClick={() => handleCardClick("/sales-report")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-currency-rupee text-primary mb-3 sales-dashboard-icon"></i>
-                  <h5 className="sales-card-title fw-semibold">Total Sales</h5>
-                  <p className="display-4 fw-bold text-primary">₹{stats.totalSales.toLocaleString()}</p>
-                
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-primary">View Report</span>
-                </div> */}
+        {/* Stats Cards */}
+        <div className="stats-grid">
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/sales-report")}
+          >
+            {/* <div className="stat-icon blue">
+              <i className="bi bi-currency-rupee"></i>
+            </div> */}
+            <div className="stat-content">
+              <span className="stat-label">Total Sales</span>
+              <span className="stat-value">₹{stats.totalSales.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/sales-report")}
+          >
+            {/* <div className="stat-icon green">
+              <i className="bi bi-bullseye"></i>
+            </div> */}
+            <div className="stat-content">
+              <span className="stat-label">Monthly Target</span>
+              <span className="stat-value">₹{monthlyTarget.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/customers")}
+          >
+            {/* <div className="stat-icon blue-light">
+              <i className="bi bi-people"></i>
+            </div> */}
+            <div className="stat-content">
+              <span className="stat-label">Customers</span>
+              <span className="stat-value">{stats.totalCustomers}</span>
+            </div>
+          </div>
+
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/salesperson-estimation")}
+          >
+            {/* <div className="stat-icon orange">
+              <i className="bi bi-file-text"></i>
+            </div> */}
+            <div className="stat-content">
+              <span className="stat-label">Estimates</span>
+              <span className="stat-value">{stats.totalEstimates}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="charts-section">
+          <div className="chart-row">
+            {/* Monthly Overview Chart */}
+            <div className="chart-container large">
+              <div className="chart-header">
+                <h3>Monthly Overview</h3>
+                <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
+              </div>
+              <div className="chart-wrapper">
+                <Bar data={monthlyOverviewData} options={barOptions} />
+              </div>
+            </div>
+
+            {/* Estimate Status Pie Chart */}
+            <div className="chart-container small">
+              <div className="chart-header">
+                <h3>Estimate Status</h3>
+                <span className="chart-subtitle">Distribution by status</span>
+              </div>
+              <div className="chart-wrapper pie-wrapper">
+                {stats.totalEstimates > 0 ? (
+                  <Pie data={pieChartData} options={pieOptions} />
+                ) : (
+                  <div className="no-data">No data available</div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Target Progress Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div className="card sales-stats-card sales-target-card shadow-sm text-center p-4 border-top border-4 border-success">
-              <div className="card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-bullseye text-success mb-3 sales-dashboard-icon"></i>
-                  <h5 className="sales-card-title fw-semibold">Monthly Target</h5>
-                  <p className="display-4 fw-bold text-success">₹{monthlyTarget.toLocaleString()}</p>
-                </div>
-              </div>
+          {/* Revenue Trend Chart */}
+          <div className="chart-container full-width">
+            <div className="chart-header">
+              <h3>Revenue Trend</h3>
+              <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
+            </div>
+            <div className="chart-wrapper">
+              <Bar data={revenueData} options={{
+                ...barOptions,
+                scales: {
+                  ...barOptions.scales,
+                  y: {
+                    ...barOptions.scales.y,
+                    max: 80,
+                    ticks: {
+                      stepSize: 20,
+                      color: '#64748b',
+                    }
+                  }
+                }
+              }} />
             </div>
           </div>
+        </div>
 
-          {/* Total Customers Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card sales-stats-card sales-customers-card shadow-sm text-center p-4 border-top border-4 border-info clickable-card"
-              onClick={() => handleCardClick("/customers")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-people-fill text-info mb-3 sales-dashboard-icon"></i>
-                  <h5 className="sales-card-title fw-semibold">Customers</h5>
-                  <p className="display-4 fw-bold text-info">{stats.totalCustomers}</p>
-                  {/* <p className="text-muted">Assigned customers</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-info">Manage</span>
-                </div> */}
+        {/* Estimates Breakdown Section */}
+        <div className="breakdown-section">
+          <h3 className="section-title">Estimates Breakdown</h3>
+          <div className="breakdown-grid">
+            <div className="breakdown-card pending">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Pending</span>
+                <span className="breakdown-value">{stats.pendingEstimates}</span>
+                <span className="breakdown-percentage">
+                  {stats.totalEstimates > 0 ? ((stats.pendingEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
+                </span>
               </div>
             </div>
-          </div>
 
-          {/* Total Estimates Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card sales-stats-card sales-estimates-card shadow-sm text-center p-4 border-top border-4 border-warning clickable-card"
-              onClick={() => handleCardClick("/salesperson-estimation")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body d-flex flex-column justify-content-between">
-                <div>
-                  <i className="bi bi-file-earmark-text-fill text-warning mb-3 sales-dashboard-icon"></i>
-                  <h5 className="sales-card-title fw-semibold">Estimates</h5>
-                  <p className="display-4 fw-bold text-warning">{stats.totalEstimates}</p>
-                  {/* <p className="text-muted">Total created</p> */}
-                </div>
-                {/* <div className="mt-2">
-                  <span className="badge bg-warning text-dark">View All</span>
-                </div> */}
+            <div className="breakdown-card accepted">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Accepted</span>
+                <span className="breakdown-value">{stats.acceptedEstimates}</span>
+                <span className="breakdown-percentage">
+                  {stats.totalEstimates > 0 ? ((stats.acceptedEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card orders">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Orders</span>
+                <span className="breakdown-value">{stats.completedOrders}</span>
+                <span className="breakdown-percentage">
+                  {stats.totalEstimates > 0 ? ((stats.completedOrders / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card rejected">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Rejected</span>
+                <span className="breakdown-value">{stats.rejectedEstimates}</span>
+                <span className="breakdown-percentage">
+                  {stats.totalEstimates > 0 ? ((stats.rejectedEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Estimates Breakdown - Updated to match image */}
-
-       <div className="row mt-4">
-          <div className="col-md-6 mb-4">
-            <div className="card shadow-sm h-100 sales-estimate-breakdown-card">
-              <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
-                <h5 className="card-title mb-0">
-                  <i className="bi bi-pie-chart me-2"></i>Estimates Breakdown
-                </h5>
-              </div>
-              <div className="card-body p-2">
-                <div className="row g-2">
-              
-                  <div className="col-6">
-                    <div className="estimate-small-box bg-light rounded d-flex align-items-center p-2">
-                      <div className="small-box-icon me-2">
-                        <div className="small-icon-circle bg-warning-subtle d-flex align-items-center justify-content-center">
-                          <i className="bi bi-clock-history text-warning"></i>
-                        </div>
-                      </div>
-                      <div className="flex-grow-1">
-                        <h4 className="fw-bold text-warning mb-0">{stats.pendingEstimates}</h4>
-                        <p className="small text-muted mb-0">Pending</p>
-                        <p className="small text-muted mb-0 opacity-75">Awaiting approval</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-  
-                  <div className="col-6">
-                    <div className="estimate-small-box bg-light rounded d-flex align-items-center p-2">
-                      <div className="small-box-icon me-2">
-                        <div className="small-icon-circle bg-success-subtle d-flex align-items-center justify-content-center">
-                          <i className="bi bi-check-circle text-success"></i>
-                        </div>
-                      </div>
-                      <div className="flex-grow-1">
-                        <h4 className="fw-bold text-success mb-0">{stats.acceptedEstimates}</h4>
-                        <p className="small text-muted mb-0">Accepted</p>
-                        <p className="small text-muted mb-0 opacity-75">Approved estimates</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-        
-                  <div className="col-6">
-                    <div className="estimate-small-box bg-light rounded d-flex align-items-center p-2">
-                      <div className="small-box-icon me-2">
-                        <div className="small-icon-circle bg-primary-subtle d-flex align-items-center justify-content-center">
-                          <i className="bi bi-cart-check text-primary"></i>
-                        </div>
-                      </div>
-                      <div className="flex-grow-1">
-                        <h4 className="fw-bold text-primary mb-0">{stats.completedOrders}</h4>
-                        <p className="small text-muted mb-0">Completed Orders</p>
-                        <p className="small text-muted mb-0 opacity-75">Converted to orders</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-      
-                  <div className="col-6">
-                    <div className="estimate-small-box bg-info rounded d-flex align-items-center p-2 text-white">
-                      <div className="small-box-icon me-2">
-                        <div className="small-icon-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center">
-                          <i className="bi bi-graph-up"></i>
-                        </div>
-                      </div>
-                      <div className="flex-grow-1">
-                        <h4 className="fw-bold mb-0">
-                          {stats.totalEstimates > 0 ? 
-                            Math.round(((stats.acceptedEstimates + stats.completedOrders) / stats.totalEstimates) * 100) : 0}%
-                        </h4>
-                        <p className="small mb-0 opacity-75">Conversion Rate</p>
-                        <p className="small mb-0 opacity-75">Success rate</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Recent Estimates Table */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Recent Estimates</h3>
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => navigate('/estimation')}
+            >
+              View All
+            </Button>
           </div>
-
-  
-          <div className="col-md-6 mb-4">
-            <div className="card shadow-sm h-100 sales-recent-estimates-card">
-              <div className="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-2">
-                <h5 className="card-title mb-0">
-                  <i className="bi bi-clock-history me-2"></i>Recent Estimates
-                </h5>
-                <Button 
-                  variant="outline-dark" 
-                  size="sm"
-                  onClick={() => navigate('/estimation')}
-                  className="py-1 px-2"
-                >
-                  View All
-                </Button>
+          <div className="table-container">
+            {recentEstimates.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Estimate #</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentEstimates.map((estimate, index) => (
+                    <tr 
+                      key={index} 
+                      onClick={() => handleCardClick(`/estimation/${estimate.estimate_id}`)}
+                    >
+                      <td className="estimate-number">
+                        {estimate.estimate_number || `EST${estimate.estimate_id?.toString().padStart(3, '0')}`}
+                      </td>
+                      <td>{estimate.customer_name || 'N/A'}</td>
+                      <td className="amount">
+                        ₹{(parseFloat(estimate.total_price) || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${
+                          estimate.estimate_status === 'pending' ? 'pending' : 
+                          estimate.estimate_status === 'accepted' ? 'accepted' : 
+                          estimate.estimate_status === 'order' ? 'order' : 'rejected'
+                        }`}>
+                          {estimate.estimate_status?.toUpperCase() || 'N/A'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-file-text"></i>
+                <p>No estimates found</p>
               </div>
-              <div className="card-body p-0">
-                {recentEstimates.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-borderless mb-0">
-                      <thead>
-                        <tr className="border-bottom">
-                          <th className="text-muted fw-normal small py-2">Estimated #</th>
-                          <th className="text-muted fw-normal small py-2">Customer</th>
-                          <th className="text-muted fw-normal small py-2">Amount</th>
-                          <th className="text-muted fw-normal small py-2">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentEstimates.map((estimate, index) => (
-                          <tr 
-                            key={index} 
-                            className="border-bottom hover-row"
-                            style={{ cursor: "pointer" }} 
-                            onClick={() => handleCardClick(`/estimation/${estimate.estimate_id}`)}
-                          >
-                            <td className="py-2 fw-semibold">
-                              {estimate.estimate_number || `EST${estimate.estimate_id?.toString().padStart(3, '0')}`}
-                            </td>
-                            <td className="py-2">{estimate.customer_name || 'N/A'}</td>
-                            <td className="py-2 fw-bold">
-                              ₹{(parseFloat(estimate.total_price) || 0).toLocaleString('en-IN', { 
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2 
-                              })}
-                            </td>
-                            <td className="py-2">
-                              <span className={`badge rounded-pill px-2 py-1 ${
-                                estimate.estimate_status === 'pending' ? 'bg-warning text-dark' : 
-                                estimate.estimate_status === 'accepted' ? 'bg-success' : 
-                                estimate.estimate_status === 'order' ? 'bg-primary' : 'bg-secondary'
-                              }`}>
-                                {estimate.estimate_status?.toUpperCase() || 'N/A'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="d-flex flex-column align-items-center justify-content-center h-100 py-3">
-                    <i className="bi bi-file-text text-muted mb-2" style={{ fontSize: '1.5rem' }}></i>
-                    <p className="text-muted small">No estimates found</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        </div> 
+        </div>
 
-
-        {/* Recent Customers */}
-        <div className="row mt-4">
-          <div className="col-12">
-            <div className="card shadow-sm sales-recent-customers-card">
-              <div className="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">
-                  <i className="bi bi-people me-2"></i>Recent Customers
-                </h5>
-                <Button 
-                  variant="outline-light" 
-                  size="sm"
-                  onClick={() => navigate('/customers')}
-                >
-                  View All
-                </Button>
+        {/* Recent Customers Table */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Recent Customers</h3>
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => navigate('/customers')}
+            >
+              View All
+            </Button>
+          </div>
+          <div className="table-container">
+            {recentCustomers.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentCustomers.map((customer) => (
+                    <tr key={customer.id}>
+                      <td className="customer-name">{customer.full_name}</td>
+                      <td>{customer.email_id}</td>
+                      <td>{customer.phone || 'N/A'}</td>
+                      <td>{customer.company_name || 'N/A'}</td>
+                      <td>
+                        <span className={`status-badge ${
+                          customer.status === 'approved' ? 'accepted' : 
+                          customer.status === 'pending' ? 'pending' : 'rejected'
+                        }`}>
+                          {customer.status?.toUpperCase() || 'PENDING'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-people"></i>
+                <p>No customers found</p>
               </div>
-              <div className="card-body p-0">
-                {recentCustomers.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-hover mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th className="border-0">Name</th>
-                          <th className="border-0">Email</th>
-                          <th className="border-0">Phone</th>
-                          <th className="border-0">Company</th>
-                          <th className="border-0">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentCustomers.map((customer) => (
-                          <tr key={customer.id} className="border-top">
-                            <td className="fw-semibold">{customer.full_name}</td>
-                            <td>{customer.email_id}</td>
-                            <td>{customer.phone || 'N/A'}</td>
-                            <td>{customer.company_name || 'N/A'}</td>
-                            <td>
-                              <span className={`badge ${
-                                customer.status === 'approved' ? 'bg-success' : 
-                                customer.status === 'pending' ? 'bg-warning text-dark' : 'bg-secondary'
-                              }`}>
-                                {customer.status?.toUpperCase() || 'PENDING'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="d-flex flex-column align-items-center justify-content-center h-100 py-5">
-                    <i className="bi bi-people text-muted" style={{ fontSize: '3rem' }}></i>
-                    <p className="text-muted mt-3">No customers found</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -3,6 +3,28 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import "./Dashboard.css";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -19,6 +41,14 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Monthly data for charts matching the image
+  const monthlyData = {
+    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
+    estimates: [45, 52, 48, 45, 52, 58],
+    orders: [28, 35, 38, 32, 42, 45],
+    revenue: [45, 52, 48, 58, 62, 68]
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -29,7 +59,6 @@ function Dashboard() {
         }
         const users = await usersResponse.json();
         
-        // Count users by role with case-insensitive matching
         const customers = users.filter(user => 
           user.role && user.role.toLowerCase() === "customer"
         ).length;
@@ -56,7 +85,6 @@ function Dashboard() {
         }
         const estimates = await estimatesResponse.json();
         
-        // Count estimates by status with proper separation
         const pending = estimates.filter(estimate => 
           estimate.estimate_status && estimate.estimate_status.toLowerCase() === "pending"
         ).length;
@@ -95,6 +123,171 @@ function Dashboard() {
     navigate(path);
   };
 
+  // Bar chart configuration for Estimates vs Orders
+  const estimatesVsOrdersData = {
+    labels: monthlyData.labels,
+    datasets: [
+      {
+        label: 'Estimates',
+        data: monthlyData.estimates,
+        backgroundColor: '#3b82f6',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      },
+      {
+        label: 'Orders',
+        data: monthlyData.orders,
+        backgroundColor: '#22c55e',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      }
+    ]
+  };
+
+  // Bar chart configuration for Revenue
+  const revenueData = {
+    labels: monthlyData.labels,
+    datasets: [
+      {
+        label: 'Revenue (in lakhs)',
+        data: monthlyData.revenue,
+        backgroundColor: '#f97316',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      }
+    ]
+  };
+
+  // Pie chart configuration - Include all 4 statuses
+const pieChartData = {
+  labels: [
+    `Pending (${estimatesCount.pending})`,
+    `Accepted (${estimatesCount.accepted})`,
+    `Orders (${estimatesCount.order})`,
+    `Rejected (${estimatesCount.rejected})`
+  ],
+  datasets: [
+    {
+      data: [
+        estimatesCount.pending,
+        estimatesCount.accepted,
+        estimatesCount.order,
+        estimatesCount.rejected
+      ],
+      backgroundColor: [
+        '#f59e0b',
+        '#22c55e',
+        '#3b82f6',
+        '#ef4444'
+      ],
+      borderWidth: 0,
+      spacing: 6,          // ✅ REQUIRED for gaps
+      borderRadius: 10,    // ✅ Rounded edges now work
+      hoverOffset: 4
+    }
+  ]
+};
+
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'end',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 20,
+          font: {
+            size: 12,
+            weight: '500'
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 12,
+        cornerRadius: 8,
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 70,
+        grid: {
+          color: '#e2e8f0',
+          drawBorder: false,
+        },
+        ticks: {
+          stepSize: 15,
+          color: '#64748b',
+          font: {
+            size: 11
+          }
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          color: '#64748b',
+          font: {
+            size: 11,
+            weight: '500'
+          }
+        }
+      }
+    },
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10
+      }
+    }
+  };
+
+ const pieOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '72%',          // ✅ thickness like image
+  rotation: -60,          // ✅ start angle matches image
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: {
+        usePointStyle: true,
+        pointStyle: 'circle',
+        boxWidth: 8,
+        boxHeight: 8,
+        padding: 18,
+        color: '#475569',
+        font: {
+          size: 13,
+          weight: '500'
+        }
+      }
+    },
+    tooltip: {
+      backgroundColor: '#1e293b',
+      callbacks: {
+        label: (ctx) => ctx.label
+      }
+    }
+  }
+};
+
+
+
   if (loading) {
     return (
       <>
@@ -127,210 +320,162 @@ function Dashboard() {
   return (
     <>
       <Navbar/>
-      <div className="container mt-5">
-        <h2 className="mb-4 text-center text-primary fw-bold">Admin Dashboard</h2>
-        
-        <div className="row">
+      <div className="container-fluid dashboard-container">
+        {/* Top Cards Row */}
+        <div className="cards-grid">
           {/* Customers Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-primary"
-              onClick={() => handleCardClick("/customers")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body admin-card-body">
-                <i className="bi bi-people-fill text-primary mb-2 admin-dashboard-icon"></i>
-                <h5 className="card-title fw-semibold admin-card-title">Customers</h5>
-                <p className="display-4 fw-bold text-primary admin-card-count">{customersCount}</p>
-              </div>
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/customers")}
+          >
+            <div className="stat-card-content">
+              <span className="stat-label">Customers</span>
+              <span className="stat-value">{customersCount}</span>
+              <span className="stat-trend">
+                <i className="bi bi-arrow-up"></i> +12% this month
+              </span>
             </div>
           </div>
 
-          {/* Salespersons Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-success"
-              onClick={() => handleCardClick("/salespersontable")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body admin-card-body">
-                <i className="bi bi-person-badge-fill text-success mb-2 admin-dashboard-icon"></i>
-                <h5 className="card-title fw-semibold admin-card-title">Sales Persons</h5>
-                <p className="display-4 fw-bold text-success admin-card-count">{salespersonsCount}</p>
-              </div>
+          {/* Sales Persons Card */}
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/salespersontable")}
+          >
+            <div className="stat-card-content">
+              <span className="stat-label">Sales Persons</span>
+              <span className="stat-value">{salespersonsCount}</span>
+              <span className="stat-trend">
+                <i className="bi bi-arrow-up"></i> +2 new
+              </span>
             </div>
           </div>
 
           {/* Products Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-warning"
-              onClick={() => handleCardClick("/productmaster")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body admin-card-body">
-                <i className="bi bi-box-seam-fill text-warning mb-2 admin-dashboard-icon"></i>
-                <h5 className="card-title fw-semibold admin-card-title">Products</h5>
-                <p className="display-4 fw-bold text-warning admin-card-count">{productsCount}</p>
-              </div>
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/productmaster")}
+          >
+            <div className="stat-card-content">
+              <span className="stat-label">Products</span>
+              <span className="stat-value">{productsCount}</span>
+              <span className="stat-trend">
+                <i className="bi bi-arrow-up"></i> +8% this month
+              </span>
             </div>
           </div>
 
           {/* Total Estimates Card */}
-          <div className="col-md-6 col-lg-3 mb-4">
-            <div 
-              className="card admin-dashboard-card admin-clickable-card shadow-sm text-center p-3 border-top border-4 border-info"
-              onClick={() => handleCardClick("/estimation")}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="card-body admin-card-body">
-                <i className="bi bi-file-earmark-text-fill text-info mb-2 admin-dashboard-icon"></i>
-                <h5 className="card-title fw-semibold admin-card-title">Total Estimates</h5>
-                <p className="display-4 fw-bold text-info admin-card-count">{estimatesCount.total}</p>
-              </div>
+          <div 
+            className="stat-card clickable"
+            onClick={() => handleCardClick("/estimation")}
+          >
+            <div className="stat-card-content">
+              <span className="stat-label">Total Estimates</span>
+              <span className="stat-value">{estimatesCount.total}</span>
+              <span className="stat-trend">
+                <i className="bi bi-arrow-up"></i> +18% this month
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Estimates Breakdown Section - Now as Cards */}
-        <div className="row mt-4">
-          <div className="col-12">
-            <h4 className="mb-4 text-center text-secondary fw-bold">Estimates Overview</h4>
-            <div className="row">
-              {/* Pending Estimates Card */}
-              <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-warning">
-                  <div className="card-body admin-card-body">
-                    <i className="bi bi-clock-fill text-warning mb-2 admin-dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold admin-card-title">Pending</h5>
-                    <p className="display-4 fw-bold text-warning admin-card-count">{estimatesCount.pending}</p>
-                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
-                      <div 
-                        className="admin-progress-bar bg-warning" 
-                        role="progressbar" 
-                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.pending / estimatesCount.total * 100) : 0}%` }}
-                      ></div>
-                    </div>
-                    <small className="text-muted d-block mt-2 admin-card-percentage">
-                      {estimatesCount.total > 0 ? Math.round((estimatesCount.pending / estimatesCount.total) * 100) : 0}% of total
-                    </small>
-                  </div>
-                </div>
-              </div>
-
-              {/* Accepted Estimates Card */}
-              <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-success">
-                  <div className="card-body admin-card-body">
-                    <i className="bi bi-check-circle-fill text-success mb-2 admin-dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold admin-card-title">Accepted</h5>
-                    <p className="display-4 fw-bold text-success admin-card-count">{estimatesCount.accepted}</p>
-                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
-                      <div 
-                        className="admin-progress-bar bg-success" 
-                        role="progressbar" 
-                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.accepted / estimatesCount.total * 100) : 0}%` }}
-                      ></div>
-                    </div>
-                    <small className="text-muted d-block mt-2 admin-card-percentage">
-                      {estimatesCount.total > 0 ? Math.round((estimatesCount.accepted / estimatesCount.total) * 100) : 0}% of total
-                    </small>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Estimates Card */}
-              <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-primary">
-                  <div className="card-body admin-card-body">
-                    <i className="bi bi-cart-check-fill text-primary mb-2 admin-dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold admin-card-title">Orders</h5>
-                    <p className="display-4 fw-bold text-primary admin-card-count">{estimatesCount.order}</p>
-                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
-                      <div 
-                        className="admin-progress-bar bg-primary" 
-                        role="progressbar" 
-                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.order / estimatesCount.total * 100) : 0}%` }}
-                      ></div>
-                    </div>
-                    <small className="text-muted d-block mt-2 admin-card-percentage">
-                      {estimatesCount.total > 0 ? Math.round((estimatesCount.order / estimatesCount.total) * 100) : 0}% of total
-                    </small>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rejected Estimates Card */}
-              <div className="col-md-6 col-lg-3 mb-4">
-                <div className="card admin-estimate-card shadow-sm text-center p-3 border-top border-4 border-danger">
-                  <div className="card-body admin-card-body">
-                    <i className="bi bi-x-circle-fill text-danger mb-2 admin-dashboard-icon"></i>
-                    <h5 className="card-title fw-semibold admin-card-title">Rejected</h5>
-                    <p className="display-4 fw-bold text-danger admin-card-count">{estimatesCount.rejected}</p>
-                    <div className="admin-progress mt-2" style={{ height: "8px" }}>
-                      <div 
-                        className="admin-progress-bar bg-danger" 
-                        role="progressbar" 
-                        style={{ width: `${estimatesCount.total > 0 ? (estimatesCount.rejected / estimatesCount.total * 100) : 0}%` }}
-                      ></div>
-                    </div>
-                    <small className="text-muted d-block mt-2 admin-card-percentage">
-                      {estimatesCount.total > 0 ? Math.round((estimatesCount.rejected / estimatesCount.total) * 100) : 0}% of total
-                    </small>
-                  </div>
-                </div>
-              </div>
+        {/* Monthly Overview and Pie Chart Row */}
+        <div className="charts-row">
+          <div className="chart-container large">
+            <div className="chart-header">
+              <h3>Monthly Overview</h3>
+              <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
+            </div>
+            <div className="chart-wrapper">
+              <Bar data={estimatesVsOrdersData} options={barOptions} />
+            </div>
+          </div>
+          
+          <div className="chart-container small">
+            <div className="chart-header">
+              <h3>Estimate Status</h3>
+              <span className="chart-subtitle">Distribution by status</span>
+            </div>
+            <div className="chart-wrapper pie-wrapper">
+              {estimatesCount.total > 0 ? (
+                <Doughnut data={pieChartData} options={pieOptions} />
+              ) : (
+                <div className="no-data-message">No data available</div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Summary Section */}
-        {/* <div className="row mt-4">
-          <div className="col-12">
-            <div className="card shadow-sm admin-summary-card">
-              <div className="card-header bg-gradient-primary text-white">
-                <h5 className="card-title mb-0">Quick Summary</h5>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  <div className="col-md-4 mb-3">
-                    <div className="admin-summary-item p-3 bg-light rounded">
-                      <h6 className="text-muted">Total Users</h6>
-                      <h3 className="fw-bold text-primary admin-summary-count">{customersCount + salespersonsCount}</h3>
-                      <div className="d-flex justify-content-between mt-2">
-                        <small className="text-muted">Customers: {customersCount}</small>
-                        <small className="text-muted">Salespersons: {salespersonsCount}</small>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-4 mb-3">
-                    <div className="admin-summary-item p-3 bg-light rounded">
-                      <h6 className="text-muted">Products & Estimates</h6>
-                      <h3 className="fw-bold text-warning admin-summary-count">{productsCount + estimatesCount.total}</h3>
-                      <div className="d-flex justify-content-between mt-2">
-                        <small className="text-muted">Products: {productsCount}</small>
-                        <small className="text-muted">Estimates: {estimatesCount.total}</small>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-4 mb-3">
-                    <div className="admin-summary-item p-3 bg-light rounded">
-                      <h6 className="text-muted">Conversion Rate</h6>
-                      <h3 className="fw-bold text-success admin-summary-count">
-                        {estimatesCount.total > 0 ? 
-                          Math.round(((estimatesCount.accepted + estimatesCount.order) / estimatesCount.total) * 100) : 0}%
-                      </h3>
-                      <div className="d-flex justify-content-between mt-2">
-                        <small className="text-success">Accepted: {estimatesCount.accepted}</small>
-                        <small className="text-primary">Orders: {estimatesCount.order}</small>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Estimates Breakdown Cards */}
+        <div className="estimates-breakdown">
+          <div className="estimate-breakdown-card pending">
+            <div className="estimate-breakdown-content">
+              <span className="estimate-breakdown-label">Pending</span>
+              <span className="estimate-breakdown-value">{estimatesCount.pending}</span>
+              <span className="estimate-breakdown-percentage">
+                {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+              </span>
             </div>
           </div>
-        </div> */}
+
+          <div className="estimate-breakdown-card accepted">
+            <div className="estimate-breakdown-content">
+              <span className="estimate-breakdown-label">Accepted</span>
+              <span className="estimate-breakdown-value">{estimatesCount.accepted}</span>
+              <span className="estimate-breakdown-percentage">
+                {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+              </span>
+            </div>
+          </div>
+
+          <div className="estimate-breakdown-card orders">
+            <div className="estimate-breakdown-content">
+              <span className="estimate-breakdown-label">Orders</span>
+              <span className="estimate-breakdown-value">{estimatesCount.order}</span>
+              <span className="estimate-breakdown-percentage">
+                {estimatesCount.total > 0 ? ((estimatesCount.order / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+              </span>
+            </div>
+          </div>
+
+          <div className="estimate-breakdown-card rejected">
+            <div className="estimate-breakdown-content">
+              <span className="estimate-breakdown-label">Rejected</span>
+              <span className="estimate-breakdown-value">{estimatesCount.rejected}</span>
+              <span className="estimate-breakdown-percentage">
+                {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue Trend Chart */}
+        <div className="revenue-chart-container">
+          <div className="chart-header">
+            <h3>Revenue Trend</h3>
+            <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
+          </div>
+          <div className="chart-wrapper">
+            <Bar data={revenueData} options={{
+              ...barOptions,
+              scales: {
+                ...barOptions.scales,
+                y: {
+                  ...barOptions.scales.y,
+                  max: 80,
+                  ticks: {
+                    stepSize: 20,
+                    color: '#64748b',
+                    font: {
+                      size: 11
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
       </div>
     </>
   );

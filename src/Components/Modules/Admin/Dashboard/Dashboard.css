@@ -1,205 +1,344 @@
 /* Dashboard.css - Admin specific styles */
 
-/* Main dashboard cards */
-.admin-dashboard-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  height: 140px; /* Reduced height */
-  min-height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px !important;
-  margin-bottom: 1rem;
+.dashboard-container {
+  padding: 24px 32px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  max-width: 1600px;
+  margin: 0 auto;
+  margin-top: 80px;
 }
 
-.admin-estimate-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  height: 150px; /* Reduced height */
-  min-height: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px !important;
-  margin-bottom: 1rem;
+/* Cards Grid */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
 }
 
-.admin-dashboard-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.12) !important;
-}
-
-.admin-estimate-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
-}
-
-.admin-card-body {
-  width: 100%;
-  padding: 0.5rem !important; /* Reduced padding */
-}
-
-.admin-clickable-card {
-  transition: all 0.3s ease;
-}
-
-.admin-clickable-card:hover {
+.stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
   cursor: pointer;
-  transform: scale(1.02);
+  border: 1px solid #eef2f6;
 }
 
-.admin-clickable-card:active {
-  transform: scale(0.98);
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.12);
+  border-color: transparent;
 }
 
-.admin-dashboard-icon {
-  font-size: 2rem !important; /* Reduced icon size */
-}
-
-.admin-card-title {
-  font-size: 0.9rem; /* Smaller title */
-  margin-bottom: 0.5rem;
-}
-
-.admin-card-count {
-  font-size: 2.2rem !important; /* Smaller count number */
-  line-height: 1;
-  margin-bottom: 0.5rem;
-}
-
-.admin-card-percentage {
-  font-size: 0.8rem;
-}
-
-/* Progress bars */
-.admin-progress-bar {
-  transition: width 1s ease-in-out;
-  border-radius: 4px;
-}
-
-.admin-progress {
-  border-radius: 4px;
-  background-color: #f0f0f0;
-}
-
-/* Summary section */
-.admin-summary-card {
-  border-radius: 10px !important;
-}
-
-.admin-summary-item {
-  transition: transform 0.2s ease;
-  height: 120px; /* Reduced height */
-  min-height: 120px;
+.stat-card-content {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  border-radius: 8px;
+  gap: 8px;
 }
 
-.admin-summary-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 12px rgba(0,0,0,0.08);
+.stat-label {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
-.admin-summary-count {
-  font-size: 1.8rem; /* Smaller summary count */
-  margin: 0.5rem 0;
+.stat-value {
+  color: #1e293b;
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
-.bg-gradient-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+.stat-trend {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* Animation for counts */
-@keyframes adminCountUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+.stat-trend i {
+  font-size: 16px;
+}
+
+/* Charts Row */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #eef2f6;
+  height: fit-content;
+}
+
+.chart-header {
+  margin-bottom: 24px;
+}
+
+.chart-header h3 {
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.chart-subtitle {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.chart-wrapper {
+  height: 280px;
+  position: relative;
+  width: 100%;
+}
+
+
+/* Estimates Breakdown */
+.estimates-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.estimate-breakdown-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #eef2f6;
+  position: relative;
+  overflow: hidden;
+}
+
+.estimate-breakdown-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.estimate-breakdown-card.pending::before {
+  background-color: #f59e0b;
+}
+
+.estimate-breakdown-card.accepted::before {
+  background-color: #22c55e;
+}
+
+.estimate-breakdown-card.orders::before {
+  background-color: #3b82f6;
+}
+
+.estimate-breakdown-card.rejected::before {
+  background-color: #ef4444;
+}
+
+.estimate-breakdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.estimate-breakdown-label {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.estimate-breakdown-value {
+  color: #1e293b;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.estimate-breakdown-percentage {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* Revenue Chart Container */
+.revenue-chart-container {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #eef2f6;
+}
+
+/* Clickable */
+.clickable {
+  cursor: pointer;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .cards-grid {
+    gap: 20px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  
+  .stat-value {
+    font-size: 36px;
   }
 }
 
-.admin-card-count {
-  animation: adminCountUp 0.8s ease-out;
+@media (max-width: 1200px) {
+  .dashboard-container {
+    padding: 20px;
+  }
+  
+  .charts-row {
+    grid-template-columns: 1fr 320px;
+  }
+  
+  .estimates-breakdown {
+    gap: 16px;
+  }
 }
 
-/* Responsive adjustments */
+@media (max-width: 992px) {
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .estimates-breakdown {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+}
+
 @media (max-width: 768px) {
-  .admin-dashboard-card,
-  .admin-estimate-card {
-    height: 130px;
-    min-height: 130px;
+  .dashboard-container {
+    padding: 16px;
   }
   
-  .admin-dashboard-icon {
-    font-size: 1.8rem !important;
+  .cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   
-  .admin-card-count {
-    font-size: 1.8rem !important;
+  .estimates-breakdown {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   
-  .admin-card-body {
-    padding: 0.5rem !important;
+  .stat-value {
+    font-size: 32px;
   }
   
-  .admin-summary-item {
-    height: 110px;
-    min-height: 110px;
+  .chart-container,
+  .revenue-chart-container {
+    padding: 16px;
   }
   
-  .admin-summary-count {
-    font-size: 1.6rem;
+  .chart-wrapper {
+    height: 240px;
   }
+  
+
 }
 
-@media (max-width: 576px) {
-  .admin-dashboard-card,
-  .admin-estimate-card {
-    height: 120px;
-    min-height: 120px;
-  }
-  
-  .admin-card-count {
-    font-size: 1.6rem !important;
-  }
-  
-  .admin-card-title {
-    font-size: 0.85rem;
-  }
-  
-  .admin-dashboard-icon {
-    font-size: 1.6rem !important;
-  }
-  
-  .admin-summary-item {
-    height: 100px;
-    min-height: 100px;
-  }
-  
-  .admin-summary-count {
-    font-size: 1.4rem;
-  }
+/* Chart.js customizations */
+/* canvas {
+  max-width: 100%;
+  height: auto !important;
+  display: block;
+} */
+
+/* Fix for pie chart container */
+.small .pie-chart-wrapper {
+  min-height: 280px;
 }
 
-/* Card spacing adjustments */
-.row {
-  margin-left: -8px;
-  margin-right: -8px;
+
+/* Add to your existing Dashboard.css */
+
+/* Ensure pie chart container has proper dimensions */
+.pie-wrapper {
+  height: 280px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
-.col-md-6, .col-lg-3 {
-  padding-left: 8px;
-  padding-right: 8px;
+/* Ensure canvas takes proper size */
+.pie-wrapper canvas {
+  max-height: 280px !important;
+  width: auto !important;
+  max-width: 100%;
 }
 
-.mb-4 {
-  margin-bottom: 1.2rem !important;
+/* No data message */
+.no-data-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+  font-size: 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 20px;
 }
 
-.mt-4 {
-  margin-top: 1.5rem !important;
+/* Small chart container adjustment */
+.chart-container.small {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-container.small .chart-wrapper {
+  flex: 1;
+  min-height: 280px;
+}
+
+/* Ensure charts are visible */
+/* canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+} */
+
+
+
+.pie-wrapper {
+  height: 280px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pie-wrapper canvas {
+  width: 260px !important;
+  height: 260px !important;
 }
