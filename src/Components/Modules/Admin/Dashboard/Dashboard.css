@@ -25,6 +25,8 @@
   transition: all 0.2s ease;
   cursor: pointer;
   border: 1px solid #eef2f6;
+  height: 140px; /* Fixed height to match image */
+  width: 100%;
 }
 
 .stat-card:hover {
@@ -35,8 +37,27 @@
 
 .stat-card-content {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 100%;
+  width: 100%;
+}
+
+.stat-left {
+  display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  flex: 1;
+}
+
+.stat-icon {
+  color: #94a3b8;
+  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 16px;
+  opacity: 0.7;
 }
 
 .stat-label {
@@ -49,7 +70,7 @@
 
 .stat-value {
   color: #1e293b;
-  font-size: 42px;
+  font-size: 36px;
   font-weight: 600;
   line-height: 1.1;
 }
@@ -61,9 +82,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 4px;
 }
 
-.stat-trend i {
+.trend-icon {
   font-size: 16px;
 }
 
@@ -200,7 +222,11 @@
   }
   
   .stat-value {
-    font-size: 36px;
+    font-size: 32px;
+  }
+  
+  .stat-card {
+    height: 130px;
   }
 }
 
@@ -215,6 +241,10 @@
   
   .estimates-breakdown {
     gap: 16px;
+  }
+  
+  .stat-icon {
+    font-size: 28px;
   }
 }
 
@@ -231,6 +261,9 @@
     grid-template-columns: repeat(2, 1fr);
   }
   
+  .stat-card {
+    height: 120px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -249,7 +282,7 @@
   }
   
   .stat-value {
-    font-size: 32px;
+    font-size: 28px;
   }
   
   .chart-container,
@@ -261,7 +294,13 @@
     height: 240px;
   }
   
-
+  .stat-card {
+    height: 110px;
+  }
+  
+  .stat-icon {
+    font-size: 24px;
+  }
 }
 
 /* Chart.js customizations */
@@ -342,3 +381,53 @@
   width: 260px !important;
   height: 260px !important;
 }
+
+
+.estimate-pie-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  height: 100%;
+}
+
+.estimate-pie-wrapper {
+  position: relative;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.estimate-pie-center {
+  position: absolute;
+  background: #ffffff;
+  padding: 10px 18px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  font-weight: 600;
+}
+
+.estimate-pie-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 15px;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.estimate-pie-legend div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.pending { background: #F59E0B; }
+.dot.accepted { background: #10B981; }
+.dot.rejected { background: #EF4444; }
+.dot.orders { background: #4361EE; }

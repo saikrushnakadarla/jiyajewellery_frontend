@@ -14,7 +14,8 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
+import EstimateStatusChart from "./EstimatePieChart"; // Import the custom component
 
 ChartJS.register(
   CategoryScale,
@@ -174,26 +175,6 @@ function SalesPersonDashboard() {
     ]
   };
 
-  // Pie chart configuration for Estimate Status
-  const pieChartData = {
-    labels: ['Pending', 'Accepted', 'Rejected'],
-    datasets: [
-      {
-        data: [
-          stats.pendingEstimates,
-          stats.acceptedEstimates,
-          stats.rejectedEstimates
-        ],
-        backgroundColor: [
-          '#f59e0b',  // Orange for Pending
-          '#22c55e',  // Green for Accepted
-          '#ef4444',  // Red for Rejected
-        ],
-        borderWidth: 0,
-      },
-    ],
-  };
-
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -242,38 +223,6 @@ function SalesPersonDashboard() {
           color: '#64748b',
           font: {
             size: 11,
-          }
-        }
-      }
-    },
-  };
-
-  const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          usePointStyle: true,
-          pointStyle: 'circle',
-          boxWidth: 8,
-          boxHeight: 8,
-          padding: 15,
-          font: {
-            size: 12,
-          }
-        }
-      },
-      tooltip: {
-        backgroundColor: '#1e293b',
-        callbacks: {
-          label: function(context) {
-            const label = context.label || '';
-            const value = context.raw || 0;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-            return `${label}: ${value} (${percentage}%)`;
           }
         }
       }
@@ -353,9 +302,6 @@ function SalesPersonDashboard() {
             className="stat-card clickable"
             onClick={() => handleCardClick("/sales-report")}
           >
-            {/* <div className="stat-icon blue">
-              <i className="bi bi-currency-rupee"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Total Sales</span>
               <span className="stat-value">₹{stats.totalSales.toLocaleString()}</span>
@@ -366,9 +312,6 @@ function SalesPersonDashboard() {
             className="stat-card clickable"
             onClick={() => handleCardClick("/sales-report")}
           >
-            {/* <div className="stat-icon green">
-              <i className="bi bi-bullseye"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Monthly Target</span>
               <span className="stat-value">₹{monthlyTarget.toLocaleString()}</span>
@@ -379,9 +322,6 @@ function SalesPersonDashboard() {
             className="stat-card clickable"
             onClick={() => handleCardClick("/customers")}
           >
-            {/* <div className="stat-icon blue-light">
-              <i className="bi bi-people"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Customers</span>
               <span className="stat-value">{stats.totalCustomers}</span>
@@ -392,9 +332,6 @@ function SalesPersonDashboard() {
             className="stat-card clickable"
             onClick={() => handleCardClick("/salesperson-estimation")}
           >
-            {/* <div className="stat-icon orange">
-              <i className="bi bi-file-text"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Estimates</span>
               <span className="stat-value">{stats.totalEstimates}</span>
@@ -416,20 +353,20 @@ function SalesPersonDashboard() {
               </div>
             </div>
 
-            {/* Estimate Status Pie Chart */}
-            <div className="chart-container small">
-              <div className="chart-header">
+            {/* Estimate Status Custom Chart */}
+            {/* <div className="chart-container small"> */}
+              {/* <div className="chart-header">
                 <h3>Estimate Status</h3>
                 <span className="chart-subtitle">Distribution by status</span>
-              </div>
-              <div className="chart-wrapper pie-wrapper">
+              </div> */}
+              {/* <div className="chart-wrapper custom-chart-wrapper"> */}
                 {stats.totalEstimates > 0 ? (
-                  <Pie data={pieChartData} options={pieOptions} />
+                  <EstimateStatusChart />
                 ) : (
                   <div className="no-data">No data available</div>
                 )}
-              </div>
-            </div>
+              {/* </div> */}
+            {/* </div> */}
           </div>
 
           {/* Revenue Trend Chart */}

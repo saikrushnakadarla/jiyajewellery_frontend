@@ -13,7 +13,9 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
+import EstimateStatusChart from "./EstimatePieChart";
+import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCheckCircle } from 'react-icons/fi';
 
 ChartJS.register(
   CategoryScale,
@@ -161,28 +163,6 @@ function Dashboard() {
     ]
   };
 
-  // Pie chart configuration for Estimate Status
-  const pieChartData = {
-    labels: ['Pending', 'Accepted', 'Orders', 'Rejected'],
-    datasets: [
-      {
-        data: [
-          estimatesCount.pending,
-          estimatesCount.accepted,
-          estimatesCount.order,
-          estimatesCount.rejected
-        ],
-        backgroundColor: [
-          '#f59e0b',  // Orange for Pending
-          '#22c55e',  // Green for Accepted
-          '#3b82f6',  // Blue for Orders
-          '#ef4444',  // Red for Rejected
-        ],
-        borderWidth: 0,
-      },
-    ],
-  };
-
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -237,38 +217,6 @@ function Dashboard() {
     },
   };
 
-  const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          usePointStyle: true,
-          pointStyle: 'circle',
-          boxWidth: 8,
-          boxHeight: 8,
-          padding: 15,
-          font: {
-            size: 12,
-          }
-        }
-      },
-      tooltip: {
-        backgroundColor: '#1e293b',
-        callbacks: {
-          label: function(context) {
-            const label = context.label || '';
-            const value = context.raw || 0;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-            return `${label}: ${value} (${percentage}%)`;
-          }
-        }
-      }
-    },
-  };
-
   if (loading) {
     return (
       <>
@@ -316,38 +264,41 @@ function Dashboard() {
 
         {/* Statistics Cards - Full Width Grid */}
         <div className="stats-grid">
+          {/* Total Estimates Card */}
           <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
-            {/* <div className="stat-icon blue">
-              <i className="bi bi-file-text"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Total Estimates</span>
               <span className="stat-value">{estimatesCount.total}</span>
             </div>
+             <div className="stat-icon blue">
+              <FiFileText />
+            </div>
           </div>
 
+          {/* Pending Estimates Card */}
           <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
-            {/* <div className="stat-icon orange">
-              <i className="bi bi-clock"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Pending</span>
               <span className="stat-value">{estimatesCount.pending}</span>
             </div>
+             <div className="stat-icon orange">
+              <FiClock />
+            </div>
           </div>
 
+          {/* Accepted Estimates Card */}
           {/* <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
             <div className="stat-icon green">
-              <i className="bi bi-check-circle"></i>
+              <FiCheckCircle />
             </div>
             <div className="stat-content">
               <span className="stat-label">Accepted</span>
@@ -355,29 +306,31 @@ function Dashboard() {
             </div>
           </div> */}
 
+          {/* Orders Card */}
           <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
-            {/* <div className="stat-icon blue-light">
-              <i className="bi bi-cart-check"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Orders</span>
               <span className="stat-value">{estimatesCount.order}</span>
             </div>
+             <div className="stat-icon blue-light">
+              <FiShoppingBag />
+            </div>
           </div>
 
+          {/* Rejected Estimates Card */}
           <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
-            {/* <div className="stat-icon red">
-              <i className="bi bi-x-circle"></i>
-            </div> */}
             <div className="stat-content">
               <span className="stat-label">Rejected</span>
               <span className="stat-value">{estimatesCount.rejected}</span>
+            </div>
+             <div className="stat-icon red">
+              <FiXCircle />
             </div>
           </div>
         </div>
@@ -396,19 +349,13 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Estimate Status Pie Chart */}
-            <div className="chart-container small">
-              <div className="chart-header">
-                <h3>Estimate Status</h3>
-                <span className="chart-subtitle">Distribution by status</span>
-              </div>
-              <div className="chart-wrapper pie-wrapper">
-                {estimatesCount.total > 0 ? (
-                  <Pie data={pieChartData} options={pieOptions} />
-                ) : (
-                  <div className="no-data">No data available</div>
-                )}
-              </div>
+            {/* Estimate Status Custom Chart */}
+            <div className="chart-wrapper custom-chart-wrapper">
+              {estimatesCount.total > 0 ? (
+                <EstimateStatusChart />
+              ) : (
+                <div className="no-data">No data available</div>
+              )}
             </div>
           </div>
 

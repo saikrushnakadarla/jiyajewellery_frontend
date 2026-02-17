@@ -8,6 +8,7 @@ import AdminHome from './Components/Modules/Admin/AdminHome/AdminHome';
 import SalesPersonTable from './Components/Modules/Admin/Salespersonregistration/SalesPersonTable';
 import Customers from './Components/Modules/Admin/Customers/Customers';
 import Dashboard from './Components/Modules/Admin/Dashboard/Dashboard';
+import DashboardPie from './Components/Modules/Admin/Dashboard/EstimatePieChart';
 import CustomerDashboard from './Components/Modules/Customer/CustomerDashboard';
 import SalesPersonDashboard from './Components/Modules/SalesPerson/SalesPersonDashboard';
 import Purity from './Components/Modules/Admin/Masters/Puritymaster/Purity';
@@ -44,6 +45,8 @@ function App() {
         <Route path='/adminhome' element={<AdminHome />} />
         <Route path='/customers' element={<Customers />} />
         <Route path='/dashboard' element={<Dashboard />} />
+              <Route path='/dashboard-pie' element={<DashboardPie />} />
+
         <Route path="/customer-dashboard" element={<CustomerDashboard />} />
         <Route path="/salesperson-dashboard" element={<SalesPersonDashboard />} />
         <Route path='/salespersontable' element={<SalesPersonTable />} />
