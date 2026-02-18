@@ -17,6 +17,7 @@ import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import { FiUsers, FiUserCheck, FiPackage, FiFileText } from 'react-icons/fi';
 import { HiOutlineTrendingUp } from 'react-icons/hi';
+import { Button } from 'react-bootstrap';
 
 ChartJS.register(
   CategoryScale,
@@ -30,20 +31,21 @@ ChartJS.register(
 
 function Dashboard() {
   const navigate = useNavigate();
-  const [customersCount, setCustomersCount] = useState(124); // Default to match image
-  const [salespersonsCount, setSalespersonsCount] = useState(18); // Default to match image
-  const [productsCount, setProductsCount] = useState(356); // Default to match image
+  const [customersCount, setCustomersCount] = useState(124);
+  const [salespersonsCount, setSalespersonsCount] = useState(18);
+  const [productsCount, setProductsCount] = useState(356);
   const [estimatesCount, setEstimatesCount] = useState({
     pending: 0,
     accepted: 0,
-    order: 0,
+    ordered: 0,
     rejected: 0,
-    total: 143 // Default to match image
+    total: 0
   });
+  const [recentEstimates, setRecentEstimates] = useState([]);
+  const [recentCustomers, setRecentCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Monthly data for charts matching the image
   const monthlyData = {
     labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
     estimates: [45, 52, 48, 45, 52, 58],
@@ -63,14 +65,18 @@ function Dashboard() {
         
         const customers = users.filter(user => 
           user.role && user.role.toLowerCase() === "customer"
-        ).length;
+        );
+        
+        setCustomersCount(customers.length);
         
         const salespersons = users.filter(user => 
           user.role && user.role.toLowerCase() === "salesman"
         ).length;
         
-        setCustomersCount(customers);
         setSalespersonsCount(salespersons);
+        
+        // Set recent customers (last 5)
+        setRecentCustomers(customers.slice(0, 5));
 
         // Fetch products data
         const productsResponse = await fetch("http://localhost:5000/get/products");
@@ -87,29 +93,40 @@ function Dashboard() {
         }
         const estimates = await estimatesResponse.json();
         
-        const pending = estimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "pending"
-        ).length;
+        // Calculate status counts
+        const pending = estimates.filter(estimate => {
+          const status = estimate.estimate_status || estimate.status;
+          return status === "Pending";
+        }).length;
         
-        const order = estimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "order"
-        ).length;
+        const ordered = estimates.filter(estimate => {
+          const status = estimate.estimate_status || estimate.status;
+          return status === "Ordered";
+        }).length;
         
-        const accepted = estimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "accepted"
-        ).length;
+        const accepted = estimates.filter(estimate => {
+          const status = estimate.estimate_status || estimate.status;
+          return status === "Accepted";
+        }).length;
         
-        const rejected = estimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "rejected"
-        ).length;
+        const rejected = estimates.filter(estimate => {
+          const status = estimate.estimate_status || estimate.status;
+          return status === "Rejected";
+        }).length;
         
         setEstimatesCount({
           pending,
           accepted,
-          order,
+          ordered,
           rejected,
           total: estimates.length
         });
+
+        // Set recent estimates (last 5, sorted by date)
+        const sortedEstimates = [...estimates]
+          .sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at))
+          .slice(0, 5);
+        setRecentEstimates(sortedEstimates);
         
         setLoading(false);
       } catch (err) {
@@ -125,42 +142,22 @@ function Dashboard() {
     navigate(path);
   };
 
-  // Bar chart configuration for Estimates vs Orders
-  const estimatesVsOrdersData = {
-    labels: monthlyData.labels,
-    datasets: [
-      {
-        label: 'Estimates',
-        data: monthlyData.estimates,
-        backgroundColor: '#3b82f6',
-        borderRadius: 6,
-        barPercentage: 0.6,
-        categoryPercentage: 0.8,
-      },
-      {
-        label: 'Orders',
-        data: monthlyData.orders,
-        backgroundColor: '#22c55e',
-        borderRadius: 6,
-        barPercentage: 0.6,
-        categoryPercentage: 0.8,
-      }
-    ]
+  const handleViewEstimate = (estimateNumber) => {
+    navigate(`/estimation/${estimateNumber}`);
   };
 
-  // Bar chart configuration for Revenue
-  const revenueData = {
-    labels: monthlyData.labels,
-    datasets: [
-      {
-        label: 'Revenue (in lakhs)',
-        data: monthlyData.revenue,
-        backgroundColor: '#f97316',
-        borderRadius: 6,
-        barPercentage: 0.6,
-        categoryPercentage: 0.8,
-      }
-    ]
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatCurrency = (amount) => {
+    return `₹${parseFloat(amount || 0).toFixed(2)}`;
   };
 
   const barOptions = {
@@ -224,6 +221,43 @@ function Dashboard() {
         top: 10,
         bottom: 10
       }
+    }
+  };
+
+  const estimatesVsOrdersData = {
+    labels: monthlyData.labels,
+    datasets: [
+      {
+        label: 'Estimates',
+        data: monthlyData.estimates,
+        backgroundColor: '#3b82f6',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      },
+      {
+        label: 'Orders',
+        data: monthlyData.orders,
+        backgroundColor: '#22c55e',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      }
+    ]
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch(status) {
+      case 'Pending':
+        return 'status-badge pending';
+      case 'Accepted':
+        return 'status-badge accepted';
+      case 'Ordered':
+        return 'status-badge ordered';
+      case 'Rejected':
+        return 'status-badge rejected';
+      default:
+        return 'status-badge';
     }
   };
 
@@ -343,7 +377,52 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Rest of your component remains the same */}
+        {/* Estimates Breakdown Section */}
+        <div className="breakdown-section">
+          <h3 className="section-title">Estimates Breakdown</h3>
+          <div className="breakdown-grid">
+            <div className="breakdown-card pending">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Pending</span>
+                <span className="breakdown-value">{estimatesCount.pending}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card accepted">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Accepted</span>
+                <span className="breakdown-value">{estimatesCount.accepted}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card orders">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Orders</span>
+                <span className="breakdown-value">{estimatesCount.ordered}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card rejected">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Rejected</span>
+                <span className="breakdown-value">{estimatesCount.rejected}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Monthly Overview and Custom Pie Chart Row */}
         <div className="charts-row">
           <div className="chart-container large">
@@ -365,73 +444,116 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Estimates Breakdown Cards */}
-        <div className="estimates-breakdown">
-          <div className="estimate-breakdown-card pending">
-            <div className="estimate-breakdown-content">
-              <span className="estimate-breakdown-label">Pending</span>
-              <span className="estimate-breakdown-value">{estimatesCount.pending}</span>
-              <span className="estimate-breakdown-percentage">
-                {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-              </span>
-            </div>
+        {/* Recent Estimates Section */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Recent Estimates</h3>
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => navigate('/estimation')}
+            >
+              View All
+            </Button>
           </div>
-
-          <div className="estimate-breakdown-card accepted">
-            <div className="estimate-breakdown-content">
-              <span className="estimate-breakdown-label">Accepted</span>
-              <span className="estimate-breakdown-value">{estimatesCount.accepted}</span>
-              <span className="estimate-breakdown-percentage">
-                {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-              </span>
-            </div>
-          </div>
-
-          <div className="estimate-breakdown-card orders">
-            <div className="estimate-breakdown-content">
-              <span className="estimate-breakdown-label">Orders</span>
-              <span className="estimate-breakdown-value">{estimatesCount.order}</span>
-              <span className="estimate-breakdown-percentage">
-                {estimatesCount.total > 0 ? ((estimatesCount.order / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-              </span>
-            </div>
-          </div>
-
-          <div className="estimate-breakdown-card rejected">
-            <div className="estimate-breakdown-content">
-              <span className="estimate-breakdown-label">Rejected</span>
-              <span className="estimate-breakdown-value">{estimatesCount.rejected}</span>
-              <span className="estimate-breakdown-percentage">
-                {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-              </span>
-            </div>
+          <div className="table-container">
+            {recentEstimates.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Estimate #</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentEstimates.map((estimate, index) => (
+                    <tr 
+                      key={index} 
+                      onClick={() => handleViewEstimate(estimate.estimate_number)}
+                      className="clickable-row"
+                    >
+                      <td>{formatDate(estimate.date || estimate.created_at)}</td>
+                      <td className="estimate-number">
+                        {estimate.estimate_number}
+                      </td>
+                      <td>{estimate.customer_name || 'N/A'}</td>
+                      <td className="amount">
+                        {formatCurrency(estimate.net_amount || estimate.total_amount)}
+                      </td>
+                      <td>
+                        <span className={getStatusBadgeClass(estimate.estimate_status || estimate.status)}>
+                          {estimate.estimate_status || estimate.status || 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-file-text"></i>
+                <p>No estimates found</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Revenue Trend Chart */}
-        <div className="revenue-chart-container">
-          <div className="chart-header">
-            <h3>Revenue Trend</h3>
-            <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
+        {/* Recent Customers Section */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Recent Customers</h3>
+            {/* <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => navigate('/customers')}
+            >
+              View All
+            </Button> */}
           </div>
-          <div className="chart-wrapper">
-            <Bar data={revenueData} options={{
-              ...barOptions,
-              scales: {
-                ...barOptions.scales,
-                y: {
-                  ...barOptions.scales.y,
-                  max: 80,
-                  ticks: {
-                    stepSize: 20,
-                    color: '#64748b',
-                    font: {
-                      size: 11
-                    }
-                  }
-                }
-              }
-            }} />
+          <div className="table-container">
+            {recentCustomers.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentCustomers.map((customer) => (
+                    <tr 
+                      key={customer.id}
+                      onClick={() => navigate(`/customers/${customer.id}`)}
+                      className="clickable-row"
+                    >
+                      <td className="customer-name">{customer.full_name}</td>
+                      <td>{customer.email_id}</td>
+                      <td>{customer.phone || 'N/A'}</td>
+                      <td>{customer.company_name || 'N/A'}</td>
+                      <td>
+                        <span className={`status-badge ${
+                          customer.status === 'approved' ? 'accepted' : 
+                          customer.status === 'pending' ? 'pending' : 'rejected'
+                        }`}>
+                          {customer.status?.toUpperCase() || 'PENDING'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-people"></i>
+                <p>No customers found</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

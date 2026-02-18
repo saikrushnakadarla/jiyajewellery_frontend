@@ -15,7 +15,8 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
-import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiFileText, FiClock, FiShoppingBag, FiXCircle } from 'react-icons/fi';
+import { Button } from "react-bootstrap";
 
 ChartJS.register(
   CategoryScale,
@@ -32,11 +33,12 @@ function Dashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [estimatesCount, setEstimatesCount] = useState({
     pending: 0,
-    order: 0,
-    accepted: 0,
+    ordered: 0,
     rejected: 0,
     total: 0
   });
+  const [recentEstimates, setRecentEstimates] = useState([]);
+  const [recentCustomers, setRecentCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -49,19 +51,29 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    // Get current user from localStorage
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUser(user);
-      } catch (err) {
-        console.error("Error parsing user data:", err);
-      }
-    }
-
     const fetchData = async () => {
       try {
+        setLoading(true);
+        
+        // Get current user from localStorage
+        const userData = localStorage.getItem("user");
+        if (!userData) {
+          setLoading(false);
+          return;
+        }
+
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+        
+        // Try different possible field names for customer ID
+        const customerId = user.customer_id || user.id || user.userId || user.customerId;
+        
+        if (!customerId) {
+          console.error("Customer ID not found in user data");
+          setLoading(false);
+          return;
+        }
+
         // Fetch estimates data
         const estimatesResponse = await fetch("http://localhost:5000/get-unique-estimates");
         if (!estimatesResponse.ok) {
@@ -69,50 +81,81 @@ function Dashboard() {
         }
         const estimates = await estimatesResponse.json();
         
-        // Get current user ID from localStorage
-        const userData = localStorage.getItem("user");
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            const customerId = user.id.toString();
-            
-            // Filter estimates for current customer only
-            const customerEstimates = estimates.filter(estimate => 
-              estimate.customer_id && estimate.customer_id.toString() === customerId
-            );
-            
-            // Count estimates by status for current customer
-            const pending = customerEstimates.filter(estimate => 
-              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "pending"
-            ).length;
-            
-            const order = customerEstimates.filter(estimate => 
-              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "order"
-            ).length;
-            
-            const accepted = customerEstimates.filter(estimate => 
-              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "accepted"
-            ).length;
-            
-            const rejected = customerEstimates.filter(estimate => 
-              estimate.estimate_status && estimate.estimate_status.toLowerCase() === "rejected"
-            ).length;
-            
-            setEstimatesCount({
-              pending,
-              order,
-              accepted,
-              rejected,
-              total: customerEstimates.length
-            });
-            
-          } catch (err) {
-            console.error("Error processing user data:", err);
+        // Filter estimates for current customer only
+        const customerEstimates = estimates.filter(estimate => 
+          estimate.customer_id && estimate.customer_id.toString() === customerId.toString()
+        );
+        
+        // Process estimates with the same logic as in EstimateTable
+        const processedEstimates = customerEstimates.map(estimate => {
+          let status = estimate.estimate_status || estimate.status;
+          
+          if (!status) {
+            if (estimate.source_by === "customer") {
+              status = "Ordered";
+            } else {
+              status = "Pending";
+            }
           }
+          
+          if (status === "Accepted") {
+            status = "Ordered";
+          }
+          
+          if (status === "Pending" && estimate.source_by === "customer") {
+            status = "Ordered";
+          }
+          
+          return {
+            ...estimate,
+            processed_status: status
+          };
+        });
+        
+        // Count estimates by status for current customer
+        const pending = processedEstimates.filter(estimate => 
+          estimate.processed_status === "Pending"
+        ).length;
+        
+        const ordered = processedEstimates.filter(estimate => 
+          estimate.processed_status === "Ordered"
+        ).length;
+        
+        const rejected = processedEstimates.filter(estimate => 
+          estimate.processed_status === "Rejected"
+        ).length;
+        
+        setEstimatesCount({
+          pending,
+          ordered,
+          rejected,
+          total: customerEstimates.length
+        });
+
+        // Get recent estimates (sorted by date, latest first)
+        const recentEst = processedEstimates
+          .sort((a, b) => {
+            const dateA = new Date(a.date || a.created_at || 0);
+            const dateB = new Date(b.date || b.created_at || 0);
+            return dateB - dateA;
+          })
+          .slice(0, 5);
+        setRecentEstimates(recentEst);
+
+        // Fetch all users to get customer details
+        const usersResponse = await fetch('http://localhost:5000/api/users');
+        if (usersResponse.ok) {
+          const allUsers = await usersResponse.json();
+          // Filter to get only the current customer (since this is customer dashboard)
+          const currentCustomer = allUsers.filter(u => 
+            u.id && u.id.toString() === customerId.toString()
+          );
+          setRecentCustomers(currentCustomer);
         }
         
         setLoading(false);
       } catch (err) {
+        console.error("Error fetching data:", err);
         setError(err.message);
         setLoading(false);
       }
@@ -123,6 +166,12 @@ function Dashboard() {
 
   const handleCardClick = (path) => {
     navigate(path);
+  };
+
+  const handleEstimateClick = (estimateNumber) => {
+    // Navigate to estimate details or open modal
+    // You can implement view details modal here if needed
+    console.log('View estimate:', estimateNumber);
   };
 
   // Bar chart configuration for Monthly Overview
@@ -141,21 +190,6 @@ function Dashboard() {
         label: 'Orders',
         data: monthlyData.orders,
         backgroundColor: '#22c55e',
-        borderRadius: 4,
-        barPercentage: 0.6,
-        categoryPercentage: 0.7,
-      }
-    ]
-  };
-
-  // Bar chart configuration for Revenue Trend
-  const revenueData = {
-    labels: monthlyData.labels,
-    datasets: [
-      {
-        label: 'Revenue',
-        data: monthlyData.revenue,
-        backgroundColor: '#f97316',
         borderRadius: 4,
         barPercentage: 0.6,
         categoryPercentage: 0.7,
@@ -217,6 +251,28 @@ function Dashboard() {
     },
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    const num = parseFloat(amount || 0);
+    return `₹${num.toLocaleString('en-IN', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2
+    })}`;
+  };
+
   if (loading) {
     return (
       <>
@@ -255,14 +311,22 @@ function Dashboard() {
           <div className="welcome-section">
             <div className="welcome-card">
               <div className="welcome-content">
-                <h1>Welcome, {currentUser.full_name}!</h1>
+                <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'}!</h1>
                 <p>Here's what's happening with your estimates</p>
               </div>
+              <Button 
+                variant="light" 
+                className="add-sale-btn"
+                onClick={() => navigate('/customer-estimates')}
+              >
+                <i className="bi bi-plus-circle"></i>
+                Create New Estimate
+              </Button>
             </div>
           </div>
         )}
 
-        {/* Statistics Cards - Full Width Grid */}
+        {/* Statistics Cards */}
         <div className="stats-grid">
           {/* Total Estimates Card */}
           <div 
@@ -273,7 +337,7 @@ function Dashboard() {
               <span className="stat-label">Total Estimates</span>
               <span className="stat-value">{estimatesCount.total}</span>
             </div>
-             <div className="stat-icon blue">
+            <div className="stat-icon blue">
               <FiFileText />
             </div>
           </div>
@@ -287,35 +351,21 @@ function Dashboard() {
               <span className="stat-label">Pending</span>
               <span className="stat-value">{estimatesCount.pending}</span>
             </div>
-             <div className="stat-icon orange">
+            <div className="stat-icon orange">
               <FiClock />
             </div>
           </div>
 
-          {/* Accepted Estimates Card */}
-          {/* <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/customer-estimation")}
-          >
-            <div className="stat-icon green">
-              <FiCheckCircle />
-            </div>
-            <div className="stat-content">
-              <span className="stat-label">Accepted</span>
-              <span className="stat-value">{estimatesCount.accepted}</span>
-            </div>
-          </div> */}
-
-          {/* Orders Card */}
+          {/* Ordered Card */}
           <div 
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
             <div className="stat-content">
-              <span className="stat-label">Orders</span>
-              <span className="stat-value">{estimatesCount.order}</span>
+              <span className="stat-label">Ordered</span>
+              <span className="stat-value">{estimatesCount.ordered}</span>
             </div>
-             <div className="stat-icon blue-light">
+            <div className="stat-icon blue-light">
               <FiShoppingBag />
             </div>
           </div>
@@ -329,8 +379,50 @@ function Dashboard() {
               <span className="stat-label">Rejected</span>
               <span className="stat-value">{estimatesCount.rejected}</span>
             </div>
-             <div className="stat-icon red">
+            <div className="stat-icon red">
               <FiXCircle />
+            </div>
+          </div>
+        </div>
+
+        {/* Estimates Breakdown Section */}
+        <div className="breakdown-section">
+          <h3 className="section-title">Estimates Breakdown</h3>
+          <div className="breakdown-grid">
+            <div className="breakdown-card pending">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Pending</span>
+                <span className="breakdown-value">{estimatesCount.pending}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 
+                    ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) 
+                    : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card orders">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Ordered</span>
+                <span className="breakdown-value">{estimatesCount.ordered}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 
+                    ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0) 
+                    : 0}% of total
+                </span>
+              </div>
+            </div>
+
+            <div className="breakdown-card rejected">
+              <div className="breakdown-content">
+                <span className="breakdown-label">Rejected</span>
+                <span className="breakdown-value">{estimatesCount.rejected}</span>
+                <span className="breakdown-percentage">
+                  {estimatesCount.total > 0 
+                    ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) 
+                    : 0}% of total
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -358,75 +450,139 @@ function Dashboard() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Revenue Trend Chart */}
-          <div className="chart-container full-width">
-            <div className="chart-header">
-              <h3>Revenue Trend</h3>
-              <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
-            </div>
-            <div className="chart-wrapper">
-              <Bar data={revenueData} options={{
-                ...barOptions,
-                scales: {
-                  ...barOptions.scales,
-                  y: {
-                    ...barOptions.scales.y,
-                    max: 80,
-                    ticks: {
-                      stepSize: 20,
-                      color: '#64748b',
-                    }
-                  }
-                }
-              }} />
-            </div>
+        {/* Recent Estimates Section */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Recent Estimates</h3>
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => navigate('/customer-estimation')}
+            >
+              View All
+            </Button>
+          </div>
+          <div className="table-container">
+            {recentEstimates.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Estimate #</th>
+                    <th>Order #</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentEstimates.map((estimate, index) => (
+                    <tr 
+                      key={index} 
+                      onClick={() => handleEstimateClick(estimate.estimate_number)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>{formatDate(estimate.date || estimate.created_at)}</td>
+                      <td className="estimate-number">
+                        {estimate.estimate_number || 'N/A'}
+                      </td>
+                      <td>
+                        {estimate.order_number ? (
+                          <strong style={{ color: '#17a2b8' }}>{estimate.order_number}</strong>
+                        ) : (
+                          <span className="text-muted">N/A</span>
+                        )}
+                      </td>
+                      <td className="amount">
+                        {formatCurrency(estimate.net_amount || estimate.total_amount)}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${
+                          estimate.processed_status?.toLowerCase() === 'pending' ? 'pending' : 
+                          estimate.processed_status?.toLowerCase() === 'ordered' ? 'order' : 
+                          estimate.processed_status?.toLowerCase() === 'rejected' ? 'rejected' : ''
+                        }`}>
+                          {estimate.processed_status || 'PENDING'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-file-text"></i>
+                <p>No estimates found</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Estimates Breakdown Section */}
-        <div className="breakdown-section">
-          <h3 className="section-title">Estimates Breakdown</h3>
-          <div className="breakdown-grid">
-            <div className="breakdown-card pending">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Pending</span>
-                <span className="breakdown-value">{estimatesCount.pending}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
+        {/* Recent Customers Section */}
+        <div className="recent-section">
+          <div className="section-header">
+            <h3>Profile Information</h3>
+          </div>
+          <div className="table-container">
+            {recentCustomers.length > 0 ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentCustomers.map((customer) => (
+                    <tr key={customer.id}>
+                      <td className="customer-name">{customer.full_name || customer.name}</td>
+                      <td>{customer.email_id || customer.email}</td>
+                      <td>{customer.phone || customer.mobile || 'N/A'}</td>
+                      <td>{customer.company_name || 'N/A'}</td>
+                      <td>
+                        <span className="status-badge accepted">
+                          ACTIVE
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : currentUser ? (
+              <table className="recent-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="customer-name">{currentUser.full_name || currentUser.name}</td>
+                    <td>{currentUser.email_id || currentUser.email}</td>
+                    <td>{currentUser.phone || currentUser.mobile || 'N/A'}</td>
+                    <td>{currentUser.company_name || 'N/A'}</td>
+                    <td>
+                      <span className="status-badge accepted">
+                        ACTIVE
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">
+                <i className="bi bi-person"></i>
+                <p>No profile information available</p>
               </div>
-            </div>
-
-            <div className="breakdown-card accepted">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Accepted</span>
-                <span className="breakdown-value">{estimatesCount.accepted}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card orders">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Orders</span>
-                <span className="breakdown-value">{estimatesCount.order}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.order / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card rejected">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Rejected</span>
-                <span className="breakdown-value">{estimatesCount.rejected}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

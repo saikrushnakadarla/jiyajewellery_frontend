@@ -25,6 +25,7 @@ import ProductForm from './Components/Modules/Admin/Masters/ProductMaster/Produc
 import EstimateTable from './Components/Modules/Admin/Transactions/EstimateTable';
 import EstimateForm from './Components/Modules/Admin/Transactions/EstimateForm';
 import CustomerEstimateTable from './Components/Modules/Customer/Transactions/EstimateTable';
+import Purchase from "./Components/Modules/Customer/Purchase/Purchase"
 import CustomerEstimateForm from './Components/Modules/Customer/Transactions/EstimateForm';
 import ProductCatalog from "./Components/Modules/Customer/ProductCatalog/ProductCatalog"
 import SalesPersonEstimateTable from './Components/Modules/SalesPerson/Transactions/EstimateTable';
@@ -71,6 +72,9 @@ function App() {
         <Route path='/customer-estimates' element={<CustomerEstimateForm />} />
         <Route path='/product-catalog' element={<ProductCatalog />} />
         <Route path='/cart-catalog' element={<CartCatalog />} />
+          <Route path='/purchase' element={<Purchase />} />
+
+
 
         <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
         <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />

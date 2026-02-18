@@ -53,85 +53,95 @@ function SalesPersonDashboard() {
     revenue: [45, 52, 48, 58, 62, 68]
   };
 
-  useEffect(() => {
-    const fetchSalesPersonData = async () => {
-      try {
-        const userStr = localStorage.getItem("user");
-        if (!userStr) {
-          navigate("/login");
-          return;
-        }
-
-        const user = JSON.parse(userStr);
-        setCurrentUser(user);
-        const salesPersonId = user.id.toString();
-
-        const [usersResponse, estimatesResponse] = await Promise.all([
-          fetch('http://localhost:5000/api/users'),
-          fetch('http://localhost:5000/get-unique-estimates')
-        ]);
-
-        if (!usersResponse.ok || !estimatesResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const allUsers = await usersResponse.json();
-        const allEstimates = await estimatesResponse.json();
-
-        const assignedCustomers = allUsers.filter(u => 
-          u.role && u.role.toLowerCase() === "customer"
-        );
-        setRecentCustomers(assignedCustomers.slice(0, 5));
-
-        const salespersonCreatedEstimates = allEstimates.filter(estimate => 
-          estimate.salesperson_id === salesPersonId || 
-          (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
-        );
-
-        const totalSales = salespersonCreatedEstimates.reduce((sum, estimate) => 
-          sum + (parseFloat(estimate.total_price) || 0), 0
-        );
-
-        const pending = salespersonCreatedEstimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "pending"
-        ).length;
-
-        const accepted = salespersonCreatedEstimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "accepted"
-        ).length;
-
-        const completed = salespersonCreatedEstimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "order"
-        ).length;
-
-        const rejected = salespersonCreatedEstimates.filter(estimate => 
-          estimate.estimate_status && estimate.estimate_status.toLowerCase() === "rejected"
-        ).length;
-
-        const recentEst = salespersonCreatedEstimates
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-          .slice(0, 5);
-        setRecentEstimates(recentEst);
-
-        setStats({
-          totalSales,
-          totalCustomers: assignedCustomers.length,
-          totalEstimates: salespersonCreatedEstimates.length,
-          pendingEstimates: pending,
-          acceptedEstimates: accepted,
-          completedOrders: completed,
-          rejectedEstimates: rejected
-        });
-
-        setLoading(false);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
+ useEffect(() => {
+  const fetchSalesPersonData = async () => {
+    try {
+      const userStr = localStorage.getItem("user");
+      if (!userStr) {
+        navigate("/login");
+        return;
       }
-    };
 
-    fetchSalesPersonData();
-  }, [navigate]);
+      const user = JSON.parse(userStr);
+      setCurrentUser(user);
+      const salesPersonId = user.id.toString();
+
+      const [usersResponse, estimatesResponse] = await Promise.all([
+        fetch('http://localhost:5000/api/users'),
+        fetch('http://localhost:5000/get-unique-estimates')
+      ]);
+
+      if (!usersResponse.ok || !estimatesResponse.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      const allUsers = await usersResponse.json();
+      const allEstimates = await estimatesResponse.json();
+
+      const assignedCustomers = allUsers.filter(u => 
+        u.role && u.role.toLowerCase() === "customer"
+      );
+      setRecentCustomers(assignedCustomers.slice(0, 5));
+
+      const salespersonCreatedEstimates = allEstimates.filter(estimate => 
+        estimate.salesperson_id === salesPersonId || 
+        (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
+      );
+
+      const totalSales = salespersonCreatedEstimates.reduce((sum, estimate) => 
+        sum + (parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0), 0
+      );
+
+      // Fix: Normalize status values for counting
+      const pending = salespersonCreatedEstimates.filter(estimate => {
+        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
+        return status === "pending";
+      }).length;
+
+      const accepted = salespersonCreatedEstimates.filter(estimate => {
+        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
+        return status === "accepted";
+      }).length;
+
+      const completed = salespersonCreatedEstimates.filter(estimate => {
+        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
+        // Check for both "order" and "ordered" since table uses "Ordered"
+        return status === "order" || status === "ordered";
+      }).length;
+
+      const rejected = salespersonCreatedEstimates.filter(estimate => {
+        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
+        return status === "rejected";
+      }).length;
+
+      // Log for debugging
+      console.log('Status counts:', { pending, accepted, completed, rejected });
+      console.log('Total estimates:', salespersonCreatedEstimates.length);
+
+      const recentEst = salespersonCreatedEstimates
+        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+        .slice(0, 5);
+      setRecentEstimates(recentEst);
+
+      setStats({
+        totalSales,
+        totalCustomers: assignedCustomers.length,
+        totalEstimates: salespersonCreatedEstimates.length,
+        pendingEstimates: pending,
+        acceptedEstimates: accepted,
+        completedOrders: completed,
+        rejectedEstimates: rejected
+      });
+
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  fetchSalesPersonData();
+}, [navigate]);
 
   const handleCardClick = (path) => {
     navigate(path);
@@ -339,63 +349,8 @@ function SalesPersonDashboard() {
           </div>
         </div>
 
-        {/* Charts Section */}
-        <div className="charts-section">
-          <div className="chart-row">
-            {/* Monthly Overview Chart */}
-            <div className="chart-container large">
-              <div className="chart-header">
-                <h3>Monthly Overview</h3>
-                <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
-              </div>
-              <div className="chart-wrapper">
-                <Bar data={monthlyOverviewData} options={barOptions} />
-              </div>
-            </div>
 
-            {/* Estimate Status Custom Chart */}
-            {/* <div className="chart-container small"> */}
-              {/* <div className="chart-header">
-                <h3>Estimate Status</h3>
-                <span className="chart-subtitle">Distribution by status</span>
-              </div> */}
-              {/* <div className="chart-wrapper custom-chart-wrapper"> */}
-                {stats.totalEstimates > 0 ? (
-                  <EstimateStatusChart />
-                ) : (
-                  <div className="no-data">No data available</div>
-                )}
-              {/* </div> */}
-            {/* </div> */}
-          </div>
-
-          {/* Revenue Trend Chart */}
-          <div className="chart-container full-width">
-            <div className="chart-header">
-              <h3>Revenue Trend</h3>
-              <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
-            </div>
-            <div className="chart-wrapper">
-              <Bar data={revenueData} options={{
-                ...barOptions,
-                scales: {
-                  ...barOptions.scales,
-                  y: {
-                    ...barOptions.scales.y,
-                    max: 80,
-                    ticks: {
-                      stepSize: 20,
-                      color: '#64748b',
-                    }
-                  }
-                }
-              }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Estimates Breakdown Section */}
-        <div className="breakdown-section">
+          <div className="breakdown-section">
           <h3 className="section-title">Estimates Breakdown</h3>
           <div className="breakdown-grid">
             <div className="breakdown-card pending">
@@ -440,6 +395,61 @@ function SalesPersonDashboard() {
           </div>
         </div>
 
+        {/* Charts Section */}
+        <div className="charts-section">
+          <div className="chart-row">
+            {/* Monthly Overview Chart */}
+            <div className="chart-container large">
+              <div className="chart-header">
+                <h3>Monthly Overview</h3>
+                <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
+              </div>
+              <div className="chart-wrapper">
+                <Bar data={monthlyOverviewData} options={barOptions} />
+              </div>
+            </div>
+
+            {/* Estimate Status Custom Chart */}
+            {/* <div className="chart-container small"> */}
+              {/* <div className="chart-header">
+                <h3>Estimate Status</h3>
+                <span className="chart-subtitle">Distribution by status</span>
+              </div> */}
+              {/* <div className="chart-wrapper custom-chart-wrapper"> */}
+                {stats.totalEstimates > 0 ? (
+                  <EstimateStatusChart />
+                ) : (
+                  <div className="no-data">No data available</div>
+                )}
+              {/* </div> */}
+            {/* </div> */}
+          </div>
+
+          {/* Revenue Trend Chart */}
+          {/* <div className="chart-container full-width">
+            <div className="chart-header">
+              <h3>Revenue Trend</h3>
+              <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
+            </div>
+            <div className="chart-wrapper">
+              <Bar data={revenueData} options={{
+                ...barOptions,
+                scales: {
+                  ...barOptions.scales,
+                  y: {
+                    ...barOptions.scales.y,
+                    max: 80,
+                    ticks: {
+                      stepSize: 20,
+                      color: '#64748b',
+                    }
+                  }
+                }
+              }} />
+            </div>
+          </div> */}
+        </div>
+
         {/* Recent Estimates Table */}
         <div className="recent-section">
           <div className="section-header">
@@ -447,7 +457,7 @@ function SalesPersonDashboard() {
             <Button 
               variant="outline-primary" 
               size="sm"
-              onClick={() => navigate('/estimation')}
+              onClick={() => navigate('/salesperson-estimation')}
             >
               View All
             </Button>
@@ -502,13 +512,13 @@ function SalesPersonDashboard() {
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Customers</h3>
-            <Button 
+            {/* <Button 
               variant="outline-primary" 
               size="sm"
               onClick={() => navigate('/customers')}
             >
               View All
-            </Button>
+            </Button> */}
           </div>
           <div className="table-container">
             {recentCustomers.length > 0 ? (

@@ -102,6 +102,7 @@ function CustomerNavbar() {
             <div className="navbar-dropdown-content">
               <Link to="/customer-estimation">Estimation</Link>
               <Link to="/product-catalog">Product Catalog</Link>
+              <Link to="/purchase">Purchase</Link>
             </div>
           )}
         </div>
@@ -115,6 +116,13 @@ function CustomerNavbar() {
             REPORTS
             {reportsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
           </span>
+          
+          {/* You can add report links here when needed */}
+          {reportsDropdownOpen && (
+            <div className="navbar-dropdown-content">
+              {/* Add report links here in the future */}
+            </div>
+          )}
         </div>
       </nav>
 
