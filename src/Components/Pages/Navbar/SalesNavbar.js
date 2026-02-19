@@ -94,6 +94,17 @@ function Navbar() {
           </Link>
         </div>
 
+        {/* New Attendance Link */}
+        <div>
+          <Link
+            to="/attendance"
+            onClick={handleItemClick}
+            className={isActive('/attendance')}
+          >
+            ATTENDANCE
+          </Link>
+        </div>
+
         <div
           className="navbar-dropdown"
           onMouseEnter={toggletransactionDropdown}
@@ -131,20 +142,17 @@ function Navbar() {
       </nav>
 
       {/* User name and logout section */}
-        {/* User name and logout section */}
-          <div className="navbar-right-section">
-            <div className="user-logout-wrapper">
-              <span className="navbar-username">
-                {userName}
-              </span>
+      <div className="navbar-right-section">
+        <div className="user-logout-wrapper">
+          <span className="navbar-username">
+            {userName}
+          </span>
 
-              <button className="logout-button" onClick={handleLogout}>
-                <FaSignOutAlt size={16} /> Logout
-              </button>
-            </div>
-          </div>
-
-
+          <button className="logout-button" onClick={handleLogout}>
+            <FaSignOutAlt size={16} /> Logout
+          </button>
+        </div>
+      </div>
     </header>
   );
 }
