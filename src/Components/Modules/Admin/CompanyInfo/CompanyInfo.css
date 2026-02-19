@@ -1,0 +1,44 @@
+/* OUTER BACKGROUND */
+.company-info-wrapper {
+  background-color: #f6f1e8;
+  padding: 30px 40px 40px;
+}
+
+/* PAGE HEADING (OUTSIDE CARD) */
+.company-info-page-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* WHITE CARD */
+.company-info-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+}
+
+/* TEXT */
+.company-info-content p {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #222;
+}
+
+.company-info-content strong {
+  font-weight: 600;
+}
+
+/* BUTTONS */
+.company-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.company-info-edit,
+.company-info-delete {
+  padding: 6px 18px;
+}

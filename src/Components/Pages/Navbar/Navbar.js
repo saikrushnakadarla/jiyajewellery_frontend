@@ -132,6 +132,9 @@ function Navbar() {
                <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
                 Products 
               </Link>
+              <Link to="/company-info" onClick={handleItemClick} className={isActive('/company-info')}>
+                Company Info
+              </Link>
             </div>
           )}
         </div>
