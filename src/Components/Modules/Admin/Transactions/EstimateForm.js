@@ -1,31 +1,189 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./EstimateForm.css";
 import InputField from "../../../Pages/TableLayout/InputField";
 import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash, FaImage } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaImage, FaQrcode } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
 import PDFContent from "./EstimateReceipt";
 import { useLocation } from "react-router-dom";
 import Navbar from "../../../Pages/Navbar/Navbar";
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
 const EstimateForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
 
+  // Add scanner states
+  const [showScanner, setShowScanner] = useState(false);
+  const [isScannerInitialized, setIsScannerInitialized] = useState(false);
+  const scannerRef = useRef(null);
+
+  // Initialize scanner when modal opens
+  useEffect(() => {
+    if (showScanner && !isScannerInitialized) {
+      const timer = setTimeout(() => {
+        initializeScanner();
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showScanner, isScannerInitialized]);
+
+  const initializeScanner = () => {
+    const element = document.getElementById('qr-reader');
+    if (!element) {
+      console.error('QR reader element not found');
+      return;
+    }
+
+    try {
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        {
+          qrbox: {
+            width: 250,
+            height: 250,
+          },
+          fps: 5,
+        },
+        false
+      );
+
+      scannerRef.current = scanner;
+
+      scanner.render(
+        (decodedText) => {
+          handleQRScanSuccess(decodedText);
+        },
+        (error) => {
+          if (error !== "NotFoundException: No MultiFormat Readers were able to detect the code") {
+            console.log('Scan error:', error);
+          }
+        }
+      );
+
+      setIsScannerInitialized(true);
+    } catch (error) {
+      console.error('Scanner initialization failed:', error);
+      alert('Failed to initialize camera. Please check permissions.');
+      setShowScanner(false);
+    }
+  };
+
+  const handleQRScanSuccess = (decodedText) => {
+    try {
+      stopScanner();
+
+      // Extract barcode from QR code data
+      const barcode = extractBarcodeFromQR(decodedText);
+
+      if (barcode) {
+        // Set the barcode in form data
+        setFormData(prev => ({
+          ...prev,
+          barcode: barcode
+        }));
+
+        // Trigger barcode change to fetch product details
+        handleBarcodeChange(barcode);
+        
+        alert(`Scanned: ${barcode}`);
+      } else {
+        alert('Could not extract barcode from QR code');
+      }
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      alert('Error processing QR code');
+    }
+  };
+
+  const extractBarcodeFromQR = (qrData) => {
+    // Try to parse as JSON first
+    try {
+      const parsedData = JSON.parse(qrData);
+      return parsedData.barcode || parsedData.PCode || parsedData.code || parsedData.BarCode;
+    } catch {
+      // If not JSON, try to extract barcode from string
+      const barcodeMatch = qrData.match(/(barcode|Barcode|PCode|code)[:\s]*([^\s,]+)/i);
+      return barcodeMatch ? barcodeMatch[2] : qrData;
+    }
+  };
+
+  const stopScanner = () => {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.clear();
+      } catch (error) {
+        console.log('Error clearing scanner:', error);
+      }
+      scannerRef.current = null;
+    }
+    setIsScannerInitialized(false);
+    setShowScanner(false);
+  };
+
+  const startScanner = () => {
+    setShowScanner(true);
+  };
+
+  // Barcode field with scanner button component - NOW VISIBLE ON ALL DEVICES
+  const BarcodeFieldWithScanner = () => (
+    <Col xs={12} md={3}>
+      <div style={{ position: 'relative' }}>
+        <InputField
+          label="Barcode"
+          name="barcode"
+          value={formData.barcode || ""}
+          type="select"
+          onChange={handleInputChange}
+          options={[
+            { value: "", label: "Select Barcode", disabled: true },
+            ...barcodeOptions,
+            ...tagsData.map(tag => ({
+              value: tag.PCode_BarCode,
+              label: tag.PCode_BarCode
+            }))
+          ]}
+        />
+        
+        {/* Scanner Button - Visible on ALL devices, positioned to the right of the dropdown */}
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={startScanner}
+          style={{
+            position: 'absolute',
+            right: '0',
+            top: '32px',
+            fontSize: '12px',
+            padding: '4px 8px',
+            zIndex: 10,
+            backgroundColor: '#a36e29',
+            color: 'white',
+            borderColor: '#a36e29'
+          }}
+          title="Scan Barcode/QR Code"
+        >
+          <FaQrcode /> Scan
+        </Button>
+      </div>
+    </Col>
+  );
+
   // Get user data from localStorage
   const getUserData = () => {
     try {
       const userData = localStorage.getItem('user');
-      console.log("Raw localStorage user data:", userData); // Debug log
+      console.log("Raw localStorage user data:", userData);
       if (userData) {
         const parsedData = JSON.parse(userData);
-        console.log("Parsed user data:", parsedData); // Debug log
-        console.log("User Role:", parsedData?.role); // Debug log
+        console.log("Parsed user data:", parsedData);
+        console.log("User Role:", parsedData?.role);
         return parsedData;
       }
       console.warn("No user data found in localStorage");
@@ -37,7 +195,7 @@ const EstimateForm = () => {
   };
 
   const user = getUserData();
-  const sourceBy = user?.role || "admin"; // Default to "admin" if not found
+  const sourceBy = user?.role || "admin";
 
   console.log("Source By (role) from localStorage:", sourceBy);
 
@@ -74,8 +232,8 @@ const EstimateForm = () => {
     total_amount: "0.00",
     pricing: "By Weight",
     opentag_id: "",
-    source_by: sourceBy, // Add source_by from localStorage
-    images: [] // Added images field
+    source_by: sourceBy,
+    images: []
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -107,7 +265,6 @@ const EstimateForm = () => {
   // Function to get full image URL
   const getImageUrl = (imageName) => {
     if (!imageName) return "";
-    // Construct full URL for the image
     return `${baseURL}/uploads/products/${imageName}`;
   };
 
@@ -122,14 +279,12 @@ const EstimateForm = () => {
         const result = await response.json();
         setAllProducts(result);
 
-        // Create product name options
         const productOpts = result.map(product => ({
           value: product.product_name,
           label: product.product_name
         }));
         setProductOptions(productOpts);
 
-        // Create barcode options
         const barcodeOpts = result.map(product => ({
           value: product.barcode,
           label: product.barcode
@@ -154,14 +309,12 @@ const EstimateForm = () => {
         }
         const data = await response.json();
 
-        // Filter customers with role "Customer" and status "approved"
         const filteredCustomers = data.filter(user =>
           user.role === 'Customer' && user.status === 'approved'
         );
 
         setCustomers(filteredCustomers);
 
-        // Create options for dropdown with customer name as value
         const customerOpts = filteredCustomers.map(customer => ({
           value: customer.full_name,
           label: customer.full_name,
@@ -273,22 +426,16 @@ const EstimateForm = () => {
         return;
       }
 
-      // Find product in allProducts array
       const selectedProduct = allProducts.find(p => p.product_name === productName);
 
       if (selectedProduct) {
-        // Fetch full product details by ID
         const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
         if (response.ok) {
           const productDetails = await response.json();
 
-          // Use the rate from productDetails instead of calculating from current rates
           const productRate = productDetails.rate || "";
-
-          // Get images array from product details
           const productImages = productDetails.images || [];
 
-          // Update form with product details including images
           const updatedFormData = {
             product_id: productDetails.product_id,
             category_id: productDetails.category_id,
@@ -323,8 +470,8 @@ const EstimateForm = () => {
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
             qty: productDetails.qty || 1,
-            source_by: sourceBy, // Keep source_by
-            images: productImages // Set images
+            source_by: sourceBy,
+            images: productImages
           };
 
           console.log("Updated form data after product selection:", updatedFormData);
@@ -334,7 +481,6 @@ const EstimateForm = () => {
             ...updatedFormData
           }));
 
-          // Set current images for modal
           setCurrentProductImages(productImages);
         }
       }
@@ -351,19 +497,14 @@ const EstimateForm = () => {
         return;
       }
 
-      // First check in products
       const selectedProduct = allProducts.find(p => p.barcode === barcode);
 
       if (selectedProduct) {
-        // Fetch full product details by ID
         const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
         if (response.ok) {
           const productDetails = await response.json();
 
-          // Use the rate from productDetails
           const productRate = productDetails.rate || "";
-
-          // Get images array from product details
           const productImages = productDetails.images || [];
 
           const updatedFormData = {
@@ -400,8 +541,8 @@ const EstimateForm = () => {
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
             qty: productDetails.qty || 1,
-            source_by: sourceBy, // Keep source_by
-            images: productImages // Set images
+            source_by: sourceBy,
+            images: productImages
           };
 
           console.log("Updated form data after barcode selection:", updatedFormData);
@@ -412,18 +553,14 @@ const EstimateForm = () => {
           }));
           setIsQtyEditable(true);
 
-          // Set current images for modal
           setCurrentProductImages(productImages);
         }
       } else {
-        // Check in tags data
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
 
         if (selectedTag) {
-          // Get rate from tag data or calculate from current rates based on purity
           let tagRate = selectedTag.rate || "";
 
-          // If no rate in tag, calculate from current rates based on purity
           if (!tagRate && selectedTag.Purity && selectedTag.metal_type) {
             if (selectedTag.metal_type?.toLowerCase() === "gold" && selectedTag.Purity) {
               if (selectedTag.Purity.includes("24")) {
@@ -477,8 +614,8 @@ const EstimateForm = () => {
             qty: selectedTag.qty || 1,
             opentag_id: selectedTag.opentag_id || "",
             pricing: selectedTag.Pricing || "By Weight",
-            source_by: sourceBy, // Keep source_by
-            images: [] // Tags don't have images
+            source_by: sourceBy,
+            images: []
           };
 
           console.log("Updated form data after tag selection:", updatedFormData);
@@ -499,7 +636,7 @@ const EstimateForm = () => {
   const resetFormData = () => {
     const resetData = {
       ...initialFormData,
-      source_by: sourceBy // Reset with source_by
+      source_by: sourceBy
     };
     console.log("Reset form data:", resetData);
     setFormData(resetData);
@@ -517,7 +654,6 @@ const EstimateForm = () => {
         [name]: value,
       };
 
-      // Handle customer name change
       if (name === "customer_name") {
         const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
         if (selectedCustomerOption) {
@@ -530,17 +666,14 @@ const EstimateForm = () => {
         }
       }
 
-      // Handle product name change
       if (name === "product_name" && value !== prevData.product_name) {
         handleProductNameChange(value);
       }
 
-      // Handle barcode change
       if (name === "barcode" && value !== prevData.barcode) {
         handleBarcodeChange(value);
       }
 
-      // Handle manual metal type change - calculate rate if not from product/tag
       if ((name === "metal_type" || name === "purity") &&
         !prevData.product_id && !prevData.opentag_id &&
         value && updatedData.metal_type && updatedData.purity) {
@@ -700,7 +833,7 @@ const EstimateForm = () => {
         setFormData((prev) => ({
           ...prev,
           estimate_number: response.data.lastEstimateNumber,
-          source_by: sourceBy // Ensure source_by is set
+          source_by: sourceBy
         }));
       } catch (error) {
         console.error("Error fetching estimate number:", error);
@@ -724,7 +857,6 @@ const EstimateForm = () => {
       return;
     }
 
-    // Ensure source_by is included
     const entryToAdd = {
       ...formData,
       source_by: formData.source_by || sourceBy
@@ -747,15 +879,14 @@ const EstimateForm = () => {
     localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
     console.log("Entries after add:", updatedEntries);
 
-    // Reset form but keep estimate number and customer
     setFormData(prev => ({
       ...initialFormData,
       estimate_number: prev.estimate_number,
       customer_name: prev.customer_name,
       customer_id: prev.customer_id,
       date: today,
-      source_by: sourceBy, // Keep source_by
-      images: [] // Reset images
+      source_by: sourceBy,
+      images: []
     }));
     setCurrentProductImages([]);
   };
@@ -775,7 +906,6 @@ const EstimateForm = () => {
     setFormData(entries[index]);
     setIsEditing(true);
     setEditIndex(index);
-    // Set current images for the product being edited
     setCurrentProductImages(entries[index].images || []);
   };
 
@@ -856,13 +986,12 @@ const EstimateForm = () => {
         netAmount
       });
 
-      // Save to database - each entry will have source_by
       const savePromises = entries.map((entry, index) => {
         const requestData = {
           ...entry,
           customer_id: entry.customer_id,
           customer_name: entry.customer_name,
-          source_by: entry.source_by || sourceBy, // Send source_by
+          source_by: entry.source_by || sourceBy,
           total_amount: totalAmount.toFixed(2),
           taxable_amount: taxableAmount.toFixed(2),
           tax_amount: taxAmount.toFixed(2),
@@ -885,7 +1014,6 @@ const EstimateForm = () => {
 
       await Promise.all(savePromises);
 
-      // Generate PDF
       const pdfDoc = pdf(
         <PDFContent
           entries={entries}
@@ -905,14 +1033,13 @@ const EstimateForm = () => {
 
       alert("Estimates saved successfully!");
 
-      // Clear localStorage and reset state
       localStorage.removeItem("estimateDetails");
       localStorage.removeItem("estimateDiscount");
       setEntries([]);
       setDiscount(0);
       setFormData({
         ...initialFormData,
-        source_by: sourceBy // Keep source_by
+        source_by: sourceBy
       });
       setCurrentProductImages([]);
 
@@ -932,7 +1059,6 @@ const EstimateForm = () => {
     navigate(-1);
   };
 
-  // Function to show images modal
   const showProductImages = (productImages) => {
     setCurrentProductImages(productImages || []);
     setShowImagesModal(true);
@@ -940,7 +1066,6 @@ const EstimateForm = () => {
 
   const isByFixed = formData.pricing === "By fixed";
 
-  // Calculate totals
   const totalAmount = entries.reduce((sum, item) => {
     const stonePrice = parseFloat(item.stone_price) || 0;
     const makingCharges = parseFloat(item.making_charges) || 0;
@@ -1011,23 +1136,8 @@ const EstimateForm = () => {
               />
             </Col>
 
-            <Col xs={12} md={3}>
-              <InputField
-                label="Barcode"
-                name="barcode"
-                value={formData.barcode || ""}
-                type="select"
-                onChange={handleInputChange}
-                options={[
-                  { value: "", label: "Select Barcode", disabled: true },
-                  ...barcodeOptions,
-                  ...tagsData.map(tag => ({
-                    value: tag.PCode_BarCode,
-                    label: tag.PCode_BarCode
-                  }))
-                ]}
-              />
-            </Col>
+            {/* Replace the original barcode column with the new BarcodeFieldWithScanner */}
+            <BarcodeFieldWithScanner />
 
             <Col xs={12} md={2}>
               <InputField
@@ -1229,7 +1339,6 @@ const EstimateForm = () => {
                       Product Images:
                     </span>
 
-                    {/* Small image preview thumbnails */}
                     {formData.images && formData.images.length > 0 && (
                       <Col xs={12} md={8}>
                         <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
@@ -1263,11 +1372,9 @@ const EstimateForm = () => {
                         </div>
                       </Col>
                     )}
-
                   </div>
                 </Col>
 
-                {/* Add/Update Button */}
                 <Col xs={12} md={6} className="mt-2">
                   <Button
                     style={{
@@ -1444,6 +1551,24 @@ const EstimateForm = () => {
           </Row>
         </Container>
       </div>
+
+      {/* QR/Barcode Scanner Modal */}
+      <Modal show={showScanner} onHide={stopScanner} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Scan Barcode/QR Code</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ textAlign: 'center', padding: '20px' }}>
+          <div id="qr-reader" style={{ width: '100%', minHeight: '300px' }}></div>
+          <p className="mt-3" style={{ fontSize: '14px', color: '#666' }}>
+            Point your camera at the barcode or QR code to scan automatically
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={stopScanner}>
+            Cancel Scan
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Images Modal */}
       <Modal
