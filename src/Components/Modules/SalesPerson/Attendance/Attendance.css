@@ -1,11 +1,11 @@
-.attendance-container {
+.sales-attendance-container {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.attendance-header {
+.sales-attendance-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -17,13 +17,13 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.attendance-header h1 {
+.sales-attendance-header h1 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
 }
 
-.current-datetime {
+.sales-current-datetime {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -33,12 +33,12 @@
   border-radius: 50px;
 }
 
-.current-datetime svg {
+.sales-current-datetime svg {
   font-size: 20px;
 }
 
 /* Tabs */
-.attendance-tabs {
+.sales-attendance-tabs {
   display: flex;
   gap: 10px;
   margin-bottom: 30px;
@@ -46,7 +46,7 @@
   padding-bottom: 10px;
 }
 
-.tab-btn {
+.sales-tab-btn {
   padding: 10px 20px;
   border: none;
   background: none;
@@ -58,15 +58,15 @@
   transition: all 0.3s ease;
 }
 
-.tab-btn:hover {
+.sales-tab-btn:hover {
   color: #667eea;
 }
 
-.tab-btn.active {
+.sales-tab-btn.sales-active {
   color: #667eea;
 }
 
-.tab-btn.active::after {
+.sales-tab-btn.sales-active::after {
   content: '';
   position: absolute;
   bottom: -12px;
@@ -77,44 +77,44 @@
   border-radius: 3px 3px 0 0;
 }
 
-.tab-btn svg {
+.sales-tab-btn svg {
   margin-right: 8px;
 }
 
 /* Check In/Out Container */
-.check-in-out-container {
+.sales-check-in-out-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
 }
 
 /* Location Card */
-.location-card {
+.sales-location-card {
   background: white;
   border-radius: 15px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.location-header {
+.sales-location-header {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 15px;
 }
 
-.location-header h3 {
+.sales-location-header h3 {
   margin: 0;
   font-size: 18px;
   color: #333;
 }
 
-.location-icon {
+.sales-location-icon {
   color: #dc3545;
   font-size: 20px;
 }
 
-.location-loading {
+.sales-location-loading {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -123,7 +123,7 @@
   justify-content: center;
 }
 
-.location-error {
+.sales-location-error {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -132,7 +132,7 @@
   flex-wrap: wrap;
 }
 
-.retry-btn {
+.sales-retry-btn {
   padding: 5px 15px;
   background: #667eea;
   color: white;
@@ -142,24 +142,24 @@
   font-size: 14px;
 }
 
-.retry-btn:hover {
+.sales-retry-btn:hover {
   background: #5a67d8;
 }
 
-.location-details {
+.sales-location-details {
   background: #f8f9fa;
   padding: 15px;
   border-radius: 10px;
 }
 
-.address {
+.sales-address {
   margin: 0 0 10px 0;
   font-size: 14px;
   color: #333;
   line-height: 1.5;
 }
 
-.coordinates {
+.sales-coordinates {
   margin: 0;
   font-size: 12px;
   color: #666;
@@ -167,26 +167,26 @@
 }
 
 /* Status Card */
-.status-card {
+.sales-status-card {
   background: white;
   border-radius: 15px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.status-card h3 {
+.sales-status-card h3 {
   margin: 0 0 15px 0;
   font-size: 18px;
   color: #333;
 }
 
-.status-details {
+.sales-status-details {
   background: #f8f9fa;
   padding: 15px;
   border-radius: 10px;
 }
 
-.status-item {
+.sales-status-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -194,21 +194,21 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
-.status-item:last-child {
+.sales-status-item:last-child {
   border-bottom: none;
 }
 
-.status-label {
+.sales-status-label {
   font-weight: 500;
   color: #666;
 }
 
-.status-value {
+.sales-status-value {
   font-weight: 600;
   color: #333;
 }
 
-.status-badge {
+.sales-status-badge {
   padding: 5px 10px;
   border-radius: 20px;
   color: white;
@@ -218,7 +218,7 @@
 }
 
 /* Camera Section */
-.camera-section {
+.sales-camera-section {
   background: white;
   border-radius: 15px;
   padding: 20px;
@@ -226,7 +226,7 @@
   grid-column: span 2;
 }
 
-.camera-section h3 {
+.sales-camera-section h3 {
   margin: 0 0 20px 0;
   font-size: 18px;
   color: #333;
@@ -235,25 +235,25 @@
   gap: 10px;
 }
 
-.camera-section h3 svg {
+.sales-camera-section h3 svg {
   color: #667eea;
 }
 
-.camera-container {
+.sales-camera-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 15px;
 }
 
-.webcam {
+.sales-webcam {
   width: 100%;
   max-width: 640px;
   border-radius: 10px;
   border: 2px solid #e0e0e0;
 }
 
-.capture-btn {
+.sales-capture-btn {
   padding: 10px 30px;
   background: #28a745;
   color: white;
@@ -264,25 +264,25 @@
   transition: background 0.3s ease;
 }
 
-.capture-btn:hover {
+.sales-capture-btn:hover {
   background: #218838;
 }
 
-.photo-preview {
+.sales-photo-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 15px;
 }
 
-.photo-preview img {
+.sales-photo-preview img {
   max-width: 100%;
   max-height: 400px;
   border-radius: 10px;
   border: 2px solid #e0e0e0;
 }
 
-.retake-btn {
+.sales-retake-btn {
   padding: 8px 20px;
   background: #ffc107;
   color: #333;
@@ -293,42 +293,90 @@
   transition: background 0.3s ease;
 }
 
-.retake-btn:hover {
+.sales-retake-btn:hover {
   background: #e0a800;
 }
 
-.open-camera-btn {
+.sales-camera-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.sales-open-camera-btn,
+.sales-skip-camera-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 15px 30px;
-  background: #667eea;
-  color: white;
   border: none;
   border-radius: 10px;
   font-size: 16px;
   cursor: pointer;
-  margin: 0 auto;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
 }
 
-.open-camera-btn:hover {
+.sales-open-camera-btn {
+  background: #667eea;
+  color: white;
+}
+
+.sales-open-camera-btn:hover {
   background: #5a67d8;
 }
 
-.remarks-section {
+.sales-skip-camera-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.sales-skip-camera-btn:hover {
+  background: #5a6268;
+}
+
+.sales-skip-message {
+  text-align: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin: 10px 0;
+}
+
+.sales-skip-message p {
+  margin: 0 0 10px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.sales-undo-skip-btn {
+  padding: 8px 20px;
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.sales-undo-skip-btn:hover {
+  background: #138496;
+}
+
+.sales-remarks-section {
   margin: 20px 0;
 }
 
-.remarks-section label {
+.sales-remarks-section label {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
   color: #333;
 }
 
-.remarks-section textarea {
+.sales-remarks-section textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #e0e0e0;
@@ -337,20 +385,20 @@
   resize: vertical;
 }
 
-.remarks-section textarea:focus {
+.sales-remarks-section textarea:focus {
   outline: none;
   border-color: #667eea;
 }
 
-.action-buttons {
+.sales-action-buttons {
   display: flex;
   gap: 15px;
   justify-content: center;
   margin-top: 20px;
 }
 
-.check-in-btn,
-.check-out-btn {
+.sales-check-in-btn,
+.sales-check-out-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,68 +413,68 @@
   min-width: 150px;
 }
 
-.check-in-btn {
+.sales-check-in-btn {
   background: #28a745;
   color: white;
 }
 
-.check-in-btn:hover:not(:disabled) {
+.sales-check-in-btn:hover:not(:disabled) {
   background: #218838;
   transform: translateY(-2px);
   box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
 }
 
-.check-out-btn {
+.sales-check-out-btn {
   background: #dc3545;
   color: white;
 }
 
-.check-out-btn:hover:not(:disabled) {
+.sales-check-out-btn:hover:not(:disabled) {
   background: #c82333;
   transform: translateY(-2px);
   box-shadow: 0 2px 10px rgba(220, 53, 69, 0.3);
 }
 
-.check-in-btn:disabled,
-.check-out-btn:disabled {
+.sales-check-in-btn:disabled,
+.sales-check-out-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.completed-message {
+.sales-completed-message {
   text-align: center;
   padding: 30px;
   background: #f8f9fa;
   border-radius: 10px;
 }
 
-.completed-message svg {
+.sales-completed-message svg {
   font-size: 50px;
   color: #28a745;
   margin-bottom: 15px;
 }
 
-.completed-message p {
+.sales-completed-message p {
   margin: 0;
   font-size: 16px;
   color: #333;
 }
 
 /* History Container */
-.history-container {
+.sales-history-container {
   background: white;
   border-radius: 15px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.history-filters {
+.sales-history-filters {
   display: flex;
   gap: 15px;
   margin-bottom: 20px;
 }
 
-.history-filters select {
+.sales-history-filters select {
   padding: 8px 15px;
   border: 1px solid #e0e0e0;
   border-radius: 5px;
@@ -434,20 +482,20 @@
   cursor: pointer;
 }
 
-.history-filters select:focus {
+.sales-history-filters select:focus {
   outline: none;
   border-color: #667eea;
 }
 
 /* Summary Cards */
-.summary-cards {
+.sales-summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 15px;
   margin-bottom: 30px;
 }
 
-.summary-card {
+.sales-summary-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 20px;
@@ -455,28 +503,28 @@
   text-align: center;
 }
 
-.summary-title {
+.sales-summary-title {
   font-size: 14px;
   opacity: 0.9;
   margin-bottom: 10px;
 }
 
-.summary-value {
+.sales-summary-value {
   font-size: 28px;
   font-weight: 700;
 }
 
 /* History Table */
-.history-table-container {
+.sales-history-table-container {
   overflow-x: auto;
 }
 
-.history-table {
+.sales-history-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.history-table th {
+.sales-history-table th {
   background: #f8f9fa;
   padding: 12px;
   text-align: left;
@@ -485,17 +533,17 @@
   border-bottom: 2px solid #e0e0e0;
 }
 
-.history-table td {
+.sales-history-table td {
   padding: 12px;
   border-bottom: 1px solid #e0e0e0;
   color: #666;
 }
 
-.history-table tr:hover {
+.sales-history-table tr:hover {
   background: #f8f9fa;
 }
 
-.no-data {
+.sales-no-data {
   text-align: center;
   color: #999;
   padding: 30px !important;
@@ -503,48 +551,52 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .attendance-header {
+  .sales-attendance-header {
     flex-direction: column;
     gap: 15px;
     text-align: center;
   }
 
-  .attendance-tabs {
+  .sales-attendance-tabs {
     flex-direction: column;
   }
 
-  .tab-btn {
+  .sales-tab-btn {
     width: 100%;
   }
 
-  .check-in-out-container {
+  .sales-check-in-out-container {
     grid-template-columns: 1fr;
   }
 
-  .camera-section {
+  .sales-camera-section {
     grid-column: span 1;
   }
 
-  .action-buttons {
+  .sales-action-buttons {
     flex-direction: column;
   }
 
-  .check-in-btn,
-  .check-out-btn {
+  .sales-check-in-btn,
+  .sales-check-out-btn {
     width: 100%;
   }
 
-  .history-filters {
+  .sales-camera-actions {
     flex-direction: column;
   }
 
-  .summary-cards {
+  .sales-history-filters {
+    flex-direction: column;
+  }
+
+  .sales-summary-cards {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 480px) {
-  .summary-cards {
+  .sales-summary-cards {
     grid-template-columns: 1fr;
   }
 }

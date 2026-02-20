@@ -114,6 +114,10 @@ function Navbar() {
               <Link to="/salespersontable" onClick={handleItemClick} className={isActive('/salespersontable')}>
                 Salesperson 
               </Link>
+              {/* New Salesperson Attendance link */}
+              <Link to="/salesperson-attendance" onClick={handleItemClick} className={isActive('/salesperson-attendance')}>
+                Salesperson Attendance 
+              </Link>
               <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
                 Purity 
               </Link>

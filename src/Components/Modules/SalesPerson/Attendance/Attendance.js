@@ -13,7 +13,7 @@ import {
   faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import Webcam from 'react-webcam';
-import SalesNavbar from "../../../Pages/Navbar/SalesNavbar"; // Import SalesNavbar
+import SalesNavbar from "../../../Pages/Navbar/SalesNavbar";
 import './Attendance.css';
 import Swal from 'sweetalert2';
 
@@ -51,9 +51,9 @@ function Attendance() {
   });
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [skipPhoto, setSkipPhoto] = useState(false);
 
   useEffect(() => {
-    // Get user from localStorage
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -69,10 +69,8 @@ function Attendance() {
       navigate('/login');
     }
 
-    // Get user's location
     getUserLocation();
 
-    // Update current time every second
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -97,7 +95,6 @@ function Attendance() {
         const { latitude, longitude } = position.coords;
         
         try {
-          // Get address from coordinates using reverse geocoding
           const response = await axios.get(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
@@ -163,12 +160,14 @@ function Attendance() {
       const imageSrc = webcamRef.current.getScreenshot();
       setPhoto(imageSrc);
       setShowCamera(false);
+      setSkipPhoto(false);
     }
   };
 
   const retakePhoto = () => {
     setPhoto(null);
     setShowCamera(true);
+    setSkipPhoto(false);
   };
 
   const dataURLtoFile = (dataurl, filename) => {
@@ -195,24 +194,27 @@ function Attendance() {
       return;
     }
 
-    if (!photo) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Photo Required',
-        text: 'Please take a photo for check-in'
-      });
-      return;
-    }
+    // Commented out photo requirement
+    // if (!photo && !skipPhoto) {
+    //   Swal.fire({
+    //     icon: 'warning',
+    //     title: 'Photo Optional',
+    //     text: 'You can take a photo or click "Skip Photo" to continue without photo'
+    //   });
+    //   return;
+    // }
 
     setLoading(true);
 
     try {
       const formData = new FormData();
       
-      // Convert base64 photo to file
-      const photoFile = dataURLtoFile(photo, `check-in-${Date.now()}.jpg`);
+      // Only append photo if it exists
+      if (photo) {
+        const photoFile = dataURLtoFile(photo, `check-in-${Date.now()}.jpg`);
+        formData.append('photo', photoFile);
+      }
       
-      formData.append('photo', photoFile);
       formData.append('salesperson_id', user.id);
       formData.append('salesperson_name', user.full_name || user.name);
       formData.append('location', location.address);
@@ -220,7 +222,6 @@ function Attendance() {
       formData.append('longitude', location.longitude);
       formData.append('remarks', remarks);
       
-      // Get IP address (optional)
       try {
         const ipResponse = await axios.get('https://api.ipify.org?format=json');
         formData.append('ip_address', ipResponse.data.ip);
@@ -256,6 +257,7 @@ function Attendance() {
         
         setPhoto(null);
         setRemarks('');
+        setSkipPhoto(false);
         fetchAttendanceHistory(user.id);
       }
     } catch (error) {
@@ -280,31 +282,33 @@ function Attendance() {
       return;
     }
 
-    if (!photo) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Photo Required',
-        text: 'Please take a photo for check-out'
-      });
-      return;
-    }
+    // Commented out photo requirement
+    // if (!photo && !skipPhoto) {
+    //   Swal.fire({
+    //     icon: 'warning',
+    //     title: 'Photo Optional',
+    //     text: 'You can take a photo or click "Skip Photo" to continue without photo'
+    //   });
+    //   return;
+    // }
 
     setLoading(true);
 
     try {
       const formData = new FormData();
       
-      // Convert base64 photo to file
-      const photoFile = dataURLtoFile(photo, `check-out-${Date.now()}.jpg`);
+      // Only append photo if it exists
+      if (photo) {
+        const photoFile = dataURLtoFile(photo, `check-out-${Date.now()}.jpg`);
+        formData.append('photo', photoFile);
+      }
       
-      formData.append('photo', photoFile);
       formData.append('salesperson_id', user.id);
       formData.append('location', location.address);
       formData.append('latitude', location.latitude);
       formData.append('longitude', location.longitude);
       formData.append('remarks', remarks);
       
-      // Get IP address (optional)
       try {
         const ipResponse = await axios.get('https://api.ipify.org?format=json');
         formData.append('ip_address', ipResponse.data.ip);
@@ -340,6 +344,7 @@ function Attendance() {
         
         setPhoto(null);
         setRemarks('');
+        setSkipPhoto(false);
         fetchAttendanceHistory(user.id);
       }
     } catch (error) {
@@ -352,6 +357,12 @@ function Attendance() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSkipPhoto = () => {
+    setSkipPhoto(true);
+    setShowCamera(false);
+    setPhoto(null);
   };
 
   const formatTime = (dateString) => {
@@ -379,25 +390,25 @@ function Attendance() {
 
   return (
     <>
-      <SalesNavbar /> {/* Add the navbar here */}
-      <div className="attendance-container" style={{ marginTop: '80px' }}> {/* Add margin top to account for fixed navbar */}
-        <div className="attendance-header">
+      <SalesNavbar />
+      <div className="sales-attendance-container" style={{ marginTop: '80px' }}>
+        <div className="sales-attendance-header">
           <h1>Attendance Management</h1>
-          <div className="current-datetime">
+          <div className="sales-current-datetime">
             <FontAwesomeIcon icon={faClock} />
             <span>{currentTime.toLocaleDateString()} {currentTime.toLocaleTimeString()}</span>
           </div>
         </div>
 
-        <div className="attendance-tabs">
+        <div className="sales-attendance-tabs">
           <button
-            className={`tab-btn ${activeTab === 'check-in-out' ? 'active' : ''}`}
+            className={`sales-tab-btn ${activeTab === 'check-in-out' ? 'sales-active' : ''}`}
             onClick={() => setActiveTab('check-in-out')}
           >
             Check In/Out
           </button>
           <button
-            className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+            className={`sales-tab-btn ${activeTab === 'history' ? 'sales-active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
             <FontAwesomeIcon icon={faHistory} /> History
@@ -405,30 +416,30 @@ function Attendance() {
         </div>
 
         {activeTab === 'check-in-out' && (
-          <div className="check-in-out-container">
+          <div className="sales-check-in-out-container">
             {/* Location Card */}
-            <div className="location-card">
-              <div className="location-header">
-                <FontAwesomeIcon icon={faMapMarkerAlt} className="location-icon" />
+            <div className="sales-location-card">
+              <div className="sales-location-header">
+                <FontAwesomeIcon icon={faMapMarkerAlt} className="sales-location-icon" />
                 <h3>Your Location</h3>
               </div>
               {location.loading ? (
-                <div className="location-loading">
+                <div className="sales-location-loading">
                   <FontAwesomeIcon icon={faSpinner} spin />
                   <span>Getting your location...</span>
                 </div>
               ) : location.error ? (
-                <div className="location-error">
+                <div className="sales-location-error">
                   <FontAwesomeIcon icon={faInfoCircle} />
                   <span>{location.error}</span>
-                  <button onClick={getUserLocation} className="retry-btn">
+                  <button onClick={getUserLocation} className="sales-retry-btn">
                     Retry
                   </button>
                 </div>
               ) : (
-                <div className="location-details">
-                  <p className="address">{location.address}</p>
-                  <p className="coordinates">
+                <div className="sales-location-details">
+                  <p className="sales-address">{location.address}</p>
+                  <p className="sales-coordinates">
                     Lat: {location.latitude?.toFixed(6)}, Lng: {location.longitude?.toFixed(6)}
                   </p>
                 </div>
@@ -436,32 +447,32 @@ function Attendance() {
             </div>
 
             {/* Status Card */}
-            <div className="status-card">
+            <div className="sales-status-card">
               <h3>Today's Attendance</h3>
-              <div className="status-details">
-                <div className="status-item">
-                  <span className="status-label">Check-in:</span>
-                  <span className="status-value">
+              <div className="sales-status-details">
+                <div className="sales-status-item">
+                  <span className="sales-status-label">Check-in:</span>
+                  <span className="sales-status-value">
                     {attendanceStatus.checked_in ? formatTime(attendanceStatus.check_in_time) : 'Not checked in'}
                   </span>
                 </div>
-                <div className="status-item">
-                  <span className="status-label">Check-out:</span>
-                  <span className="status-value">
+                <div className="sales-status-item">
+                  <span className="sales-status-label">Check-out:</span>
+                  <span className="sales-status-value">
                     {attendanceStatus.checked_out ? formatTime(attendanceStatus.check_out_time) : 'Not checked out'}
                   </span>
                 </div>
                 {attendanceStatus.working_hours && (
-                  <div className="status-item">
-                    <span className="status-label">Working Hours:</span>
-                    <span className="status-value">{attendanceStatus.working_hours} hrs</span>
+                  <div className="sales-status-item">
+                    <span className="sales-status-label">Working Hours:</span>
+                    <span className="sales-status-value">{attendanceStatus.working_hours} hrs</span>
                   </div>
                 )}
                 {attendanceStatus.status && (
-                  <div className="status-item">
-                    <span className="status-label">Status:</span>
+                  <div className="sales-status-item">
+                    <span className="sales-status-label">Status:</span>
                     <span 
-                      className="status-badge"
+                      className="sales-status-badge"
                       style={{ backgroundColor: getStatusColor(attendanceStatus.status) }}
                     >
                       {attendanceStatus.status.toUpperCase()}
@@ -472,16 +483,16 @@ function Attendance() {
             </div>
 
             {/* Camera Section */}
-            <div className="camera-section">
+            <div className="sales-camera-section">
               <h3>
                 <FontAwesomeIcon icon={faCamera} />
-                Take {!attendanceStatus.checked_in ? 'Check-in' : !attendanceStatus.checked_out ? 'Check-out' : ''} Photo
+                Take {!attendanceStatus.checked_in ? 'Check-in' : !attendanceStatus.checked_out ? 'Check-out' : ''} Photo (Optional)
               </h3>
               
               {!attendanceStatus.checked_out && (
                 <>
                   {showCamera && (
-                    <div className="camera-container">
+                    <div className="sales-camera-container">
                       <Webcam
                         audio={false}
                         ref={webcamRef}
@@ -491,34 +502,54 @@ function Attendance() {
                           height: 480,
                           facingMode: "user"
                         }}
-                        className="webcam"
+                        className="sales-webcam"
                       />
-                      <button onClick={capturePhoto} className="capture-btn">
+                      <button onClick={capturePhoto} className="sales-capture-btn">
                         Capture Photo
                       </button>
                     </div>
                   )}
 
                   {photo && (
-                    <div className="photo-preview">
+                    <div className="sales-photo-preview">
                       <img src={photo} alt="Captured" />
-                      <button onClick={retakePhoto} className="retake-btn">
+                      <button onClick={retakePhoto} className="sales-retake-btn">
                         Retake Photo
                       </button>
                     </div>
                   )}
 
-                  {!showCamera && !photo && (
-                    <button 
-                      onClick={() => setShowCamera(true)} 
-                      className="open-camera-btn"
-                    >
-                      <FontAwesomeIcon icon={faCamera} />
-                      Open Camera
-                    </button>
+                  {!showCamera && !photo && !skipPhoto && (
+                    <div className="sales-camera-actions">
+                      <button 
+                        onClick={() => setShowCamera(true)} 
+                        className="sales-open-camera-btn"
+                      >
+                        <FontAwesomeIcon icon={faCamera} />
+                        Open Camera
+                      </button>
+                      <button 
+                        onClick={handleSkipPhoto} 
+                        className="sales-skip-camera-btn"
+                      >
+                        Skip Photo
+                      </button>
+                    </div>
                   )}
 
-                  <div className="remarks-section">
+                  {skipPhoto && (
+                    <div className="sales-skip-message">
+                      <p>Proceeding without photo</p>
+                      <button 
+                        onClick={() => setSkipPhoto(false)} 
+                        className="sales-undo-skip-btn"
+                      >
+                        Take Photo Instead
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="sales-remarks-section">
                     <label>Remarks (Optional):</label>
                     <textarea
                       value={remarks}
@@ -528,12 +559,12 @@ function Attendance() {
                     />
                   </div>
 
-                  <div className="action-buttons">
+                  <div className="sales-action-buttons">
                     {!attendanceStatus.checked_in && (
                       <button
                         onClick={handleCheckIn}
-                        disabled={loading || !photo || location.loading}
-                        className="check-in-btn"
+                        disabled={loading || location.loading}
+                        className="sales-check-in-btn"
                       >
                         {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
                         Check In
@@ -543,8 +574,8 @@ function Attendance() {
                     {attendanceStatus.checked_in && !attendanceStatus.checked_out && (
                       <button
                         onClick={handleCheckOut}
-                        disabled={loading || !photo || location.loading}
-                        className="check-out-btn"
+                        disabled={loading || location.loading}
+                        className="sales-check-out-btn"
                       >
                         {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSignOutAlt} />}
                         Check Out
@@ -552,7 +583,7 @@ function Attendance() {
                     )}
 
                     {attendanceStatus.checked_in && attendanceStatus.checked_out && (
-                      <div className="completed-message">
+                      <div className="sales-completed-message">
                         <FontAwesomeIcon icon={faCheckCircle} />
                         <p>You have completed your attendance for today</p>
                       </div>
@@ -562,7 +593,7 @@ function Attendance() {
               )}
 
               {attendanceStatus.checked_in && attendanceStatus.checked_out && (
-                <div className="completed-message">
+                <div className="sales-completed-message">
                   <FontAwesomeIcon icon={faCheckCircle} />
                   <p>You have completed your attendance for today</p>
                 </div>
@@ -572,8 +603,8 @@ function Attendance() {
         )}
 
         {activeTab === 'history' && (
-          <div className="history-container">
-            <div className="history-filters">
+          <div className="sales-history-container">
+            <div className="sales-history-filters">
               <select 
                 value={selectedMonth} 
                 onChange={(e) => {
@@ -602,28 +633,28 @@ function Attendance() {
             </div>
 
             {/* Summary Cards */}
-            <div className="summary-cards">
-              <div className="summary-card">
-                <div className="summary-title">Total Days</div>
-                <div className="summary-value">{historySummary.total_days}</div>
+            <div className="sales-summary-cards">
+              <div className="sales-summary-card">
+                <div className="sales-summary-title">Total Days</div>
+                <div className="sales-summary-value">{historySummary.total_days}</div>
               </div>
-              <div className="summary-card">
-                <div className="summary-title">Present</div>
-                <div className="summary-value">{historySummary.present_days}</div>
+              <div className="sales-summary-card">
+                <div className="sales-summary-title">Present</div>
+                <div className="sales-summary-value">{historySummary.present_days}</div>
               </div>
-              <div className="summary-card">
-                <div className="summary-title">Late</div>
-                <div className="summary-value">{historySummary.late_days}</div>
+              <div className="sales-summary-card">
+                <div className="sales-summary-title">Late</div>
+                <div className="sales-summary-value">{historySummary.late_days}</div>
               </div>
-              <div className="summary-card">
-                <div className="summary-title">Total Hours</div>
-                <div className="summary-value">{historySummary.total_working_hours} hrs</div>
+              <div className="sales-summary-card">
+                <div className="sales-summary-title">Total Hours</div>
+                <div className="sales-summary-value">{historySummary.total_working_hours} hrs</div>
               </div>
             </div>
 
             {/* History Table */}
-            <div className="history-table-container">
-              <table className="history-table">
+            <div className="sales-history-table-container">
+              <table className="sales-history-table">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -643,7 +674,7 @@ function Attendance() {
                         <td>{record.working_hours || 0} hrs</td>
                         <td>
                           <span 
-                            className="status-badge"
+                            className="sales-status-badge"
                             style={{ backgroundColor: getStatusColor(record.status) }}
                           >
                             {record.status?.toUpperCase()}
@@ -653,7 +684,7 @@ function Attendance() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="no-data">
+                      <td colSpan="5" className="sales-no-data">
                         No attendance records found
                       </td>
                     </tr>
