@@ -412,6 +412,7 @@
   max-height: 90vh;
   overflow-y: auto;
   animation: slideIn 0.3s;
+  margin-top: 100px;
 }
 
 .modal-header {
