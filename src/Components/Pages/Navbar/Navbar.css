@@ -173,6 +173,40 @@
     color: rgb(163, 110, 41);
 }
 
+/* Ensure all dropdown links have the same black color */
+.navbar-dropdown-content a,
+.navbar-dropdown-content a:link,
+.navbar-dropdown-content a:visited {
+    color: #333 !important; /* or black */
+}
+
+/* Keep the hover effect */
+.navbar-dropdown-content a:hover {
+    background-color: #a36e29;
+    color: #fff !important;
+}
+
+/* Specifically target Company Info link */
+.navbar-dropdown-content a[href="/company-info"],
+.navbar-dropdown-content a:has(+ [href="/company-info"]),
+.navbar-dropdown-content a:last-child {
+    color: #333 !important;
+}
+
+/* Or target all dropdown links including Company Info */
+.navbar-dropdown-content a {
+    color: #333 !important;
+    text-decoration: none;
+    padding: 0.5rem 0;
+    display: block;
+    font-size: 0.9rem;
+}
+
+.navbar-dropdown-content a:hover {
+    background-color: #a36e29;
+    color: #fff !important;
+}
+
 @media (max-width: 768px) {
     .navbar-header {
         padding: 1rem;

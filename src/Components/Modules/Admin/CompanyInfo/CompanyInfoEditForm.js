@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./CompanyInfoEditForm.css";
+import Navbar from "../../../Pages/Navbar/Navbar";
 
 const CompanyInfoEditForm = () => {
   const navigate = useNavigate();
@@ -153,6 +154,8 @@ const CompanyInfoEditForm = () => {
   };
 
   return (
+    <>
+    <Navbar/>
     <div className="company-info-wrapper container-fluid">
       <h4 className="company-info-page-title text-center">
         {isEditing ? 'Edit Company' : 'Company Registration'}
@@ -421,6 +424,7 @@ const CompanyInfoEditForm = () => {
         </form>
       </div>
     </div>
+    </>
   );
 };
 

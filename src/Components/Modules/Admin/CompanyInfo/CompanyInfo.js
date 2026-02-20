@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./CompanyInfo.css";
+import Navbar from "../../../Pages/Navbar/Navbar";
 
 const CompanyInfo = () => {
   const navigate = useNavigate();
@@ -85,6 +86,8 @@ const CompanyInfo = () => {
   }
 
   return (
+    <>
+    <Navbar/>
     <div className="company-info-wrapper container-fluid">
       <h4 className="company-info-page-title text-center">
         Company Info
@@ -142,6 +145,7 @@ const CompanyInfo = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
