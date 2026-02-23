@@ -11,7 +11,7 @@ function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mastersDropdownOpen, setMastersDropdownOpen] = useState(false);
   const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
-   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -33,6 +33,8 @@ function Navbar() {
 
   const handleItemClick = () => {
     setMastersDropdownOpen(false);
+    setTransactionsDropdownOpen(false);
+    setReportsDropdownOpen(false);
     setIsOpen(false);
   };
 
@@ -48,6 +50,7 @@ function Navbar() {
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem('user');
         navigate('/');
       }
     });
@@ -160,6 +163,10 @@ function Navbar() {
             <div className="navbar-dropdown-content">
               <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
                 Estimation
+              </Link>
+              {/* New Visit Logs Link */}
+              <Link to="/admin-visit-logs" onClick={handleItemClick} className={isActive('/visit-logs')}>
+                Visit Logs
               </Link>
             </div>
           )}

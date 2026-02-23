@@ -38,6 +38,8 @@ import Attendance from './Components/Modules/SalesPerson/Attendance/Attendance';
 import CompanyInfo from "./Components/Modules/Admin/CompanyInfo/CompanyInfo"
 import CompanyInfoEditForm from './Components/Modules/Admin/CompanyInfo/CompanyInfoEditForm';
 import AllAttendance from './Components/Modules/Admin/AllSalesPersonAttendance/AllSalesPersonAttendance';
+import VisitLogs from "./Components/Modules/SalesPerson/VisitLogs/VisitLogs";
+import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs"
 
 function App() {
   const [count, setCount] = useState(0);
@@ -51,7 +53,7 @@ function App() {
         <Route path='/adminhome' element={<AdminHome />} />
         <Route path='/customers' element={<Customers />} />
         <Route path='/dashboard' element={<Dashboard />} />
-              <Route path='/dashboard-pie' element={<DashboardPie />} />
+        <Route path='/dashboard-pie' element={<DashboardPie />} />
 
         <Route path="/customer-dashboard" element={<CustomerDashboard />} />
         <Route path="/salesperson-dashboard" element={<SalesPersonDashboard />} />
@@ -78,6 +80,9 @@ function App() {
         <Route path='/product-catalog' element={<ProductCatalog />} />
         <Route path='/cart-catalog' element={<CartCatalog />} />
           <Route path='/purchase' element={<Purchase />} />
+           <Route path='/visit-logs' element={<VisitLogs />} />
+            <Route path='/admin-visit-logs' element={<AdminVisitLogs />} />
+
 
            <Route path='/attendance' element={<Attendance />} />
            <Route path='/company-info' element={<CompanyInfo />} />
