@@ -149,11 +149,6 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
         >
           {segments.map((seg, i) => {
             const isHovered = hovered === i;
-            const scale = isHovered ? 1.06 : 1;
-            const midX = cx + (outerR + innerR) / 2 * Math.cos(seg.midAngle);
-            const midY = cy + (outerR + innerR) / 2 * Math.sin(seg.midAngle);
-            const tx = cx + (midX - cx) * (scale - 1);
-            const ty = cy + (midY - cy) * (scale - 1);
 
             return (
               <g
@@ -162,19 +157,19 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                 onMouseLeave={() => setHovered(null)}
                 style={{
                   cursor: "pointer",
-                  transform: isHovered
-                    ? `translate(${tx}px, ${ty}px) scale(${scale})`
-                    : "translate(0,0) scale(1)",
-                  transformOrigin: `${cx}px ${cy}px`,
-                  transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                  transition: "all 0.25s ease",
                 }}
               >
                 <path
                   d={seg.d}
                   fill={seg.color}
                   style={{
-                    filter: isHovered ? `drop-shadow(0 4px 12px ${seg.color}55)` : "none",
-                    transition: "filter 0.2s ease",
+                    filter: isHovered 
+                      ? `drop-shadow(0 4px 8px ${seg.color}80)` 
+                      : `drop-shadow(0 2px 4px ${seg.color}40)`,
+                    transition: "filter 0.25s ease, stroke 0.25s ease",
+                    stroke: isHovered ? "#ffffff" : "transparent",
+                    strokeWidth: isHovered ? "2px" : "0",
                   }}
                 />
               </g>
@@ -195,6 +190,8 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                     fontSize: "13px",
                     fontWeight: 600,
                     fontFamily: "'DM Sans', sans-serif",
+                    opacity: 1,
+                    transition: "opacity 0.2s ease",
                   }}
                 >
                   {active.label}
@@ -209,6 +206,8 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                     fontSize: "22px",
                     fontWeight: 700,
                     fontFamily: "'DM Sans', sans-serif",
+                    transition: "transform 0.2s ease",
+                    transform: "scale(1)",
                   }}
                 >
                   {active.value}
@@ -225,6 +224,7 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                   style={{
                     fontSize: "12px",
                     fontFamily: "'DM Sans', sans-serif",
+                    transition: "opacity 0.2s ease",
                   }}
                 >
                   Total
@@ -270,8 +270,9 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
               cursor: "pointer",
               padding: "4px 6px",
               borderRadius: "7px",
-              background: hovered === i ? `${item.color}12` : "transparent",
-              transition: "background 0.15s ease",
+              background: hovered === i ? `${item.color}15` : "transparent",
+              transition: "background 0.2s ease, transform 0.2s ease",
+              transform: hovered === i ? "translateX(4px)" : "translateX(0)",
             }}
           >
             <span
@@ -282,7 +283,8 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                 background: item.color,
                 flexShrink: 0,
                 boxShadow: hovered === i ? `0 0 0 3px ${item.color}30` : "none",
-                transition: "box-shadow 0.15s ease",
+                transition: "box-shadow 0.2s ease, transform 0.2s ease",
+                transform: hovered === i ? "scale(1.1)" : "scale(1)",
               }}
             />
             <span
@@ -290,12 +292,16 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                 fontSize: "12.5px",
                 color: hovered === i ? "#1a1d23" : "#6b7280",
                 fontWeight: hovered === i ? 600 : 400,
-                transition: "color 0.15s, font-weight 0.15s",
+                transition: "color 0.2s ease, font-weight 0.2s ease",
                 whiteSpace: "nowrap",
               }}
             >
               {item.label}{" "}
-              <span style={{ color: hovered === i ? item.color : "#9ba3b4", fontWeight: 500 }}>
+              <span style={{ 
+                color: hovered === i ? item.color : "#9ba3b4", 
+                fontWeight: 500,
+                transition: "color 0.2s ease",
+              }}>
                 ({item.value})
               </span>
             </span>

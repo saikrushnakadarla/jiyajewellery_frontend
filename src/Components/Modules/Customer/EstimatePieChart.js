@@ -1,20 +1,13 @@
 import { useState } from "react";
 
-const data = [
-  { label: "Pending", value: 23, color: "#F5A623" },
-  { label: "Accepted", value: 41, color: "#3EC9A7" },
-  { label: "Orders", value: 67, color: "#4E7EF7" },
-  { label: "Rejected", value: 12, color: "#E05252" },
-];
-
-const total = data.reduce((sum, d) => sum + d.value, 0);
-
 function buildDonutSegments(items, cx, cy, r, innerR) {
+  if (items.length === 0) return [];
+  
   let cumulative = 0;
   const gap = 0.018; // gap in radians between segments
 
   return items.map((item) => {
-    const fraction = item.value / total;
+    const fraction = item.value / items.reduce((sum, d) => sum + d.value, 0);
     const startAngle = cumulative * 2 * Math.PI - Math.PI / 2 + gap / 2;
     const endAngle = (cumulative + fraction) * 2 * Math.PI - Math.PI / 2 - gap / 2;
     cumulative += fraction;
@@ -44,17 +37,69 @@ function buildDonutSegments(items, cx, cy, r, innerR) {
   });
 }
 
-export default function EstimateStatusChart() {
+export default function EstimateStatusChart({ pending = 0, ordered = 0, rejected = 0, total = 0 }) {
   const [hovered, setHovered] = useState(null);
+
+  const data = [
+    { label: "Pending", value: pending, color: "#F5A623" },
+    { label: "Orders", value: ordered, color: "#4E7EF7" },
+    { label: "Rejected", value: rejected, color: "#E05252" },
+  ];
+
+  // Filter out zero values
+  const filteredData = data.filter(item => item.value > 0);
+  const chartTotal = filteredData.reduce((sum, d) => sum + d.value, 0);
 
   const cx = 110;
   const cy = 110;
   const outerR = 88;
   const innerR = 54;
 
-  const segments = buildDonutSegments(data, cx, cy, outerR, innerR);
+  const segments = buildDonutSegments(filteredData, cx, cy, outerR, innerR);
 
-  const active = hovered !== null ? data[hovered] : null;
+  const active = hovered !== null ? filteredData[hovered] : null;
+
+  // If no data, show empty state
+  if (filteredData.length === 0) {
+    return (
+      <div
+        style={{
+          fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+          background: "#fff",
+          borderRadius: "18px",
+          boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
+          padding: "28px 28px 22px",
+          width: "280px",
+          userSelect: "none",
+          textAlign: "center",
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "17px",
+            fontWeight: 700,
+            color: "#1a1d23",
+            letterSpacing: "-0.2px",
+          }}
+        >
+          Estimate Status
+        </h2>
+        <p
+          style={{
+            margin: "3px 0 20px",
+            fontSize: "12.5px",
+            color: "#9ba3b4",
+          }}
+        >
+          Distribution by status
+        </p>
+        <div style={{ padding: "30px 0", color: "#9ba3b4" }}>
+          No data available
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -103,11 +148,6 @@ export default function EstimateStatusChart() {
         >
           {segments.map((seg, i) => {
             const isHovered = hovered === i;
-            const scale = isHovered ? 1.06 : 1;
-            const midX = cx + (outerR + innerR) / 2 * Math.cos(seg.midAngle);
-            const midY = cy + (outerR + innerR) / 2 * Math.sin(seg.midAngle);
-            const tx = cx + (midX - cx) * (scale - 1);
-            const ty = cy + (midY - cy) * (scale - 1);
 
             return (
               <g
@@ -116,19 +156,19 @@ export default function EstimateStatusChart() {
                 onMouseLeave={() => setHovered(null)}
                 style={{
                   cursor: "pointer",
-                  transform: isHovered
-                    ? `translate(${tx}px, ${ty}px) scale(${scale})`
-                    : "translate(0,0) scale(1)",
-                  transformOrigin: `${cx}px ${cy}px`,
-                  transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                  transition: "all 0.25s ease",
                 }}
               >
                 <path
                   d={seg.d}
                   fill={seg.color}
                   style={{
-                    filter: isHovered ? `drop-shadow(0 4px 12px ${seg.color}55)` : "none",
-                    transition: "filter 0.2s ease",
+                    filter: isHovered 
+                      ? `drop-shadow(0 4px 8px ${seg.color}80)` 
+                      : `drop-shadow(0 2px 4px ${seg.color}40)`,
+                    transition: "filter 0.25s ease, stroke 0.25s ease",
+                    stroke: isHovered ? "#ffffff" : "transparent",
+                    strokeWidth: isHovered ? "2px" : "0",
                   }}
                 />
               </g>
@@ -149,6 +189,8 @@ export default function EstimateStatusChart() {
                     fontSize: "13px",
                     fontWeight: 600,
                     fontFamily: "'DM Sans', sans-serif",
+                    opacity: 1,
+                    transition: "opacity 0.2s ease",
                   }}
                 >
                   {active.label}
@@ -163,6 +205,8 @@ export default function EstimateStatusChart() {
                     fontSize: "22px",
                     fontWeight: 700,
                     fontFamily: "'DM Sans', sans-serif",
+                    transition: "transform 0.2s ease",
+                    transform: "scale(1)",
                   }}
                 >
                   {active.value}
@@ -179,6 +223,7 @@ export default function EstimateStatusChart() {
                   style={{
                     fontSize: "12px",
                     fontFamily: "'DM Sans', sans-serif",
+                    transition: "opacity 0.2s ease",
                   }}
                 >
                   Total
@@ -195,7 +240,7 @@ export default function EstimateStatusChart() {
                     fontFamily: "'DM Sans', sans-serif",
                   }}
                 >
-                  {total}
+                  {chartTotal}
                 </text>
               </>
             )}
@@ -212,7 +257,7 @@ export default function EstimateStatusChart() {
           marginTop: "18px",
         }}
       >
-        {data.map((item, i) => (
+        {filteredData.map((item, i) => (
           <div
             key={item.label}
             onMouseEnter={() => setHovered(i)}
@@ -224,8 +269,9 @@ export default function EstimateStatusChart() {
               cursor: "pointer",
               padding: "4px 6px",
               borderRadius: "7px",
-              background: hovered === i ? `${item.color}12` : "transparent",
-              transition: "background 0.15s ease",
+              background: hovered === i ? `${item.color}15` : "transparent",
+              transition: "background 0.2s ease, transform 0.2s ease",
+              transform: hovered === i ? "translateX(4px)" : "translateX(0)",
             }}
           >
             <span
@@ -236,7 +282,8 @@ export default function EstimateStatusChart() {
                 background: item.color,
                 flexShrink: 0,
                 boxShadow: hovered === i ? `0 0 0 3px ${item.color}30` : "none",
-                transition: "box-shadow 0.15s ease",
+                transition: "box-shadow 0.2s ease, transform 0.2s ease",
+                transform: hovered === i ? "scale(1.1)" : "scale(1)",
               }}
             />
             <span
@@ -244,12 +291,16 @@ export default function EstimateStatusChart() {
                 fontSize: "12.5px",
                 color: hovered === i ? "#1a1d23" : "#6b7280",
                 fontWeight: hovered === i ? 600 : 400,
-                transition: "color 0.15s, font-weight 0.15s",
+                transition: "color 0.2s ease, font-weight 0.2s ease",
                 whiteSpace: "nowrap",
               }}
             >
               {item.label}{" "}
-              <span style={{ color: hovered === i ? item.color : "#9ba3b4", fontWeight: 500 }}>
+              <span style={{ 
+                color: hovered === i ? item.color : "#9ba3b4", 
+                fontWeight: 500,
+                transition: "color 0.2s ease",
+              }}>
                 ({item.value})
               </span>
             </span>

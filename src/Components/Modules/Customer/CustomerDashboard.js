@@ -39,16 +39,13 @@ function Dashboard() {
   });
   const [recentEstimates, setRecentEstimates] = useState([]);
   const [recentCustomers, setRecentCustomers] = useState([]);
+  const [monthlyData, setMonthlyData] = useState({
+    labels: [],
+    estimates: [],
+    orders: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Monthly data for charts
-  const monthlyData = {
-    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
-    estimates: [45, 52, 48, 45, 52, 58],
-    orders: [28, 35, 38, 32, 42, 45],
-    revenue: [45, 52, 48, 58, 62, 68]
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,6 +129,10 @@ function Dashboard() {
           total: customerEstimates.length
         });
 
+        // Process monthly data for the last 6 months
+        const monthlyStats = processMonthlyData(processedEstimates);
+        setMonthlyData(monthlyStats);
+
         // Get recent estimates (sorted by date, latest first)
         const recentEst = processedEstimates
           .sort((a, b) => {
@@ -164,14 +165,57 @@ function Dashboard() {
     fetchData();
   }, []);
 
+  // Function to process monthly data from estimates
+  const processMonthlyData = (estimates) => {
+    const months = [];
+    const now = new Date();
+    
+    // Generate last 6 months labels
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthYear = date.toLocaleString('default', { month: 'short' });
+      months.push({
+        label: monthYear,
+        year: date.getFullYear(),
+        month: date.getMonth(),
+        estimates: 0,
+        orders: 0
+      });
+    }
+
+    // Count estimates and orders per month
+    estimates.forEach(estimate => {
+      const estimateDate = new Date(estimate.date || estimate.created_at);
+      if (isNaN(estimateDate.getTime())) return;
+
+      const monthIndex = months.findIndex(m => 
+        m.month === estimateDate.getMonth() && 
+        m.year === estimateDate.getFullYear()
+      );
+
+      if (monthIndex !== -1) {
+        months[monthIndex].estimates++;
+        
+        if (estimate.processed_status === "Ordered") {
+          months[monthIndex].orders++;
+        }
+      }
+    });
+
+    return {
+      labels: months.map(m => m.label),
+      estimates: months.map(m => m.estimates),
+      orders: months.map(m => m.orders)
+    };
+  };
+
   const handleCardClick = (path) => {
     navigate(path);
   };
 
   const handleEstimateClick = (estimateNumber) => {
     // Navigate to estimate details or open modal
-    // You can implement view details modal here if needed
-    console.log('View estimate:', estimateNumber);
+    navigate(`/estimation/${estimateNumber}`);
   };
 
   // Bar chart configuration for Monthly Overview
@@ -224,13 +268,12 @@ function Dashboard() {
     scales: {
       y: {
         beginAtZero: true,
-        max: 70,
         grid: {
           color: '#e2e8f0',
           drawBorder: false,
         },
         ticks: {
-          stepSize: 15,
+          stepSize: 1,
           color: '#64748b',
           font: {
             size: 11
@@ -271,6 +314,19 @@ function Dashboard() {
       maximumFractionDigits: 2,
       minimumFractionDigits: 2
     })}`;
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'pending':
+        return 'status-badge pending';
+      case 'ordered':
+        return 'status-badge order';
+      case 'rejected':
+        return 'status-badge rejected';
+      default:
+        return 'status-badge';
+    }
   };
 
   if (loading) {
@@ -434,19 +490,28 @@ function Dashboard() {
             <div className="chart-container large">
               <div className="chart-header">
                 <h3>Monthly Overview</h3>
-                <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
+                <span className="chart-subtitle">Estimates vs Orders (Last 6 months)</span>
               </div>
               <div className="chart-wrapper">
-                <Bar data={monthlyOverviewData} options={barOptions} />
+                {monthlyData.estimates.length > 0 ? (
+                  <Bar data={monthlyOverviewData} options={barOptions} />
+                ) : (
+                  <div className="no-data-message">No monthly data available</div>
+                )}
               </div>
             </div>
 
             {/* Estimate Status Custom Chart */}
             <div className="chart-wrapper custom-chart-wrapper">
               {estimatesCount.total > 0 ? (
-                <EstimateStatusChart />
+                <EstimateStatusChart 
+                  pending={estimatesCount.pending}
+                  ordered={estimatesCount.ordered}
+                  rejected={estimatesCount.rejected}
+                  total={estimatesCount.total}
+                />
               ) : (
-                <div className="no-data">No data available</div>
+                <div className="no-data-message">No estimate data available</div>
               )}
             </div>
           </div>
@@ -481,7 +546,7 @@ function Dashboard() {
                     <tr 
                       key={index} 
                       onClick={() => handleEstimateClick(estimate.estimate_number)}
-                      style={{ cursor: 'pointer' }}
+                      className="clickable-row"
                     >
                       <td>{formatDate(estimate.date || estimate.created_at)}</td>
                       <td className="estimate-number">
@@ -498,11 +563,7 @@ function Dashboard() {
                         {formatCurrency(estimate.net_amount || estimate.total_amount)}
                       </td>
                       <td>
-                        <span className={`status-badge ${
-                          estimate.processed_status?.toLowerCase() === 'pending' ? 'pending' : 
-                          estimate.processed_status?.toLowerCase() === 'ordered' ? 'order' : 
-                          estimate.processed_status?.toLowerCase() === 'rejected' ? 'rejected' : ''
-                        }`}>
+                        <span className={getStatusBadgeClass(estimate.processed_status)}>
                           {estimate.processed_status || 'PENDING'}
                         </span>
                       </td>

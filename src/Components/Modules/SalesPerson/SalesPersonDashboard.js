@@ -15,7 +15,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import EstimateStatusChart from "./EstimatePieChart"; // Import the custom component
+import EstimateStatusChart from "./EstimatePieChart";
 
 ChartJS.register(
   CategoryScale,
@@ -43,108 +43,197 @@ function SalesPersonDashboard() {
   });
   const [recentCustomers, setRecentCustomers] = useState([]);
   const [recentEstimates, setRecentEstimates] = useState([]);
+  const [monthlyData, setMonthlyData] = useState({
+    labels: [],
+    estimates: [],
+    orders: [],
+    revenue: []
+  });
   const [monthlyTarget] = useState(100000);
 
-  // Monthly data for charts
-  const monthlyData = {
-    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
-    estimates: [45, 52, 48, 45, 52, 58],
-    orders: [28, 35, 38, 32, 42, 45],
-    revenue: [45, 52, 48, 58, 62, 68]
-  };
+  useEffect(() => {
+    const fetchSalesPersonData = async () => {
+      try {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) {
+          navigate("/login");
+          return;
+        }
 
- useEffect(() => {
-  const fetchSalesPersonData = async () => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (!userStr) {
-        navigate("/login");
-        return;
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        const salesPersonId = user.id.toString();
+
+        const [usersResponse, estimatesResponse] = await Promise.all([
+          fetch('http://localhost:5000/api/users'),
+          fetch('http://localhost:5000/get-unique-estimates')
+        ]);
+
+        if (!usersResponse.ok || !estimatesResponse.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const allUsers = await usersResponse.json();
+        const allEstimates = await estimatesResponse.json();
+
+        // Filter customers (users with role "customer")
+        const assignedCustomers = allUsers.filter(u => 
+          u.role && u.role.toLowerCase() === "customer"
+        );
+        setRecentCustomers(assignedCustomers.slice(0, 5));
+
+        // Filter estimates created by this salesperson
+        const salespersonCreatedEstimates = allEstimates.filter(estimate => 
+          estimate.salesperson_id === salesPersonId || 
+          (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
+        );
+
+        // Process estimates with normalized status
+        const processedEstimates = salespersonCreatedEstimates.map(estimate => {
+          let status = estimate.estimate_status || estimate.status || '';
+          status = status.toLowerCase();
+          
+          // Normalize status values
+          if (status === "order" || status === "ordered") {
+            status = "ordered";
+          }
+          
+          return {
+            ...estimate,
+            normalized_status: status
+          };
+        });
+
+        // Calculate total sales
+        const totalSales = processedEstimates.reduce((sum, estimate) => 
+          sum + (parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0), 0
+        );
+
+        // Count estimates by status
+        const pending = processedEstimates.filter(estimate => 
+          estimate.normalized_status === "pending"
+        ).length;
+
+        const accepted = processedEstimates.filter(estimate => 
+          estimate.normalized_status === "accepted"
+        ).length;
+
+        const completed = processedEstimates.filter(estimate => 
+          estimate.normalized_status === "ordered"
+        ).length;
+
+        const rejected = processedEstimates.filter(estimate => 
+          estimate.normalized_status === "rejected"
+        ).length;
+
+        // Process monthly data for charts
+        const monthlyStats = processMonthlyData(processedEstimates);
+        setMonthlyData(monthlyStats);
+
+        // Get recent estimates
+        const recentEst = processedEstimates
+          .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+          .slice(0, 5);
+        setRecentEstimates(recentEst);
+
+        setStats({
+          totalSales,
+          totalCustomers: assignedCustomers.length,
+          totalEstimates: salespersonCreatedEstimates.length,
+          pendingEstimates: pending,
+          acceptedEstimates: accepted,
+          completedOrders: completed,
+          rejectedEstimates: rejected
+        });
+
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
       }
+    };
 
-      const user = JSON.parse(userStr);
-      setCurrentUser(user);
-      const salesPersonId = user.id.toString();
+    fetchSalesPersonData();
+  }, [navigate]);
 
-      const [usersResponse, estimatesResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/users'),
-        fetch('http://localhost:5000/get-unique-estimates')
-      ]);
-
-      if (!usersResponse.ok || !estimatesResponse.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const allUsers = await usersResponse.json();
-      const allEstimates = await estimatesResponse.json();
-
-      const assignedCustomers = allUsers.filter(u => 
-        u.role && u.role.toLowerCase() === "customer"
-      );
-      setRecentCustomers(assignedCustomers.slice(0, 5));
-
-      const salespersonCreatedEstimates = allEstimates.filter(estimate => 
-        estimate.salesperson_id === salesPersonId || 
-        (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
-      );
-
-      const totalSales = salespersonCreatedEstimates.reduce((sum, estimate) => 
-        sum + (parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0), 0
-      );
-
-      // Fix: Normalize status values for counting
-      const pending = salespersonCreatedEstimates.filter(estimate => {
-        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
-        return status === "pending";
-      }).length;
-
-      const accepted = salespersonCreatedEstimates.filter(estimate => {
-        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
-        return status === "accepted";
-      }).length;
-
-      const completed = salespersonCreatedEstimates.filter(estimate => {
-        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
-        // Check for both "order" and "ordered" since table uses "Ordered"
-        return status === "order" || status === "ordered";
-      }).length;
-
-      const rejected = salespersonCreatedEstimates.filter(estimate => {
-        const status = (estimate.estimate_status || estimate.status || '').toLowerCase();
-        return status === "rejected";
-      }).length;
-
-      // Log for debugging
-      console.log('Status counts:', { pending, accepted, completed, rejected });
-      console.log('Total estimates:', salespersonCreatedEstimates.length);
-
-      const recentEst = salespersonCreatedEstimates
-        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
-        .slice(0, 5);
-      setRecentEstimates(recentEst);
-
-      setStats({
-        totalSales,
-        totalCustomers: assignedCustomers.length,
-        totalEstimates: salespersonCreatedEstimates.length,
-        pendingEstimates: pending,
-        acceptedEstimates: accepted,
-        completedOrders: completed,
-        rejectedEstimates: rejected
+  // Function to process monthly data from estimates
+  const processMonthlyData = (estimates) => {
+    const months = [];
+    const now = new Date();
+    
+    // Generate last 6 months labels
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthYear = date.toLocaleString('default', { month: 'short' });
+      months.push({
+        label: monthYear,
+        year: date.getFullYear(),
+        month: date.getMonth(),
+        estimates: 0,
+        orders: 0,
+        revenue: 0
       });
-
-      setLoading(false);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
     }
-  };
 
-  fetchSalesPersonData();
-}, [navigate]);
+    // Count estimates, orders, and revenue per month
+    estimates.forEach(estimate => {
+      const estimateDate = new Date(estimate.date || estimate.created_at);
+      if (isNaN(estimateDate.getTime())) return;
+
+      const monthIndex = months.findIndex(m => 
+        m.month === estimateDate.getMonth() && 
+        m.year === estimateDate.getFullYear()
+      );
+
+      if (monthIndex !== -1) {
+        months[monthIndex].estimates++;
+        
+        const amount = parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0;
+        
+        if (estimate.normalized_status === "ordered") {
+          months[monthIndex].orders++;
+          months[monthIndex].revenue += amount;
+        } else if (estimate.normalized_status === "accepted" || estimate.normalized_status === "pending") {
+          // You can decide if accepted/pending estimates should contribute to revenue
+          // For now, only ordered estimates contribute to revenue
+        }
+      }
+    });
+
+    return {
+      labels: months.map(m => m.label),
+      estimates: months.map(m => m.estimates),
+      orders: months.map(m => m.orders),
+      revenue: months.map(m => m.revenue)
+    };
+  };
 
   const handleCardClick = (path) => {
     navigate(path);
+  };
+
+  const handleEstimateClick = (estimateNumber) => {
+    navigate(`/estimation/${estimateNumber}`);
+  };
+
+  const formatCurrency = (amount) => {
+    return `₹${parseFloat(amount || 0).toFixed(2)}`;
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'pending':
+        return 'status-badge pending';
+      case 'accepted':
+        return 'status-badge accepted';
+      case 'ordered':
+      case 'order':
+        return 'status-badge order';
+      case 'rejected':
+        return 'status-badge rejected';
+      default:
+        return 'status-badge';
+    }
   };
 
   // Bar chart configuration for Monthly Overview
@@ -175,7 +264,7 @@ function SalesPersonDashboard() {
     labels: monthlyData.labels,
     datasets: [
       {
-        label: 'Revenue',
+        label: 'Revenue (₹)',
         data: monthlyData.revenue,
         backgroundColor: '#f97316',
         borderRadius: 4,
@@ -207,21 +296,40 @@ function SalesPersonDashboard() {
         backgroundColor: '#1e293b',
         padding: 10,
         cornerRadius: 6,
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.dataset.label.includes('Revenue')) {
+              label += '₹' + context.parsed.y.toLocaleString('en-IN');
+            } else {
+              label += context.parsed.y;
+            }
+            return label;
+          }
+        }
       }
     },
     scales: {
       y: {
         beginAtZero: true,
-        max: 70,
         grid: {
           color: '#e2e8f0',
           drawBorder: false,
         },
         ticks: {
-          stepSize: 15,
+          stepSize: 1,
           color: '#64748b',
           font: {
             size: 11
+          },
+          callback: function(value, index, values) {
+            if (this.chart.canvas.id === 'revenue-chart') {
+              return '₹' + value.toLocaleString('en-IN');
+            }
+            return value;
           }
         }
       },
@@ -237,6 +345,22 @@ function SalesPersonDashboard() {
         }
       }
     },
+  };
+
+  const revenueBarOptions = {
+    ...barOptions,
+    scales: {
+      ...barOptions.scales,
+      y: {
+        ...barOptions.scales.y,
+        ticks: {
+          ...barOptions.scales.y.ticks,
+          callback: function(value) {
+            return '₹' + value.toLocaleString('en-IN');
+          }
+        }
+      }
+    }
   };
 
   if (loading) {
@@ -314,7 +438,7 @@ function SalesPersonDashboard() {
           >
             <div className="stat-content">
               <span className="stat-label">Total Sales</span>
-              <span className="stat-value">₹{stats.totalSales.toLocaleString()}</span>
+              <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
             </div>
           </div>
 
@@ -324,7 +448,7 @@ function SalesPersonDashboard() {
           >
             <div className="stat-content">
               <span className="stat-label">Monthly Target</span>
-              <span className="stat-value">₹{monthlyTarget.toLocaleString()}</span>
+              <span className="stat-value">₹{monthlyTarget.toLocaleString('en-IN')}</span>
             </div>
           </div>
 
@@ -349,8 +473,8 @@ function SalesPersonDashboard() {
           </div>
         </div>
 
-
-          <div className="breakdown-section">
+        {/* Estimates Breakdown Section */}
+        <div className="breakdown-section">
           <h3 className="section-title">Estimates Breakdown</h3>
           <div className="breakdown-grid">
             <div className="breakdown-card pending">
@@ -402,52 +526,51 @@ function SalesPersonDashboard() {
             <div className="chart-container large">
               <div className="chart-header">
                 <h3>Monthly Overview</h3>
-                <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
+                <span className="chart-subtitle">Estimates vs Orders (Last 6 months)</span>
               </div>
               <div className="chart-wrapper">
-                <Bar data={monthlyOverviewData} options={barOptions} />
+                {monthlyData.estimates.length > 0 ? (
+                  <Bar data={monthlyOverviewData} options={barOptions} />
+                ) : (
+                  <div className="no-data-message">No monthly data available</div>
+                )}
               </div>
             </div>
 
             {/* Estimate Status Custom Chart */}
-            {/* <div className="chart-container small"> */}
-              {/* <div className="chart-header">
-                <h3>Estimate Status</h3>
-                <span className="chart-subtitle">Distribution by status</span>
-              </div> */}
-              {/* <div className="chart-wrapper custom-chart-wrapper"> */}
-                {stats.totalEstimates > 0 ? (
-                  <EstimateStatusChart />
-                ) : (
-                  <div className="no-data">No data available</div>
-                )}
-              {/* </div> */}
-            {/* </div> */}
+            <div className="chart-wrapper custom-chart-wrapper">
+              {stats.totalEstimates > 0 ? (
+                <EstimateStatusChart 
+                  pending={stats.pendingEstimates}
+                  accepted={stats.acceptedEstimates}
+                  ordered={stats.completedOrders}
+                  rejected={stats.rejectedEstimates}
+                  total={stats.totalEstimates}
+                />
+              ) : (
+                <div className="no-data-message">No estimate data available</div>
+              )}
+            </div>
           </div>
 
           {/* Revenue Trend Chart */}
-          {/* <div className="chart-container full-width">
+          <div className="chart-container full-width">
             <div className="chart-header">
               <h3>Revenue Trend</h3>
-              <span className="chart-subtitle">Monthly revenue growth (in lakhs)</span>
+              <span className="chart-subtitle">Monthly revenue from orders (Last 6 months)</span>
             </div>
             <div className="chart-wrapper">
-              <Bar data={revenueData} options={{
-                ...barOptions,
-                scales: {
-                  ...barOptions.scales,
-                  y: {
-                    ...barOptions.scales.y,
-                    max: 80,
-                    ticks: {
-                      stepSize: 20,
-                      color: '#64748b',
-                    }
-                  }
-                }
-              }} />
+              {monthlyData.revenue.some(val => val > 0) ? (
+                <Bar 
+                  id="revenue-chart"
+                  data={revenueData} 
+                  options={revenueBarOptions} 
+                />
+              ) : (
+                <div className="no-data-message">No revenue data available</div>
+              )}
             </div>
-          </div> */}
+          </div>
         </div>
 
         {/* Recent Estimates Table */}
@@ -467,6 +590,7 @@ function SalesPersonDashboard() {
               <table className="recent-table">
                 <thead>
                   <tr>
+                    <th>Date</th>
                     <th>Estimate #</th>
                     <th>Customer</th>
                     <th>Amount</th>
@@ -474,29 +598,36 @@ function SalesPersonDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentEstimates.map((estimate, index) => (
-                    <tr 
-                      key={index} 
-                      onClick={() => handleCardClick(`/estimation/${estimate.estimate_id}`)}
-                    >
-                      <td className="estimate-number">
-                        {estimate.estimate_number || `EST${estimate.estimate_id?.toString().padStart(3, '0')}`}
-                      </td>
-                      <td>{estimate.customer_name || 'N/A'}</td>
-                      <td className="amount">
-                        ₹{(parseFloat(estimate.total_price) || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td>
-                        <span className={`status-badge ${
-                          estimate.estimate_status === 'pending' ? 'pending' : 
-                          estimate.estimate_status === 'accepted' ? 'accepted' : 
-                          estimate.estimate_status === 'order' ? 'order' : 'rejected'
-                        }`}>
-                          {estimate.estimate_status?.toUpperCase() || 'N/A'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {recentEstimates.map((estimate, index) => {
+                    const date = estimate.date || estimate.created_at;
+                    const formattedDate = date ? new Date(date).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    }) : 'N/A';
+                    
+                    return (
+                      <tr 
+                        key={index} 
+                        onClick={() => handleEstimateClick(estimate.estimate_number)}
+                        className="clickable-row"
+                      >
+                        <td>{formattedDate}</td>
+                        <td className="estimate-number">
+                          {estimate.estimate_number || `EST${(index + 1).toString().padStart(3, '0')}`}
+                        </td>
+                        <td>{estimate.customer_name || 'N/A'}</td>
+                        <td className="amount">
+                          {formatCurrency(estimate.net_amount || estimate.total_price)}
+                        </td>
+                        <td>
+                          <span className={getStatusBadgeClass(estimate.normalized_status)}>
+                            {(estimate.normalized_status || 'PENDING').toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
@@ -512,13 +643,6 @@ function SalesPersonDashboard() {
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Customers</h3>
-            {/* <Button 
-              variant="outline-primary" 
-              size="sm"
-              onClick={() => navigate('/customers')}
-            >
-              View All
-            </Button> */}
           </div>
           <div className="table-container">
             {recentCustomers.length > 0 ? (
@@ -534,7 +658,11 @@ function SalesPersonDashboard() {
                 </thead>
                 <tbody>
                   {recentCustomers.map((customer) => (
-                    <tr key={customer.id}>
+                    <tr 
+                      key={customer.id}
+                      onClick={() => navigate(`/customers/${customer.id}`)}
+                      className="clickable-row"
+                    >
                       <td className="customer-name">{customer.full_name}</td>
                       <td>{customer.email_id}</td>
                       <td>{customer.phone || 'N/A'}</td>
