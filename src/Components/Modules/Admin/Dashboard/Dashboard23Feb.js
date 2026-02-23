@@ -31,9 +31,9 @@ ChartJS.register(
 
 function Dashboard() {
   const navigate = useNavigate();
-  const [customersCount, setCustomersCount] = useState(0);
-  const [salespersonsCount, setSalespersonsCount] = useState(0);
-  const [productsCount, setProductsCount] = useState(0);
+  const [customersCount, setCustomersCount] = useState(124);
+  const [salespersonsCount, setSalespersonsCount] = useState(18);
+  const [productsCount, setProductsCount] = useState(356);
   const [estimatesCount, setEstimatesCount] = useState({
     pending: 0,
     accepted: 0,
@@ -43,13 +43,15 @@ function Dashboard() {
   });
   const [recentEstimates, setRecentEstimates] = useState([]);
   const [recentCustomers, setRecentCustomers] = useState([]);
-  const [monthlyData, setMonthlyData] = useState({
-    labels: [],
-    estimates: [],
-    orders: []
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const monthlyData = {
+    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'],
+    estimates: [45, 52, 48, 45, 52, 58],
+    orders: [28, 35, 38, 32, 42, 45],
+    revenue: [45, 52, 48, 58, 62, 68]
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,10 +122,6 @@ function Dashboard() {
           total: estimates.length
         });
 
-        // Process monthly data for the last 6 months
-        const monthlyStats = processMonthlyData(estimates);
-        setMonthlyData(monthlyStats);
-
         // Set recent estimates (last 5, sorted by date)
         const sortedEstimates = [...estimates]
           .sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at))
@@ -139,51 +137,6 @@ function Dashboard() {
 
     fetchData();
   }, []);
-
-  // Function to process monthly data from estimates
-  const processMonthlyData = (estimates) => {
-    const months = [];
-    const now = new Date();
-    
-    // Generate last 6 months labels
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthYear = date.toLocaleString('default', { month: 'short' });
-      months.push({
-        label: monthYear,
-        year: date.getFullYear(),
-        month: date.getMonth(),
-        estimates: 0,
-        orders: 0
-      });
-    }
-
-    // Count estimates and orders per month
-    estimates.forEach(estimate => {
-      const estimateDate = new Date(estimate.date || estimate.created_at);
-      if (isNaN(estimateDate.getTime())) return;
-
-      const monthIndex = months.findIndex(m => 
-        m.month === estimateDate.getMonth() && 
-        m.year === estimateDate.getFullYear()
-      );
-
-      if (monthIndex !== -1) {
-        months[monthIndex].estimates++;
-        
-        const status = estimate.estimate_status || estimate.status;
-        if (status === "Ordered") {
-          months[monthIndex].orders++;
-        }
-      }
-    });
-
-    return {
-      labels: months.map(m => m.label),
-      estimates: months.map(m => m.estimates),
-      orders: months.map(m => m.orders)
-    };
-  };
 
   const handleCardClick = (path) => {
     navigate(path);
@@ -237,12 +190,13 @@ function Dashboard() {
     scales: {
       y: {
         beginAtZero: true,
+        max: 70,
         grid: {
           color: '#e2e8f0',
           drawBorder: false,
         },
         ticks: {
-          stepSize: 1,
+          stepSize: 15,
           color: '#64748b',
           font: {
             size: 11
@@ -353,7 +307,7 @@ function Dashboard() {
                 <span className="stat-value">{customersCount}</span>
                 <span className="stat-trend">
                   <HiOutlineTrendingUp className="trend-icon" />
-                  Total customers
+                  +12% this month
                 </span>
               </div>
               <div className="stat-icon">
@@ -373,7 +327,7 @@ function Dashboard() {
                 <span className="stat-value">{salespersonsCount}</span>
                 <span className="stat-trend">
                   <HiOutlineTrendingUp className="trend-icon" />
-                  Active sales team
+                  +2 new
                 </span>
               </div>
               <div className="stat-icon">
@@ -393,7 +347,7 @@ function Dashboard() {
                 <span className="stat-value">{productsCount}</span>
                 <span className="stat-trend">
                   <HiOutlineTrendingUp className="trend-icon" />
-                  Total products
+                  +8% this month
                 </span>
               </div>
               <div className="stat-icon">
@@ -413,7 +367,7 @@ function Dashboard() {
                 <span className="stat-value">{estimatesCount.total}</span>
                 <span className="stat-trend">
                   <HiOutlineTrendingUp className="trend-icon" />
-                  All time estimates
+                  +18% this month
                 </span>
               </div>
               <div className="stat-icon">
@@ -474,28 +428,18 @@ function Dashboard() {
           <div className="chart-container large">
             <div className="chart-header">
               <h3>Monthly Overview</h3>
-              <span className="chart-subtitle">Estimates vs Orders (Last 6 months)</span>
+              <span className="chart-subtitle">Estimates vs Orders over 6 months</span>
             </div>
             <div className="chart-wrapper">
-              {monthlyData.estimates.length > 0 ? (
-                <Bar data={estimatesVsOrdersData} options={barOptions} />
-              ) : (
-                <div className="no-data-message">No monthly data available</div>
-              )}
+              <Bar data={estimatesVsOrdersData} options={barOptions} />
             </div>
           </div>
           
           <div className="chart-wrapper custom-chart-wrapper">
             {estimatesCount.total > 0 ? (
-              <EstimateStatusChart 
-                pending={estimatesCount.pending}
-                accepted={estimatesCount.accepted}
-                ordered={estimatesCount.ordered}
-                rejected={estimatesCount.rejected}
-                total={estimatesCount.total}
-              />
+              <EstimateStatusChart />
             ) : (
-              <div className="no-data-message">No estimate data available</div>
+              <div className="no-data-message">No data available</div>
             )}
           </div>
         </div>
@@ -561,13 +505,13 @@ function Dashboard() {
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Customers</h3>
-            <Button 
+            {/* <Button 
               variant="outline-primary" 
               size="sm"
               onClick={() => navigate('/customers')}
             >
               View All
-            </Button>
+            </Button> */}
           </div>
           <div className="table-container">
             {recentCustomers.length > 0 ? (

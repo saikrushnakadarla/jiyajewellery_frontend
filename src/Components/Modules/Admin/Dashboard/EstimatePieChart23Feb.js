@@ -1,106 +1,60 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected = 0, total = 0 }) {
+const data = [
+  { label: "Pending", value: 23, color: "#F5A623" },
+  { label: "Accepted", value: 41, color: "#3EC9A7" },
+  { label: "Orders", value: 67, color: "#4E7EF7" },
+  { label: "Rejected", value: 12, color: "#E05252" },
+];
+
+const total = data.reduce((sum, d) => sum + d.value, 0);
+
+function buildDonutSegments(items, cx, cy, r, innerR) {
+  let cumulative = 0;
+  const gap = 0.018; // gap in radians between segments
+
+  return items.map((item) => {
+    const fraction = item.value / total;
+    const startAngle = cumulative * 2 * Math.PI - Math.PI / 2 + gap / 2;
+    const endAngle = (cumulative + fraction) * 2 * Math.PI - Math.PI / 2 - gap / 2;
+    cumulative += fraction;
+
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const ix1 = cx + innerR * Math.cos(endAngle);
+    const iy1 = cy + innerR * Math.sin(endAngle);
+    const ix2 = cx + innerR * Math.cos(startAngle);
+    const iy2 = cy + innerR * Math.sin(startAngle);
+
+    const largeArc = fraction > 0.5 ? 1 : 0;
+
+    const d = [
+      `M ${x1} ${y1}`,
+      `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
+      `L ${ix1} ${iy1}`,
+      `A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix2} ${iy2}`,
+      "Z",
+    ].join(" ");
+
+    const midAngle = startAngle + (endAngle - startAngle) / 2;
+
+    return { ...item, d, midAngle };
+  });
+}
+
+export default function EstimateStatusChart() {
   const [hovered, setHovered] = useState(null);
-
-  const data = [
-    { label: "Pending", value: pending, color: "#F5A623" },
-    { label: "Accepted", value: accepted, color: "#3EC9A7" },
-    { label: "Orders", value: ordered, color: "#4E7EF7" },
-    { label: "Rejected", value: rejected, color: "#E05252" },
-  ];
-
-  // Filter out zero values
-  const filteredData = data.filter(item => item.value > 0);
-  const chartTotal = filteredData.reduce((sum, d) => sum + d.value, 0);
-
-  function buildDonutSegments(items, cx, cy, r, innerR) {
-    if (items.length === 0) return [];
-    
-    let cumulative = 0;
-    const gap = 0.018; // gap in radians between segments
-
-    return items.map((item) => {
-      const fraction = item.value / chartTotal;
-      const startAngle = cumulative * 2 * Math.PI - Math.PI / 2 + gap / 2;
-      const endAngle = (cumulative + fraction) * 2 * Math.PI - Math.PI / 2 - gap / 2;
-      cumulative += fraction;
-
-      const x1 = cx + r * Math.cos(startAngle);
-      const y1 = cy + r * Math.sin(startAngle);
-      const x2 = cx + r * Math.cos(endAngle);
-      const y2 = cy + r * Math.sin(endAngle);
-      const ix1 = cx + innerR * Math.cos(endAngle);
-      const iy1 = cy + innerR * Math.sin(endAngle);
-      const ix2 = cx + innerR * Math.cos(startAngle);
-      const iy2 = cy + innerR * Math.sin(startAngle);
-
-      const largeArc = fraction > 0.5 ? 1 : 0;
-
-      const d = [
-        `M ${x1} ${y1}`,
-        `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
-        `L ${ix1} ${iy1}`,
-        `A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix2} ${iy2}`,
-        "Z",
-      ].join(" ");
-
-      const midAngle = startAngle + (endAngle - startAngle) / 2;
-
-      return { ...item, d, midAngle };
-    });
-  }
 
   const cx = 110;
   const cy = 110;
   const outerR = 88;
   const innerR = 54;
 
-  const segments = buildDonutSegments(filteredData, cx, cy, outerR, innerR);
+  const segments = buildDonutSegments(data, cx, cy, outerR, innerR);
 
-  const active = hovered !== null ? filteredData[hovered] : null;
-
-  // If no data, show empty state
-  if (filteredData.length === 0) {
-    return (
-      <div
-        style={{
-          fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-          background: "#fff",
-          borderRadius: "18px",
-          boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
-          padding: "28px 28px 22px",
-          width: "280px",
-          userSelect: "none",
-          textAlign: "center",
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "17px",
-            fontWeight: 700,
-            color: "#1a1d23",
-            letterSpacing: "-0.2px",
-          }}
-        >
-          Estimate Status
-        </h2>
-        <p
-          style={{
-            margin: "3px 0 20px",
-            fontSize: "12.5px",
-            color: "#9ba3b4",
-          }}
-        >
-          Distribution by status
-        </p>
-        <div style={{ padding: "30px 0", color: "#9ba3b4" }}>
-          No data available
-        </div>
-      </div>
-    );
-  }
+  const active = hovered !== null ? data[hovered] : null;
 
   return (
     <div
@@ -241,7 +195,7 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
                     fontFamily: "'DM Sans', sans-serif",
                   }}
                 >
-                  {chartTotal}
+                  {total}
                 </text>
               </>
             )}
@@ -258,7 +212,7 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
           marginTop: "18px",
         }}
       >
-        {filteredData.map((item, i) => (
+        {data.map((item, i) => (
           <div
             key={item.label}
             onMouseEnter={() => setHovered(i)}
@@ -305,5 +259,3 @@ function EstimateStatusChart({ pending = 0, accepted = 0, ordered = 0, rejected 
     </div>
   );
 }
-
-export default EstimateStatusChart;
