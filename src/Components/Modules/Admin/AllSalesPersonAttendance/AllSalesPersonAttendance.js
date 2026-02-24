@@ -354,7 +354,7 @@ function AllAttendance() {
                     <th>Check Out</th>
                     <th>Working Hours</th>
                     <th>Status</th>
-                    <th>Location</th>
+                    {/* <th>Location</th> */}
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -401,7 +401,7 @@ function AllAttendance() {
                           </span>
                         </td>
                         <td>{getStatusBadge(record.status)}</td>
-                        <td>
+                        {/* <td>
                           {(record.check_in_location || record.check_out_location) ? (
                             <div className="location-info">
                               <FontAwesomeIcon icon={faMapMarkerAlt} />
@@ -414,7 +414,7 @@ function AllAttendance() {
                           ) : (
                             <span className="no-location">No location</span>
                           )}
-                        </td>
+                        </td> */}
                         <td>
                           <button 
                             className="view-btn"
