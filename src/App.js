@@ -41,6 +41,7 @@ import AllAttendance from './Components/Modules/Admin/AllSalesPersonAttendance/A
 import VisitLogs from "./Components/Modules/SalesPerson/VisitLogs/VisitLogs";
 import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs";
 import ProtectedSalesRoute from './Components/Modules/SalesPerson/ProtectedSalesRoutes';
+import Reports from './Components/Modules/Admin/Reports/Reports';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -95,7 +96,9 @@ function App() {
            <Route path='/company-info' element={<CompanyInfo />} />
            <Route path="/company-info/edit" element={<CompanyInfoEditForm />} />
            <Route path='/salesperson-attendance' element={<AllAttendance />} />
-             <Route path='/visit-logs' element={<VisitLogs />} />
+           <Route path='/visit-logs' element={<VisitLogs />} />
+            <Route path='/reports' element={<Reports />} />
+
 
 
 

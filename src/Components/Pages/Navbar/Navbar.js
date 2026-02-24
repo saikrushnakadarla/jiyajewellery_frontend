@@ -172,25 +172,22 @@ function Navbar() {
           )}
         </div>
 
-        <div
-          className="navbar-dropdown"
-          onMouseEnter={togglereportsDropdown}
-          onMouseLeave={togglereportsDropdown}
-        >
-          <span className="navbar-dropdown-title">
-            REPORTS{' '}
-            <FontAwesomeIcon
-              icon={reportsDropdownOpen ? faChevronUp : faChevronDown}
-              className="dropdown-arrow-icon"
-            />
+        {/* REPORTS section with dropdown removed and new path added */}
+        <div>
+          <span>
+            <Link
+              to="/reports"
+              onClick={handleItemClick}
+              className={isActive('/reports')}
+              style={{
+                color: window.location.pathname === '/reports' ? '#a36e29' : 'black',
+                backgroundColor: 'transparent',
+                textDecoration: 'none',
+              }}
+            >
+              REPORTS
+            </Link>
           </span>
-          {/* {reportsDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
-                Sales Reports
-              </Link>
-            </div>
-          )} */}
         </div>
       </nav>
 
