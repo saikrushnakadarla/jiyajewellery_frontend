@@ -87,9 +87,34 @@ const handleSubmit = async (e) => {
             navigate("/customer-dashboard");
           });
         }
-      } else if (userRole === "salesman") {
-        navigate("/salesperson-dashboard");
-      } else {
+      } 
+      // In Login.js, update the navigation part for salesman:
+else if (userRole === "salesman") {
+  // Check if it's a new day
+  const today = new Date().toDateString();
+  const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+  
+  // If it's a new day, clear session storage flags
+  if (lastCheckInDate !== today) {
+    sessionStorage.removeItem('attendanceChecked');
+    sessionStorage.removeItem('visitLogCompleted');
+    sessionStorage.removeItem('visitLogSkipped');
+    sessionStorage.removeItem('lastCheckInDate');
+  }
+  
+  // Show welcome message
+  Swal.fire({
+    icon: 'success',
+    title: 'Welcome!',
+    text: 'Login successful',
+    timer: 1500,
+    showConfirmButton: false
+  }).then(() => {
+    navigate("/salesperson-dashboard");
+  });
+}
+
+else {
         // Default fallback
         navigate("/dashboard");
       }

@@ -600,3 +600,121 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.sales-go-to-dashboard-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.3s;
+}
+
+.sales-go-to-dashboard-btn:hover {
+  background-color: #2563eb;
+}
+
+.sales-completed-message {
+  text-align: center;
+  padding: 20px;
+}
+
+.sales-completed-message svg {
+  color: #28a745;
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.sales-completed-message p {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+
+/* Location status indicators */
+.sales-location-warning {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sales-distance-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.sales-distance-indicator.within-range {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.sales-distance-indicator.outside-range {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.sales-location-warning-message {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+.sales-company-location-info {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.sales-company-location-info p {
+  margin: 5px 0;
+}
+
+.sales-check-in-btn.sales-disabled-btn {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.sales-check-in-btn.sales-disabled-btn:hover {
+  background-color: #6c757d;
+  transform: none;
+}
+
+/* Refresh location button */
+.sales-refresh-location-btn {
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-left: 10px;
+}
+
+.sales-refresh-location-btn:hover {
+  background-color: #138496;
+}

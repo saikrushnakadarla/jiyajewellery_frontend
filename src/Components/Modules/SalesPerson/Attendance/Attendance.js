@@ -10,7 +10,8 @@ import {
   faHistory,
   faSignOutAlt,
   faInfoCircle,
-  faSpinner
+  faSpinner,
+  faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 import Webcam from 'react-webcam';
 import SalesNavbar from "../../../Pages/Navbar/SalesNavbar";
@@ -22,6 +23,7 @@ function Attendance() {
   const webcamRef = useRef(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [companyLocation, setCompanyLocation] = useState(null);
   const [attendanceStatus, setAttendanceStatus] = useState({
     checked_in: false,
     checked_out: false,
@@ -35,7 +37,9 @@ function Attendance() {
     longitude: null,
     address: '',
     loading: false,
-    error: null
+    error: null,
+    withinRange: false,
+    distance: null
   });
   const [showCamera, setShowCamera] = useState(false);
   const [photo, setPhoto] = useState(null);
@@ -52,6 +56,10 @@ function Attendance() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [skipPhoto, setSkipPhoto] = useState(false);
+  const [locationCheckAttempts, setLocationCheckAttempts] = useState(0);
+
+  // Constants
+  const MAX_DISTANCE_METERS = 15; // Maximum allowed distance (15 meters)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -61,6 +69,7 @@ function Attendance() {
         setUser(userData);
         fetchAttendanceStatus(userData.id);
         fetchAttendanceHistory(userData.id);
+        fetchCompanyLocation();
       } catch (error) {
         console.error('Error parsing user data:', error);
         navigate('/login');
@@ -69,14 +78,106 @@ function Attendance() {
       navigate('/login');
     }
 
-    getUserLocation();
-
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
     return () => clearInterval(timer);
   }, [navigate]);
+
+
+  useEffect(() => {
+  if (
+    companyLocation &&
+    location.latitude &&
+    location.longitude
+  ) {
+    const distance = calculateDistance(
+      location.latitude,
+      location.longitude,
+      companyLocation.latitude,
+      companyLocation.longitude
+    );
+
+    setLocation(prev => ({
+      ...prev,
+      distance: distance.toFixed(2),
+      withinRange: distance <= MAX_DISTANCE_METERS
+    }));
+  }
+}, [companyLocation]);
+
+  // Fetch company location from the API
+  const fetchCompanyLocation = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/get/companies');
+      if (response.data && response.data.length > 0) {
+        const company = response.data[0]; // Get the first company
+        console.log('Company data:', company); // Debug log
+        
+        setCompanyLocation({
+          latitude: parseFloat(company.latitude),
+          longitude: parseFloat(company.longitude),
+          address: company.address,
+          company_name: company.company_name
+        });
+        
+        // After getting company location, get user location
+        getUserLocation();
+      } else {
+        console.error('No company data found');
+        Swal.fire({
+          icon: 'error',
+          title: 'Company Location Not Found',
+          text: 'Company location data is not available. Please contact administrator.'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching company location:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to fetch company location. Please try again.'
+      });
+    }
+  };
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  // Get address from coordinates using multiple fallback methods
+ // Get address from coordinates using backend proxy
+const getAddressFromCoordinates = async (latitude, longitude) => {
+  try {
+    // Use your backend API as a proxy to avoid CORS issues
+    const response = await axios.get(
+      `http://localhost:5000/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
+      { timeout: 5000 }
+    );
+    
+    if (response.data.success && response.data.data.display_name) {
+      return response.data.data.display_name;
+    }
+  } catch (error) {
+    console.log('Geocoding via backend failed:', error.message);
+  }
+
+  // Fallback: Return coordinates as string
+  return `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+};
 
   const getUserLocation = () => {
     setLocation(prev => ({ ...prev, loading: true, error: null }));
@@ -90,39 +191,99 @@ function Attendance() {
       return;
     }
 
+    // Options for better accuracy
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    };
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         
         try {
-          const response = await axios.get(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
+          // Calculate distance from company location if available
+          let withinRange = false;
+          let distance = null;
+          
+          if (companyLocation) {
+            distance = calculateDistance(
+              latitude, 
+              longitude, 
+              companyLocation.latitude, 
+              companyLocation.longitude
+            );
+            withinRange = distance <= MAX_DISTANCE_METERS;
+            
+            console.log(`Distance from company: ${distance.toFixed(2)} meters`);
+            console.log(`Within range (${MAX_DISTANCE_METERS}m): ${withinRange ? 'Yes' : 'No'}`);
+          }
+          
+          // Get address asynchronously
+          const address = await getAddressFromCoordinates(latitude, longitude);
           
           setLocation({
             latitude,
             longitude,
-            address: response.data.display_name || 'Location retrieved',
+            address: address,
             loading: false,
-            error: null
+            error: null,
+            withinRange,
+            distance: distance ? distance.toFixed(2) : null
           });
         } catch (error) {
+          // Fallback if everything fails
+          let withinRange = false;
+          let distance = null;
+          
+          if (companyLocation) {
+            distance = calculateDistance(
+              latitude, 
+              longitude, 
+              companyLocation.latitude, 
+              companyLocation.longitude
+            );
+            withinRange = distance <= MAX_DISTANCE_METERS;
+          }
+          
           setLocation({
             latitude,
             longitude,
-            address: `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`,
+            address: `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
             loading: false,
-            error: null
+            error: null,
+            withinRange,
+            distance: distance ? distance.toFixed(2) : null
           });
         }
       },
       (error) => {
+        let errorMessage = 'Unable to retrieve your location. ';
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please enable location permissions in your browser.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.';
+            break;
+          default:
+            errorMessage += 'Please try again.';
+        }
+        
         setLocation(prev => ({
           ...prev,
           loading: false,
-          error: 'Unable to retrieve your location'
+          error: errorMessage
         }));
-      }
+        
+        setLocationCheckAttempts(prev => prev + 1);
+      },
+      options
     );
   };
 
@@ -134,6 +295,12 @@ function Attendance() {
       
       if (response.data.success) {
         setAttendanceStatus(response.data.data);
+        
+        if (response.data.data.checked_in) {
+          const today = new Date().toDateString();
+          sessionStorage.setItem('attendanceChecked', 'true');
+          sessionStorage.setItem('lastCheckInDate', today);
+        }
       }
     } catch (error) {
       console.error('Error fetching attendance status:', error);
@@ -184,32 +351,71 @@ function Attendance() {
     return new File([u8arr], filename, { type: mime });
   };
 
-  const handleCheckIn = async () => {
+  const validateLocationBeforeCheckIn = () => {
     if (!location.latitude || !location.longitude) {
       Swal.fire({
         icon: 'warning',
         title: 'Location Required',
         text: 'Please enable location services to check in'
       });
-      return;
+      return false;
     }
 
-    // Commented out photo requirement
-    // if (!photo && !skipPhoto) {
-    //   Swal.fire({
-    //     icon: 'warning',
-    //     title: 'Photo Optional',
-    //     text: 'You can take a photo or click "Skip Photo" to continue without photo'
-    //   });
-    //   return;
-    // }
+    if (!companyLocation) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Company Location Not Found',
+        text: 'Company location data is not available. Please contact administrator.'
+      });
+      return false;
+    }
+
+    if (!location.withinRange) {
+      const distanceMsg = location.distance ? 
+        `You are ${location.distance} meters away.` : 
+        '';
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Outside Allowed Range',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>You are not within the allowed check-in range.</strong></p>
+             <p>You must be within <strong>${MAX_DISTANCE_METERS} meters</strong> of the company location.</p>
+            ${distanceMsg ? `<p>${distanceMsg}</p>` : ''}
+            <p>Company Location:</p>
+            <p style="font-size: 0.9em; color: #666;">
+              Lat: ${companyLocation.latitude.toFixed(6)}, Lng: ${companyLocation.longitude.toFixed(6)}
+            </p>
+            <p>Your Location:</p>
+            <p style="font-size: 0.9em; color: #666;">
+              Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}
+            </p>
+          </div>
+        `,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Try Again'
+      });
+      
+      // Refresh location to get more accurate reading
+      getUserLocation();
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleCheckIn = async () => {
+    // First validate location
+    if (!validateLocationBeforeCheckIn()) {
+      return;
+    }
 
     setLoading(true);
 
     try {
       const formData = new FormData();
       
-      // Only append photo if it exists
       if (photo) {
         const photoFile = dataURLtoFile(photo, `check-in-${Date.now()}.jpg`);
         formData.append('photo', photoFile);
@@ -227,6 +433,7 @@ function Attendance() {
         formData.append('ip_address', ipResponse.data.ip);
       } catch (error) {
         console.log('Could not fetch IP address');
+        formData.append('ip_address', 'unknown');
       }
 
       const response = await axios.post(
@@ -240,10 +447,19 @@ function Attendance() {
       );
 
       if (response.data.success) {
+        const today = new Date().toDateString();
+        sessionStorage.setItem('attendanceChecked', 'true');
+        sessionStorage.setItem('lastCheckInDate', today);
+        
         Swal.fire({
           icon: 'success',
           title: 'Check-in Successful!',
-          text: `You have checked in at ${new Date().toLocaleTimeString()}`,
+          html: `
+            <p>You have checked in at ${new Date().toLocaleTimeString()}</p>
+            <p style="font-size: 0.9em; color: #28a745;">
+              Location verified: Within ${MAX_DISTANCE_METERS}m of company
+            </p>
+          `,
           timer: 2000,
           showConfirmButton: false
         });
@@ -259,6 +475,31 @@ function Attendance() {
         setRemarks('');
         setSkipPhoto(false);
         fetchAttendanceHistory(user.id);
+
+        setTimeout(() => {
+          Swal.fire({
+            title: 'Log a Visit?',
+            text: 'Would you like to log a customer visit now?',
+            icon: 'question',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonColor: '#f59e0b',
+            denyButtonColor: '#3b82f6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Log Visit',
+            denyButtonText: 'Skip for Now',
+            cancelButtonText: 'Go to Dashboard'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              navigate('/visit-logs');
+            } else if (result.isDenied) {
+              sessionStorage.setItem('visitLogSkipped', 'true');
+              navigate('/salesperson-dashboard');
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+              navigate('/salesperson-dashboard');
+            }
+          });
+        }, 500);
       }
     } catch (error) {
       console.error('Check-in error:', error);
@@ -282,22 +523,11 @@ function Attendance() {
       return;
     }
 
-    // Commented out photo requirement
-    // if (!photo && !skipPhoto) {
-    //   Swal.fire({
-    //     icon: 'warning',
-    //     title: 'Photo Optional',
-    //     text: 'You can take a photo or click "Skip Photo" to continue without photo'
-    //   });
-    //   return;
-    // }
-
     setLoading(true);
 
     try {
       const formData = new FormData();
       
-      // Only append photo if it exists
       if (photo) {
         const photoFile = dataURLtoFile(photo, `check-out-${Date.now()}.jpg`);
         formData.append('photo', photoFile);
@@ -314,6 +544,7 @@ function Attendance() {
         formData.append('ip_address', ipResponse.data.ip);
       } catch (error) {
         console.log('Could not fetch IP address');
+        formData.append('ip_address', 'unknown');
       }
 
       const response = await axios.post(
@@ -388,6 +619,65 @@ function Attendance() {
     }
   };
 
+  // Render location status with distance information
+  const renderLocationStatus = () => {
+    if (location.loading) {
+      return (
+        <div className="sales-location-loading">
+          <FontAwesomeIcon icon={faSpinner} spin />
+          <span>Getting your location...</span>
+        </div>
+      );
+    }
+
+    if (location.error) {
+      return (
+        <div className="sales-location-error">
+          <FontAwesomeIcon icon={faExclamationTriangle} />
+          <span>{location.error}</span>
+          <button onClick={getUserLocation} className="sales-retry-btn">
+            Retry
+          </button>
+        </div>
+      );
+    }
+
+    if (!companyLocation) {
+      return (
+        <div className="sales-location-warning">
+          <FontAwesomeIcon icon={faExclamationTriangle} />
+          <span>Company location not available</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="sales-location-details">
+        <p className="sales-address">{location.address}</p>
+        <p className="sales-coordinates">
+          Lat: {location.latitude?.toFixed(6)}, Lng: {location.longitude?.toFixed(6)}
+        </p>
+        {location.distance && (
+          <div className={`sales-distance-indicator ${location.withinRange ? 'within-range' : 'outside-range'}`}>
+            <FontAwesomeIcon icon={location.withinRange ? faCheckCircle : faExclamationTriangle} />
+            <span>
+              Distance from company: {location.distance} meters
+              {location.withinRange 
+                ? ` (Within ${MAX_DISTANCE_METERS}m range)` 
+                : ` (Outside ${MAX_DISTANCE_METERS}m range)`}
+            </span>
+          </div>
+        )}
+        {!attendanceStatus.checked_in && !location.withinRange && (
+          <div className="sales-location-warning-message">
+            <FontAwesomeIcon icon={faExclamationTriangle} />
+            <span>You must be within {MAX_DISTANCE_METERS}m of the company to check in</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <SalesNavbar />
@@ -423,25 +713,13 @@ function Attendance() {
                 <FontAwesomeIcon icon={faMapMarkerAlt} className="sales-location-icon" />
                 <h3>Your Location</h3>
               </div>
-              {location.loading ? (
-                <div className="sales-location-loading">
-                  <FontAwesomeIcon icon={faSpinner} spin />
-                  <span>Getting your location...</span>
-                </div>
-              ) : location.error ? (
-                <div className="sales-location-error">
-                  <FontAwesomeIcon icon={faInfoCircle} />
-                  <span>{location.error}</span>
-                  <button onClick={getUserLocation} className="sales-retry-btn">
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                <div className="sales-location-details">
-                  <p className="sales-address">{location.address}</p>
-                  <p className="sales-coordinates">
-                    Lat: {location.latitude?.toFixed(6)}, Lng: {location.longitude?.toFixed(6)}
-                  </p>
+              {renderLocationStatus()}
+              
+              {/* Company Location Info */}
+              {companyLocation && (
+                <div className="sales-company-location-info">
+                  <p><strong>Company:</strong> {companyLocation.company_name}</p>
+                  <p><strong>Company Address:</strong> {companyLocation.address}</p>
                 </div>
               )}
             </div>
@@ -564,7 +842,7 @@ function Attendance() {
                       <button
                         onClick={handleCheckIn}
                         disabled={loading || location.loading}
-                        className="sales-check-in-btn"
+                        className={"sales-check-in-btn"}
                       >
                         {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
                         Check In
@@ -586,6 +864,12 @@ function Attendance() {
                       <div className="sales-completed-message">
                         <FontAwesomeIcon icon={faCheckCircle} />
                         <p>You have completed your attendance for today</p>
+                        <button
+                          onClick={() => navigate('/salesperson-dashboard')}
+                          className="sales-go-to-dashboard-btn"
+                        >
+                          Go to Dashboard
+                        </button>
                       </div>
                     )}
                   </div>
@@ -596,6 +880,12 @@ function Attendance() {
                 <div className="sales-completed-message">
                   <FontAwesomeIcon icon={faCheckCircle} />
                   <p>You have completed your attendance for today</p>
+                  <button
+                    onClick={() => navigate('/salesperson-dashboard')}
+                    className="sales-go-to-dashboard-btn"
+                  >
+                    Go to Dashboard
+                  </button>
                 </div>
               )}
             </div>

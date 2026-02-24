@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../../Pages/Navbar/SalesNavbar';
 import { FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, FaUserCheck, FaCalendarCheck } from 'react-icons/fa';
 import './VisitLogs.css';
+import Swal from 'sweetalert2';
 
 const VisitLogsForm = () => {
   const navigate = useNavigate();
@@ -269,31 +270,52 @@ const VisitLogsForm = () => {
         source_by: sourceBy
       });
 
-      if (response.data.success) {
-        alert('✅ Visit logged successfully!');
+      // After successful save
+if (response.data.success) {
+  alert('✅ Visit logged successfully!');
+  
+  // Set session flag
+  sessionStorage.setItem('visitLogCompleted', 'true');
+  
+  // Ask if they want to go to dashboard or continue logging
+  Swal.fire({
+    title: 'Visit Logged Successfully!',
+    text: 'What would you like to do next?',
+    icon: 'success',
+    showDenyButton: true,
+    confirmButtonColor: '#f59e0b',
+    denyButtonColor: '#3b82f6',
+    confirmButtonText: 'Go to Dashboard',
+    denyButtonText: 'Log Another Visit'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      navigate('/salesperson-dashboard');
+    }
+    // If denied, stay on visit logs page
+  });
 
-        // Reset form
-        setFormData({
-          customer_id: '',
-          customer_name: '',
-          visit_date: today,
-          outcome: 'Follow Up',
-          notes: '',
-          otp: ''
-        });
-        setSelectedCustomer(null);
-        setCustomerEmail('');
-        setOtpSent(false);
-        setOtpVerified(false);
-        setGeneratedOtp('');
-        setOtpTimer(0);
-        setOtpMessage('');
-        setOtpError('');
+  // Reset form (your existing code)
+  setFormData({
+    customer_id: '',
+    customer_name: '',
+    visit_date: today,
+    outcome: 'Follow Up',
+    notes: '',
+    otp: ''
+  });
+  setSelectedCustomer(null);
+  setCustomerEmail('');
+  setOtpSent(false);
+  setOtpVerified(false);
+  setGeneratedOtp('');
+  setOtpTimer(0);
+  setOtpMessage('');
+  setOtpError('');
 
-        // Refresh logs and statistics
-        fetchVisitLogs();
-        fetchStatistics();
-      }
+  // Refresh logs and statistics
+  fetchVisitLogs();
+  fetchStatistics();
+}
     } catch (error) {
       console.error('Error logging visit:', error);
       alert('❌ Failed to log visit. Please try again.');

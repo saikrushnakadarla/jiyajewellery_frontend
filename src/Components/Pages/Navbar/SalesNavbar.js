@@ -44,23 +44,25 @@ function Navbar() {
     setIsOpen(false);
   };
 
-  const handleLogout = () => {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "Do you really want to log out?",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        localStorage.removeItem('user');
-        navigate('/');
-      }
-    });
-  };
+const handleLogout = () => {
+  Swal.fire({
+    title: 'Are you sure?',
+    text: "Do you really want to log out?",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, log out!',
+    cancelButtonText: 'Cancel'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Clear all session storage
+      sessionStorage.clear();
+      localStorage.removeItem('user');
+      navigate('/');
+    }
+  });
+};
 
   const isActive = (path) => {
     return location.pathname === path ? 'active' : '';

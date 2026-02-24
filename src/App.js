@@ -39,7 +39,8 @@ import CompanyInfo from "./Components/Modules/Admin/CompanyInfo/CompanyInfo"
 import CompanyInfoEditForm from './Components/Modules/Admin/CompanyInfo/CompanyInfoEditForm';
 import AllAttendance from './Components/Modules/Admin/AllSalesPersonAttendance/AllSalesPersonAttendance';
 import VisitLogs from "./Components/Modules/SalesPerson/VisitLogs/VisitLogs";
-import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs"
+import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs";
+import ProtectedSalesRoute from './Components/Modules/SalesPerson/ProtectedSalesRoutes';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -56,7 +57,14 @@ function App() {
         <Route path='/dashboard-pie' element={<DashboardPie />} />
 
         <Route path="/customer-dashboard" element={<CustomerDashboard />} />
-        <Route path="/salesperson-dashboard" element={<SalesPersonDashboard />} />
+           <Route 
+          path="/salesperson-dashboard" 
+          element={
+            <ProtectedSalesRoute>
+              <SalesPersonDashboard />
+            </ProtectedSalesRoute>
+          } 
+        />
         <Route path='/salespersontable' element={<SalesPersonTable />} />
 
         <Route path='/purity' element={<Purity />} />
@@ -80,7 +88,6 @@ function App() {
         <Route path='/product-catalog' element={<ProductCatalog />} />
         <Route path='/cart-catalog' element={<CartCatalog />} />
           <Route path='/purchase' element={<Purchase />} />
-           <Route path='/visit-logs' element={<VisitLogs />} />
             <Route path='/admin-visit-logs' element={<AdminVisitLogs />} />
 
 
@@ -88,6 +95,7 @@ function App() {
            <Route path='/company-info' element={<CompanyInfo />} />
            <Route path="/company-info/edit" element={<CompanyInfoEditForm />} />
            <Route path='/salesperson-attendance' element={<AllAttendance />} />
+             <Route path='/visit-logs' element={<VisitLogs />} />
 
 
 
