@@ -59,7 +59,7 @@ function Attendance() {
   const [locationCheckAttempts, setLocationCheckAttempts] = useState(0);
 
   // Constants
-  const MAX_DISTANCE_METERS = 15; // Maximum allowed distance (15 meters)
+  const MAX_DISTANCE_METERS = 25; // Maximum allowed distance (25 meters)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');

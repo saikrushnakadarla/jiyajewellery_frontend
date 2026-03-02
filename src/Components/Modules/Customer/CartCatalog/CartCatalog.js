@@ -376,12 +376,12 @@ const handleOrderNow = async (cartItem) => {
                 <span>Subtotal:</span>
                 <span className="cart-total-price">{formatPrice(calculateTotal())}</span>
               </div>
-              <button 
+              {/* <button 
                 className="product-catalog-buy-now-btn"
                 onClick={() => alert('Proceed to checkout functionality to be implemented')}
               >
                 Proceed to Checkout
-              </button>
+              </button> */}
             </div>
 
             

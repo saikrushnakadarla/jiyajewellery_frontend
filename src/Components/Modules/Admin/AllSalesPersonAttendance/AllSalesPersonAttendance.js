@@ -75,7 +75,7 @@ function AllAttendance() {
       setLoading(false);
     }
   };
-
+  
   const filterAttendance = () => {
     let filtered = [...attendanceData];
     
