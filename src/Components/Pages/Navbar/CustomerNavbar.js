@@ -102,12 +102,12 @@ function CustomerNavbar() {
             <div className="navbar-dropdown-content">
               <Link to="/customer-estimation">Estimation</Link>
               <Link to="/product-catalog">Product Catalog</Link>
-              <Link to="/purchase">Purchase</Link>
+              <Link to="/purchase">Purchase History</Link>
             </div>
           )}
         </div>
 
-        <div
+        {/* <div
           className="navbar-dropdown"
           onMouseEnter={() => setReportsDropdownOpen(true)}
           onMouseLeave={() => setReportsDropdownOpen(false)}
@@ -118,12 +118,19 @@ function CustomerNavbar() {
           </span>
           
           {/* You can add report links here when needed */}
-          {reportsDropdownOpen && (
-            <div className="navbar-dropdown-content">
+          {/* {reportsDropdownOpen && (
+            <div className="navbar-dropdown-content"> */}
               {/* Add report links here in the future */}
-            </div>
+            {/* </div>
           )}
-        </div>
+        </div> */}
+
+        <Link
+          to="/customerreports"
+          className={location.pathname === '/customerreports' ? 'active' : ''}
+        >
+          REPORTS
+        </Link>
       </nav>
 
       {/* Right Section */}

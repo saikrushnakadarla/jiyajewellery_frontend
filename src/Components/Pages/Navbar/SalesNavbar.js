@@ -132,7 +132,7 @@ const handleLogout = () => {
           )}
         </div>
 
-        <div
+        {/* <div
           className="navbar-dropdown"
           onMouseEnter={togglereportsDropdown}
           onMouseLeave={togglereportsDropdown}
@@ -144,7 +144,14 @@ const handleLogout = () => {
               className="dropdown-arrow-icon"
             />
           </span>
-        </div>
+        </div> */}
+
+         <Link
+                  to="/salespersonreports"
+                  className={location.pathname === '/salespersonreports' ? 'active' : ''}
+                >
+                  REPORTS
+                </Link>
       </nav>
 
       {/* User name and logout section */}

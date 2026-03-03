@@ -42,6 +42,8 @@ import VisitLogs from "./Components/Modules/SalesPerson/VisitLogs/VisitLogs";
 import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs";
 import ProtectedSalesRoute from './Components/Modules/SalesPerson/ProtectedSalesRoutes';
 import Reports from './Components/Modules/Admin/Reports/Reports';
+import CustomerReports from './Components/Modules/Customer/Reports/CustomerReports';
+import SalespersonReports from './Components/Modules/SalesPerson/Reports/SalespersonReports';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -104,6 +106,8 @@ function App() {
 
         <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
         <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />
+         <Route path='/customerreports' element={<CustomerReports />} />
+          <Route path='/salespersonreports' element={<SalespersonReports />} />
 
       </Routes>
     </Router>
