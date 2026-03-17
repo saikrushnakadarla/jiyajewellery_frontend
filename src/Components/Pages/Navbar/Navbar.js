@@ -147,7 +147,7 @@ function Navbar() {
         </div>
 
 
-        <div
+        {/* <div
           className="navbar-dropdown"
           onMouseEnter={toggletransactionDropdown}
           onMouseLeave={toggletransactionDropdown}
@@ -164,13 +164,33 @@ function Navbar() {
               <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
                 Estimation
               </Link>
-              {/* New Visit Logs Link */}
+            
               <Link to="/admin-visit-logs" onClick={handleItemClick} className={isActive('/visit-logs')}>
                 Visit Logs
               </Link>
             </div>
           )}
-        </div>
+        </div> */}
+
+
+<div>
+  <span>
+    <Link
+      to="/transactions"
+      onClick={handleItemClick}
+      className={isActive('/transactions')}
+      style={{
+        color: window.location.pathname === '/transactions' ? '#a36e29' : 'black',
+        backgroundColor: 'transparent',
+        textDecoration: 'none',
+      }}
+    >
+      TRANSACTIONS
+    </Link>
+  </span>
+</div>
+
+
 
         {/* REPORTS section with dropdown removed and new path added */}
         <div>

@@ -1,0 +1,140 @@
+/* SalespersonTransactions.css */
+
+.salesperson-transactions-main-container {
+  min-height: 100vh;
+  background-color: #f4f7fc;
+  padding-top: 100px;
+  padding-bottom: 30px;
+}
+
+.salesperson-transactions-header {
+  max-width: 1500px;
+  margin: 0 auto 20px auto;
+  padding: 0 20px;
+}
+
+.salesperson-transactions-title {
+  color: #2c3e50;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  background: linear-gradient(135deg, #a36e29 0%, #8b5a21 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.salesperson-transactions-subtitle {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Tabs Container */
+.salesperson-transactions-tabs-container {
+  max-width: 1500px;
+  margin: 0 auto 30px auto;
+  padding: 0 20px;
+}
+
+/* Tabs Wrapper (FULL WIDTH) */
+.salesperson-transactions-tabs {
+  display: flex;
+  gap: 10px;
+  background: #eef1f5;
+  padding: 8px;
+  border-radius: 12px;
+  width: 100%;
+}
+
+/* Individual Tab */
+.salesperson-transactions-tab {
+  flex: 1;
+  text-align: center;
+  background: transparent;
+  border: none;
+  padding: 12px 40px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #6c7a89;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+/* Hover */
+.salesperson-transactions-tab:hover {
+  color: #a36e29;
+}
+
+/* Active Tab */
+.salesperson-transactions-tab.active {
+  background: #ffffff;
+  color: #a36e29;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* Remove old underline */
+.salesperson-transactions-tab.active::after {
+  display: none;
+}
+
+/* Tab Content */
+.salesperson-transactions-content {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 20px;
+  animation: salespersonFadeIn 0.4s ease-in-out;
+}
+
+/* Animation */
+@keyframes salespersonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+
+  .salesperson-transactions-main-container {
+    padding-top: 80px;
+    padding-bottom: 20px;
+  }
+
+  .salesperson-transactions-title {
+    font-size: 24px;
+    text-align: center;
+  }
+
+  .salesperson-transactions-subtitle {
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .salesperson-transactions-tab {
+    padding: 10px 15px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .salesperson-transactions-tab {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+/* Fix spacing for child components */
+
+.salesperson-transactions-content .estimates-table-container,
+.salesperson-transactions-content .vl-main-container {
+  margin-top: 0 !important;
+  padding-top: 0;
+}

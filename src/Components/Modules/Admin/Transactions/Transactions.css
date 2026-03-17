@@ -1,0 +1,208 @@
+/* Transactions.css */
+.transactions-main-container {
+    min-height: 100vh;
+    background-color: #f4f7fc;
+    padding-top: 100px;
+    /* Increased to account for navbar */
+    padding-bottom: 30px;
+}
+
+.transactions-header {
+    max-width: 1500px;
+    margin: 0 auto 20px auto;
+    padding: 0 20px;
+}
+
+.transactions-title {
+    color: #2c3e50;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    background: linear-gradient(135deg, #a36e29 0%, #8b5a21 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.transactions-subtitle {
+    color: #7f8c8d;
+    font-size: 16px;
+    margin: 0;
+}
+
+/* Tabs Container */
+.transactions-tabs-container {
+    max-width: 1500px;
+    margin: 0 auto 20px auto;
+    padding: 0 20px;
+}
+
+.transactions-tabs {
+    display: flex;
+    gap: 15px;
+    border-bottom: 3px solid rgba(163, 110, 41, 0.2);
+    padding-bottom: 5px;
+}
+
+.transactions-tab {
+    background: transparent;
+    border: none;
+    padding: 12px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #7f8c8d;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    border-radius: 8px 8px 0 0;
+    letter-spacing: 0.5px;
+}
+
+.transactions-tab:hover {
+    color: #a36e29;
+    background-color: rgba(163, 110, 41, 0.05);
+}
+
+.transactions-tab.active {
+    color: #a36e29;
+    background-color: rgba(163, 110, 41, 0.1);
+}
+
+.transactions-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #a36e29;
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 2px 5px rgba(163, 110, 41, 0.3);
+}
+
+/* Tab Content */
+.transactions-content {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .transactions-main-container {
+        padding-top: 80px;
+        padding-bottom: 20px;
+    }
+
+    .transactions-title {
+        font-size: 24px;
+        text-align: center;
+    }
+
+    .transactions-subtitle {
+        text-align: center;
+        font-size: 14px;
+    }
+
+    .transactions-tabs {
+        flex-direction: row;
+        gap: 5px;
+        padding-bottom: 3px;
+    }
+
+    .transactions-tab {
+        flex: 1;
+        padding: 10px 15px;
+        font-size: 14px;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .transactions-tab.active::after {
+        bottom: -6px;
+        height: 2px;
+    }
+}
+
+/* For very small screens */
+@media (max-width: 480px) {
+    .transactions-tab {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+}
+
+/* Animation for tab content */
+.transactions-content {
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Add a subtle shadow to active tab */
+.transactions-tab.active {
+    box-shadow: 0 -2px 5px rgba(163, 110, 41, 0.1);
+}
+
+/* Hover effect for non-active tabs */
+.transactions-tab:not(.active):hover {
+    transform: translateY(-2px);
+}
+
+
+.transactions-tabs {
+    display: flex;
+    gap: 10px;
+    background: #eef1f5;
+    padding: 8px;
+    border-radius: 12px;
+    width: 100%;
+    /* ✅ full width */
+}
+
+/* Make each tab take equal space */
+.transactions-tab {
+    flex: 1;
+    /* ✅ evenly distributed */
+    text-align: center;
+}
+
+/* Default tab */
+.transactions-tab {
+    background: transparent;
+    border: none;
+    padding: 12px 40px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #6c7a89;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+/* Hover */
+.transactions-tab:hover {
+    color: #a36e29;
+}
+
+/* Active tab (MAIN FIX) */
+.transactions-tab.active {
+    background: #ffffff;
+    color: #a36e29;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* REMOVE old underline */
+.transactions-tab.active::after {
+    display: none;
+}

@@ -23,6 +23,9 @@ import CategoryForm from './Components/Modules/Admin/Masters/CategoryProducts/Ca
 import ProductMaster from './Components/Modules/Admin/Masters/ProductMaster/ProductMaster';
 import ProductForm from './Components/Modules/Admin/Masters/ProductMaster/ProductForm';
 import EstimateTable from './Components/Modules/Admin/Transactions/EstimateTable';
+import Transactions from './Components/Modules/Admin/Transactions/Transactions';
+import CustomerTransactions from './Components/Modules/Customer/Transactions/CustomerTransactions';
+import SalespersonTransactions from './Components/Modules/SalesPerson/Transactions/SalesPersonTransation';
 import EstimateForm from './Components/Modules/Admin/Transactions/EstimateForm';
 import CustomerEstimateTable from './Components/Modules/Customer/Transactions/EstimateTable';
 import Purchase from "./Components/Modules/Customer/Purchase/Purchase"
@@ -84,8 +87,12 @@ function App() {
         <Route path='/productform' element={<ProductForm />} />
 
         <Route path='/estimation' element={<EstimateTable />} />
+        <Route path='/transactions' element={<Transactions />} />
+
+        {/* <Route path='/estimates' element={<EstimateForm />} /> */}
         <Route path='/estimates' element={<EstimateForm />} />
 
+        <Route path='/customer-transactions' element={<CustomerTransactions />} />
         <Route path='/customer-estimation' element={<CustomerEstimateTable />} />
         <Route path='/customer-estimates' element={<CustomerEstimateForm />} />
         <Route path='/product-catalog' element={<ProductCatalog />} />
@@ -100,10 +107,8 @@ function App() {
            <Route path='/salesperson-attendance' element={<AllAttendance />} />
            <Route path='/visit-logs' element={<VisitLogs />} />
             <Route path='/reports' element={<Reports />} />
-
-
-
-
+            
+        <Route path='/salesperson-transactions' element={<SalespersonTransactions />} />    
         <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
         <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />
          <Route path='/customerreports' element={<CustomerReports />} />
