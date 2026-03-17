@@ -14,130 +14,141 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-// In your Login.js file, update the handleSubmit function:
+  // In your Login.js file, update the handleSubmit function:
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Basic validation
-  if (!email_id || !password) {
-    Swal.fire({ 
-      icon: "warning", 
-      title: "Missing Fields",
-      text: "Please enter both email and password."
-    });
-    return;
-  }
-  
-  // Email format validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email_id)) {
-    Swal.fire({ 
-      icon: "warning", 
-      title: "Invalid Email",
-      text: "Please enter a valid email address."
-    });
-    return;
-  }
-  
-  setIsLoading(true);
-  
-  try {
-    const response = await fetch("http://localhost:5000/api/users/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email_id: email_id.trim(),
-        password: password,
-      }),
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    const data = await response.json();
-
-    if (response.ok) {
-      // Store user data in localStorage
-      localStorage.setItem("user", JSON.stringify(data.user));
-      
-      Swal.fire({ 
-        icon: "success", 
-        title: "Login Successful!",
-        timer: 1500,
-        showConfirmButton: false
+    // Basic validation
+    if (!email_id || !password) {
+      Swal.fire({
+        icon: "warning",
+        title: "Missing Fields",
+        text: "Please enter both email/phone and password."
       });
-      
-      // Navigate based on user role
-      const userRole = data.user?.role?.toLowerCase();
-      
-      if (userRole === "admin") {
-        navigate("/dashboard");
-      } else if (userRole === "customer") {
-        // Check if customer is approved
-        if (data.user.status === "approved") {
-          navigate("/customer-dashboard");
-        } else {
-          Swal.fire({
-            icon: "info",
-            title: "Account Pending Approval",
-            text: "Your account is awaiting approval from the administrator. You will be notified via email once approved.",
-            confirmButtonText: "OK"
-          }).then(() => {
-            // Still navigate to dashboard but show pending status
-            navigate("/customer-dashboard");
-          });
-        }
-      } 
-      // In Login.js, update the navigation part for salesman:
-else if (userRole === "salesman") {
-  // Check if it's a new day
-  const today = new Date().toDateString();
-  const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
-  
-  // If it's a new day, clear session storage flags
-  if (lastCheckInDate !== today) {
-    sessionStorage.removeItem('attendanceChecked');
-    sessionStorage.removeItem('visitLogCompleted');
-    sessionStorage.removeItem('visitLogSkipped');
-    sessionStorage.removeItem('lastCheckInDate');
-  }
-  
-  // Show welcome message
-  Swal.fire({
-    icon: 'success',
-    title: 'Welcome!',
-    text: 'Login successful',
-    timer: 1500,
-    showConfirmButton: false
-  }).then(() => {
-    navigate("/salesperson-dashboard");
-  });
-}
-
-else {
-        // Default fallback
-        navigate("/dashboard");
-      }
-      
-    } else {
-      Swal.fire({ 
-        icon: "error", 
-        title: "Login Failed",
-        text: data.message || data.error || "Invalid email or password!"
-      });
+      return;
     }
-  } catch (error) {
-    console.error("Login error:", error);
-    Swal.fire({ 
-      icon: "error", 
-      title: "Network Error",
-      text: "Unable to connect to the server. Please try again later."
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
 
+    // Check if input is email (contains @) or phone number
+    const isEmail = email_id.includes('@');
+
+    // Email format validation (only if it looks like an email)
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email_id)) {
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Email",
+          text: "Please enter a valid email address."
+        });
+        return;
+      }
+    } else {
+      // Phone number validation (optional - adjust regex as needed)
+      const phoneRegex = /^\d{10}$/; // Assuming 10-digit phone number
+      if (!phoneRegex.test(email_id.replace(/\D/g, ''))) {
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Phone Number",
+          text: "Please enter a valid 10-digit phone number."
+        });
+        return;
+      }
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email_id: email_id.trim(), // This can now be either email or phone
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        Swal.fire({
+          icon: "success",
+          title: "Login Successful!",
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        // Navigate based on user role
+        const userRole = data.user?.role?.toLowerCase();
+
+        if (userRole === "admin") {
+          navigate("/dashboard");
+        } else if (userRole === "customer") {
+          // Check if customer is approved
+          if (data.user.status === "approved") {
+            navigate("/customer-dashboard");
+          } else {
+            Swal.fire({
+              icon: "info",
+              title: "Account Pending Approval",
+              text: "Your account is awaiting approval from the administrator. You will be notified via email once approved.",
+              confirmButtonText: "OK"
+            }).then(() => {
+              // Still navigate to dashboard but show pending status
+              navigate("/customer-dashboard");
+            });
+          }
+        } else if (userRole === "salesman") {
+          // Check if it's a new day
+          const today = new Date().toDateString();
+          const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+
+          // If it's a new day, clear session storage flags
+          if (lastCheckInDate !== today) {
+            sessionStorage.removeItem('attendanceChecked');
+            sessionStorage.removeItem('visitLogCompleted');
+            sessionStorage.removeItem('visitLogSkipped');
+            sessionStorage.removeItem('lastCheckInDate');
+          }
+
+          // Show welcome message
+          Swal.fire({
+            icon: 'success',
+            title: 'Welcome!',
+            text: 'Login successful',
+            timer: 1500,
+            showConfirmButton: false
+          }).then(() => {
+            navigate("/salesperson-dashboard");
+          });
+        } else {
+          // Default fallback
+          navigate("/dashboard");
+        }
+
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Login Failed",
+          text: data.message || data.error || "Invalid email/phone or password!"
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Network Error",
+        text: "Unable to connect to the server. Please try again later."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="saleslogin-container container-fluid">
       <div className="row vh-100 d-flex align-items-center justify-content-center">
@@ -156,11 +167,11 @@ else {
                 {/* Email Field */}
                 <div className="mb-3">
                   <InputField
-                    label="Email Address"
-                    type="email"
+                    label="Email or Phone Number"
+                    type="text"
                     value={email_id}
                     onChange={(e) => setEmailId(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="Enter your email or phone number"
                     className="saleslogin-input"
                     required
                   />
@@ -188,15 +199,15 @@ else {
 
                 {/* Buttons */}
                 <div className="saleslogin-btn-wrapper">
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="saleslogin-btn"
                     disabled={isLoading}
                   >
                     {isLoading ? "Logging in..." : "Login"}
                   </button>
                 </div>
-                
+
                 <div className="saleslogin-guest-btn-wrapper mt-3">
                   <button
                     type="button"
@@ -211,7 +222,7 @@ else {
                 <div className=" mt-3">
                   <p className="saleslogin-register-text">
                     Don't have an account?{" "}
-                    <span 
+                    <span
                       className="saleslogin-register-link"
                       onClick={() => navigate("/customerregistration")}
                     >
