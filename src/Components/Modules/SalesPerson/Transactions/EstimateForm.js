@@ -1152,7 +1152,7 @@ const EstimateForm = () => {
             {/* Replace the original barcode column with the new BarcodeFieldWithScanner */}
             <BarcodeFieldWithScanner />
 
-            <Col xs={12} md={2}>
+            {/* <Col xs={12} md={2}>
               <InputField
                 label="Metal Type"
                 name="metal_type"
@@ -1206,11 +1206,11 @@ const EstimateForm = () => {
                   { value: "By fixed", label: "By fixed" }
                 ]}
               />
-            </Col>
+            </Col> */}
 
             {isByFixed ? (
               <>
-                <Col xs={12} md={1}>
+                {/* <Col xs={12} md={1}>
                   <InputField
                     label="Piece Cost"
                     name="pieace_cost"
@@ -1241,14 +1241,14 @@ const EstimateForm = () => {
                 </Col>
                 <Col xs={12} md={1}>
                   <InputField label="Tax Amt" name="tax_amt" value={formData.tax_amt || "0.00"} onChange={handleInputChange} />
-                </Col>
+                </Col> */}
                 <Col xs={12} md={2}>
                   <InputField label="Total Price" name="total_price" value={formData.total_price || "0.00"} onChange={handleInputChange} />
                 </Col>
               </>
             ) : (
               <>
-                <Col xs={12} md={1}>
+                {/* <Col xs={12} md={1}>
                   <InputField label="Gross Wt" name="gross_weight" value={formData.gross_weight || ""} onChange={handleInputChange} />
                 </Col>
                 <Col xs={12} md={1}>
@@ -1336,7 +1336,7 @@ const EstimateForm = () => {
                 </Col>
                 <Col xs={12} md={1}>
                   <InputField label="Tax Amt" name="tax_amt" value={formData.tax_amt || "0.00"} onChange={handleInputChange} />
-                </Col>
+                </Col> */}
                 <Col xs={12} md={2}>
                   <InputField label="Total Price" name="total_price" value={formData.total_price || "0.00"} onChange={handleInputChange} />
                 </Col>
@@ -1415,11 +1415,11 @@ const EstimateForm = () => {
                   <th>Product Name</th>
                   <th>Customer Name</th>
                   <th>Barcode</th>
-                  <th>Metal Type</th>
+                  {/* <th>Metal Type</th>
                   <th>Gross Weight</th>
                   <th>Stones Weight</th>
                   <th>Total Weight</th>
-                  <th>Rate</th>
+                  <th>Rate</th> */}
                   <th>Total Price</th>
                   <th>Actions</th>
                 </tr>
@@ -1432,11 +1432,11 @@ const EstimateForm = () => {
                       <td>{entry.product_name}</td>
                       <td>{entry.customer_name}</td>
                       <td>{entry.barcode}</td>
-                      <td>{entry.metal_type}</td>
+                      {/* <td>{entry.metal_type}</td>
                       <td>{entry.gross_weight}</td>
                       <td>{entry.stone_weight}</td>
                       <td>{entry.total_weight_av}</td>
-                      <td>{entry.rate}</td>
+                      <td>{entry.rate}</td> */}
                       <td>{entry.total_price}</td>
                       <td>
                         <div className="d-flex align-items-center">

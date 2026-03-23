@@ -507,40 +507,40 @@ const EstimateTable = () => {
       width: 150,
       disableSortBy: true,
     },
-    {
-      Header: 'Actions',
-      id: 'actions',
-      Cell: ({ row }) => {
-        // Only show edit/delete if the estimate belongs to the current salesperson
-        const canEditDelete = row.original.salesperson_id === salespersonId;
+    // {
+    //   Header: 'Actions',
+    //   id: 'actions',
+    //   Cell: ({ row }) => {
+    //     // Only show edit/delete if the estimate belongs to the current salesperson
+    //     const canEditDelete = row.original.salesperson_id === salespersonId;
 
-        return (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <FaEye
-              style={{ cursor: 'pointer', color: 'green' }}
-              onClick={() => handleViewDetails(row.original.estimate_number)}
-              title="View Details"
-            />
-            {canEditDelete && (
-              <>
-                <FaEdit
-                  style={{ cursor: 'pointer', color: 'blue' }}
-                  onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
-                  title="Edit"
-                />
-                <FaTrash
-                  style={{ cursor: 'pointer', color: 'red' }}
-                  onClick={() => handleDelete(row.original.estimate_number)}
-                  title="Delete"
-                />
-              </>
-            )}
-          </div>
-        );
-      },
-      width: 120,
-      disableSortBy: true,
-    },
+    //     return (
+    //       <div style={{ display: 'flex', gap: '10px' }}>
+    //         <FaEye
+    //           style={{ cursor: 'pointer', color: 'green' }}
+    //           onClick={() => handleViewDetails(row.original.estimate_number)}
+    //           title="View Details"
+    //         />
+    //         {canEditDelete && (
+    //           <>
+    //             <FaEdit
+    //               style={{ cursor: 'pointer', color: 'blue' }}
+    //               onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
+    //               title="Edit"
+    //             />
+    //             <FaTrash
+    //               style={{ cursor: 'pointer', color: 'red' }}
+    //               onClick={() => handleDelete(row.original.estimate_number)}
+    //               title="Delete"
+    //             />
+    //           </>
+    //         )}
+    //       </div>
+    //     );
+    //   },
+    //   width: 120,
+    //   disableSortBy: true,
+    // },
   ], [handleEdit, handleDelete, handleViewDetails, salespersonId]);
 
   // Memoize table data
