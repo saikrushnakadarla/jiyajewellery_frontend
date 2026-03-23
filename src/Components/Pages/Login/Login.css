@@ -311,3 +311,35 @@
       padding: 0 15px;
     }
   }
+
+
+  .saleslogin-face-btn-wrapper {
+  margin-top: 10px;
+}
+
+.saleslogin-face-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.saleslogin-face-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.saleslogin-face-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

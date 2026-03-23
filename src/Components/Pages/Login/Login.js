@@ -4,8 +4,8 @@ import Swal from "sweetalert2";
 import InputField from "../TableLayout/InputField";
 import logo from "../../Pages/images/JIYAA JEWELS logo_page-0001.jpg";
 import "./Login.css";
-// Import eye icons (you may need to install react-icons or use your own)
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaCamera } from "react-icons/fa";
+import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,13 +13,11 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  // In your Login.js file, update the handleSubmit function:
+  const [showFaceLogin, setShowFaceLogin] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
     if (!email_id || !password) {
       Swal.fire({
         icon: "warning",
@@ -29,10 +27,7 @@ const Login = () => {
       return;
     }
 
-    // Check if input is email (contains @) or phone number
     const isEmail = email_id.includes('@');
-
-    // Email format validation (only if it looks like an email)
     if (isEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email_id)) {
@@ -44,8 +39,7 @@ const Login = () => {
         return;
       }
     } else {
-      // Phone number validation (optional - adjust regex as needed)
-      const phoneRegex = /^\d{10}$/; // Assuming 10-digit phone number
+      const phoneRegex = /^\d{10}$/;
       if (!phoneRegex.test(email_id.replace(/\D/g, ''))) {
         Swal.fire({
           icon: "warning",
@@ -65,7 +59,7 @@ const Login = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email_id: email_id.trim(), // This can now be either email or phone
+          email_id: email_id.trim(),
           password: password,
         }),
       });
@@ -73,7 +67,6 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Store user data in localStorage
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -83,32 +76,27 @@ const Login = () => {
           showConfirmButton: false
         });
 
-        // Navigate based on user role
         const userRole = data.user?.role?.toLowerCase();
 
         if (userRole === "admin") {
           navigate("/dashboard");
         } else if (userRole === "customer") {
-          // Check if customer is approved
           if (data.user.status === "approved") {
             navigate("/customer-dashboard");
           } else {
             Swal.fire({
               icon: "info",
               title: "Account Pending Approval",
-              text: "Your account is awaiting approval from the administrator. You will be notified via email once approved.",
+              text: "Your account is awaiting approval from the administrator.",
               confirmButtonText: "OK"
             }).then(() => {
-              // Still navigate to dashboard but show pending status
               navigate("/customer-dashboard");
             });
           }
         } else if (userRole === "salesman") {
-          // Check if it's a new day
           const today = new Date().toDateString();
           const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
 
-          // If it's a new day, clear session storage flags
           if (lastCheckInDate !== today) {
             sessionStorage.removeItem('attendanceChecked');
             sessionStorage.removeItem('visitLogCompleted');
@@ -116,7 +104,6 @@ const Login = () => {
             sessionStorage.removeItem('lastCheckInDate');
           }
 
-          // Show welcome message
           Swal.fire({
             icon: 'success',
             title: 'Welcome!',
@@ -127,7 +114,6 @@ const Login = () => {
             navigate("/salesperson-dashboard");
           });
         } else {
-          // Default fallback
           navigate("/dashboard");
         }
 
@@ -149,22 +135,92 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  const handleFaceLogin = async (faceData) => {
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch("http://localhost:5000/api/users/face-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          face_descriptor: JSON.stringify(faceData.descriptor)
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        Swal.fire({
+          icon: "success",
+          title: "Face Login Successful!",
+          text: `Welcome back, ${data.user.full_name}!`,
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        const userRole = data.user?.role?.toLowerCase();
+
+        if (userRole === "admin") {
+          navigate("/dashboard");
+        } else if (userRole === "customer") {
+          if (data.user.status === "approved") {
+            navigate("/customer-dashboard");
+          } else {
+            navigate("/customer-dashboard");
+          }
+        } else if (userRole === "salesman") {
+          const today = new Date().toDateString();
+          const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+
+          if (lastCheckInDate !== today) {
+            sessionStorage.removeItem('attendanceChecked');
+            sessionStorage.removeItem('visitLogCompleted');
+            sessionStorage.removeItem('visitLogSkipped');
+            sessionStorage.removeItem('lastCheckInDate');
+          }
+
+          navigate("/salesperson-dashboard");
+        } else {
+          navigate("/dashboard");
+        }
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Face Login Failed",
+          text: data.message || "Face not recognized. Please try again or use password login.",
+        });
+      }
+    } catch (error) {
+      console.error("Face login error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to process face login. Please try again."
+      });
+    } finally {
+      setIsLoading(false);
+      setShowFaceLogin(false);
+    }
+  };
+
   return (
     <div className="saleslogin-container container-fluid">
       <div className="row vh-100 d-flex align-items-center justify-content-center">
-        {/* Left Logo */}
         <div className="col-12 col-md-6 d-flex justify-content-center align-items-center saleslogin-left">
           <img src={logo} alt="Logo" className="saleslogin-logo" />
         </div>
 
-        {/* Right Login Form */}
         <div className="col-12 col-md-6 d-flex flex-column justify-content-center align-items-center saleslogin-right">
           <div className="card saleslogin-card shadow-lg border-0 rounded-4">
             <div className="card-body saleslogin-card-body">
-              <h2 className=" mb-4">Welcome Back</h2>
+              <h2 className="mb-4">Welcome Back</h2>
 
               <form onSubmit={handleSubmit}>
-                {/* Email Field */}
                 <div className="mb-3">
                   <InputField
                     label="Email or Phone Number"
@@ -177,7 +233,6 @@ const Login = () => {
                   />
                 </div>
 
-                {/* Password */}
                 <div className="saleslogin-password-container position-relative">
                   <InputField
                     label="Password"
@@ -197,7 +252,6 @@ const Login = () => {
                   </span>
                 </div>
 
-                {/* Buttons */}
                 <div className="saleslogin-btn-wrapper">
                   <button
                     type="submit"
@@ -205,6 +259,17 @@ const Login = () => {
                     disabled={isLoading}
                   >
                     {isLoading ? "Logging in..." : "Login"}
+                  </button>
+                </div>
+
+                <div className="saleslogin-face-btn-wrapper mt-3">
+                  <button
+                    type="button"
+                    className="saleslogin-face-btn"
+                    onClick={() => setShowFaceLogin(true)}
+                    disabled={isLoading}
+                  >
+                    <FaCamera /> Login with Face
                   </button>
                 </div>
 
@@ -218,8 +283,7 @@ const Login = () => {
                   </button>
                 </div>
 
-                {/* Registration Link */}
-                <div className=" mt-3">
+                <div className="mt-3">
                   <p className="saleslogin-register-text">
                     Don't have an account?{" "}
                     <span
@@ -231,14 +295,12 @@ const Login = () => {
                   </p>
                 </div>
 
-                {/* Forgot Password */}
-                <div className=" mt-3">
+                <div className="mt-3">
                   <a href="/forgot-password" className="saleslogin-forgot">
                     Forgot Password?
                   </a>
                 </div>
 
-                {/* Footer */}
                 <div className="saleslogin-footer mt-4">
                   <a href="/terms" className="saleslogin-footer-link">
                     Terms & Conditions
@@ -252,6 +314,14 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {showFaceLogin && (
+        <FaceCapture
+          onFaceCaptured={handleFaceLogin}
+          onClose={() => setShowFaceLogin(false)}
+          mode="login"
+        />
+      )}
     </div>
   );
 };
