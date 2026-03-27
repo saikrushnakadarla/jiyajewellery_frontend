@@ -4,6 +4,7 @@ import InputField from "../../Pages/TableLayout/InputField";
 import "./CustomerRegistration.css";
 import Swal from 'sweetalert2';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 
 function CustomerRegistration() {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ function CustomerRegistration() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
+  const [faceData, setFaceData] = useState(null);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -26,13 +29,25 @@ function CustomerRegistration() {
     password: "",
     confirmPassword: "",
     company_name: "",
-    role: "Customer",
+    role: "customer", // Changed to lowercase for consistency
     pincode: "",
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFaceCaptured = (data) => {
+    setFaceData(data);
+    setShowFaceCapture(false);
+    Swal.fire({
+      icon: 'success',
+      title: 'Face Captured!',
+      text: 'Your face has been successfully registered.',
+      timer: 1500,
+      showConfirmButton: false
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -51,32 +66,56 @@ function CustomerRegistration() {
       return;
     }
 
-    // Prepare data for API in the required format
-    const apiData = {
-      full_name: formData.full_name,
-      email_id: formData.email,
-      phone: formData.phone,
-      date_of_birth: formData.dob,
-      gender: formData.gender,
-      designation: formData.designation,
-      date_of_anniversary: formData.anniversary,
-      country: formData.country,
-      state: formData.state,
-      city: formData.city,
-      password: formData.password,
-      confirm_password: formData.confirmPassword,
-      company_name: formData.company_name,
-      role: formData.role,
-      pincode: formData.pincode
-    };
+    // Validate face capture for customers as well
+    if (!faceData) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Face Registration Required',
+        text: 'Please capture your face for face login feature.',
+        confirmButtonColor: '#3085d6',
+      });
+      setShowFaceCapture(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Prepare data for API with face data
+    const apiData = new FormData();
+    apiData.append('full_name', formData.full_name);
+    apiData.append('email_id', formData.email);
+    apiData.append('phone', formData.phone);
+    apiData.append('date_of_birth', formData.dob);
+    apiData.append('gender', formData.gender);
+    apiData.append('designation', formData.designation);
+    apiData.append('date_of_anniversary', formData.anniversary);
+    apiData.append('country', formData.country);
+    apiData.append('state', formData.state);
+    apiData.append('city', formData.city);
+    apiData.append('password', formData.password);
+    apiData.append('confirm_password', formData.confirmPassword);
+    apiData.append('company_name', formData.company_name);
+    apiData.append('role', formData.role);
+    apiData.append('pincode', formData.pincode);
+    apiData.append('status', 'pending'); // Customers start as pending for admin approval
+    apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+    
+    // Convert base64 image to file
+    const base64Image = faceData.image;
+    const byteString = atob(base64Image.split(',')[1]);
+    const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: mimeString });
+    const file = new File([blob], `customer-face-${Date.now()}.jpg`, { type: mimeString });
+    apiData.append('face_photo', file);
 
     try {
       const response = await fetch("http://localhost:5000/api/users", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiData),
+        body: apiData,
       });
 
       if (response.ok) {
@@ -87,7 +126,7 @@ function CustomerRegistration() {
         Swal.fire({
           icon: 'success',
           title: 'Registration Successful!',
-          text: 'Your account has been created successfully.',
+          text: 'Your account has been created successfully and is pending admin approval.',
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
@@ -120,7 +159,6 @@ function CustomerRegistration() {
     }
   };
 
-
   const handleBack = () => {
     navigate("/login");
   };
@@ -130,6 +168,28 @@ function CustomerRegistration() {
       <div className="customerregistration-form-container">
         <h2>Customer Registration</h2>
         {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
+        
+        {/* Face Registration Button */}
+        <button
+          type="button"
+          onClick={() => setShowFaceCapture(true)}
+          className="customer-face-register-btn"
+          style={{
+            marginBottom: '20px',
+            padding: '10px 20px',
+            background: faceData ? '#10b981' : '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            width: '100%',
+            fontSize: '1rem',
+            fontWeight: '500'
+          }}
+        >
+          {faceData ? '✓ Face Registered' : '📸 Register Face for Login'}
+        </button>
+        
         <form className="customerregistration-form" onSubmit={handleSubmit}>
           {/* Full Name */}
           <InputField
@@ -362,6 +422,15 @@ function CustomerRegistration() {
           </div>
         </form>
       </div>
+      
+      {/* Face Capture Modal */}
+      {showFaceCapture && (
+        <FaceCapture
+          onFaceCaptured={handleFaceCaptured}
+          onClose={() => setShowFaceCapture(false)}
+          mode="register"
+        />
+      )}
     </div>
   );
 }

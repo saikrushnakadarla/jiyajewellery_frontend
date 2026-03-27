@@ -125,7 +125,7 @@ const Customers = () => {
       name: customer.full_name,
       phone: customer.phone || 'N/A',
       email: customer.email_id,
-      address: `${customer.city}, ${customer.state}, ${customer.country}`,
+      address: `${customer.city || ''}, ${customer.state || ''}, ${customer.country || ''}`,
       status: customer.status // Include status in the formatted data
     }));
   }, [customersData]);
@@ -153,7 +153,7 @@ const Customers = () => {
         Header: 'Status',
         accessor: 'status',
         Cell: ({ value }) => {
-          if (!value) return <Badge bg="warning">Pending</Badge>;
+          if (!value || value === 'pending') return <Badge bg="warning">Pending</Badge>;
           
           let variant = 'secondary';
           if (value === 'approved') variant = 'success';
@@ -167,7 +167,11 @@ const Customers = () => {
         Cell: ({ row }) => {
           const customerId = row.original.id;
           const isUpdating = updating[customerId];
-          const hasStatus = row.original.status;
+          const currentStatus = row.original.status;
+          
+          // Only disable if status is already approved or rejected
+          // Allow actions for pending status
+          const isDisabled = currentStatus === 'approved' || currentStatus === 'rejected';
           
           return (
             <div>
@@ -176,7 +180,7 @@ const Customers = () => {
                 size="sm"
                 className="me-2"
                 onClick={() => handleAccept(customerId)}
-                disabled={hasStatus || isUpdating}
+                disabled={isDisabled || isUpdating}
               >
                 {isUpdating ? (
                   <Spinner animation="border" size="sm" className="me-1" />
@@ -189,7 +193,7 @@ const Customers = () => {
                 variant="danger"
                 size="sm"
                 onClick={() => handleReject(customerId)}
-                disabled={hasStatus || isUpdating}
+                disabled={isDisabled || isUpdating}
               >
                 {isUpdating ? (
                   <Spinner animation="border" size="sm" className="me-1" />
