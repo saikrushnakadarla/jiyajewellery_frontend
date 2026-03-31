@@ -40,6 +40,9 @@ import Attendance from './Components/Modules/SalesPerson/Attendance/Attendance';
 
 import CompanyInfo from "./Components/Modules/Admin/CompanyInfo/CompanyInfo"
 import CompanyInfoEditForm from './Components/Modules/Admin/CompanyInfo/CompanyInfoEditForm';
+import LoanAmount from "./Components/Modules/Admin/LoanAmount/LoanAmount"
+import AddLoanAmountForm from './Components/Modules/Admin/LoanAmount/AddLoanAmountForm';
+import LoanDetails from "./Components/Modules/Admin/LoanAmount/LoanDetails";
 import AllAttendance from './Components/Modules/Admin/AllSalesPersonAttendance/AllSalesPersonAttendance';
 import VisitLogs from "./Components/Modules/SalesPerson/VisitLogs/VisitLogs";
 import AdminVisitLogs from "./Components/Modules/Admin/VisitLogs/VisitLogs";
@@ -104,6 +107,9 @@ function App() {
            <Route path='/attendance' element={<Attendance />} />
            <Route path='/company-info' element={<CompanyInfo />} />
            <Route path="/company-info/edit" element={<CompanyInfoEditForm />} />
+           <Route path="/loan-amount" element={<LoanAmount />} /> 
+           <Route path="/add-loan-amount" element={<AddLoanAmountForm />} />
+           <Route path="/loan-details/:id" element={<LoanDetails />} />
            <Route path='/salesperson-attendance' element={<AllAttendance />} />
            <Route path='/visit-logs' element={<VisitLogs />} />
             <Route path='/reports' element={<Reports />} />

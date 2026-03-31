@@ -142,6 +142,10 @@ function Navbar() {
               <Link to="/company-info" onClick={handleItemClick} className={isActive('/company-info')}>
                 Company Info
               </Link>
+              {/* New Loan Amount link added below Company Info */}
+              <Link to="/loan-amount" onClick={handleItemClick} className={isActive('/loan-amount')}>
+                Loan Amount
+              </Link>
             </div>
           )}
         </div>
