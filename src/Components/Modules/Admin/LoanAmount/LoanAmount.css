@@ -9,6 +9,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .loan-dashboard-title {
@@ -30,6 +32,11 @@
   padding: 10px 18px;
   border-radius: 10px;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.loan-dashboard-new-btn:hover {
+  background: #b07e1f;
 }
 
 /* Cards */
@@ -46,22 +53,57 @@
   border-radius: 15px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.loan-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .loan-card-highlight {
   background: #fff6d8;
 }
 
+.loan-card p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.loan-card h3 {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.loan-card span {
+  font-size: 12px;
+  color: #888;
+}
+
+.loan-card svg {
+  font-size: 32px;
+  color: #c89b2c;
+  opacity: 0.7;
+}
+
 /* Filters */
 .loan-dashboard-filters {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-top: 25px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .loan-tabs {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .loan-tab {
@@ -70,6 +112,12 @@
   border-radius: 20px;
   background: #eee;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.loan-tab:hover {
+  background: #ddd;
 }
 
 .loan-tab.active {
@@ -81,6 +129,14 @@
   padding: 8px 15px;
   border-radius: 10px;
   border: 1px solid #ddd;
+  width: 250px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.loan-search:focus {
+  outline: none;
+  border-color: #c89b2c;
 }
 
 /* Table */
@@ -88,22 +144,31 @@
   margin-top: 20px;
   background: white;
   border-radius: 15px;
-  overflow: hidden;
+  overflow-x: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .loan-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 800px;
 }
 
 .loan-table th,
 .loan-table td {
   padding: 15px;
   text-align: left;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.loan-table thead {
+.loan-table th {
   background: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+}
+
+.loan-table tbody tr:hover {
+  background: #fafaf5;
 }
 
 /* Status */
@@ -111,6 +176,10 @@
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+  text-align: center;
+  min-width: 70px;
 }
 
 .status.active {
@@ -120,6 +189,7 @@
 
 .status.closed {
   background: #eee;
+  color: #666;
 }
 
 .status.overdue {
@@ -130,10 +200,234 @@
 .loan-view-icon {
   cursor: pointer;
   color: #666;
-  font-size: 16px;
+  font-size: 18px;
+  transition: all 0.2s ease;
 }
 
 .loan-view-icon:hover {
   color: #c89b2c;
   transform: scale(1.1);
+}
+
+/* ======================================== */
+/* MEDIA QUERIES FOR RESPONSIVE DESIGN */
+/* ======================================== */
+
+/* Large Tablets and Small Desktops (1024px and below) */
+@media (max-width: 1024px) {
+  .loan-dashboard-container {
+    padding: 80px 25px 30px;
+  }
+
+  .loan-dashboard-cards {
+    gap: 15px;
+  }
+
+  .loan-card {
+    padding: 15px;
+  }
+
+  .loan-card h3 {
+    font-size: 20px;
+  }
+
+  .loan-card svg {
+    font-size: 28px;
+  }
+}
+
+/* Tablets (768px to 1023px) */
+@media (max-width: 768px) {
+  .loan-dashboard-container {
+    padding: 70px 20px 25px;
+  }
+
+  .loan-dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 30px;
+  }
+
+  .loan-dashboard-title h2 {
+    font-size: 20px;
+    margin: 0;
+  }
+
+  .loan-dashboard-title p {
+    font-size: 12px;
+  }
+
+  .loan-dashboard-new-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  /* Cards: 2x2 grid for tablets */
+  .loan-dashboard-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .loan-card {
+    padding: 15px;
+  }
+
+  .loan-card h3 {
+    font-size: 22px;
+  }
+
+  .loan-card svg {
+    font-size: 30px;
+  }
+
+  /* Filters: stacked */
+  .loan-dashboard-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .loan-tabs {
+    justify-content: center;
+  }
+
+  .loan-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .loan-search {
+    width: 100%;
+    padding: 10px 15px;
+  }
+}
+
+/* Mobile Devices (480px and below) */
+@media (max-width: 480px) {
+  .loan-dashboard-container {
+    padding: 60px 12px 20px;
+  }
+
+  .loan-dashboard-title h2 {
+    font-size: 18px;
+  }
+
+  .loan-dashboard-icon {
+    padding: 8px;
+  }
+
+  /* Cards: single column for mobile */
+  .loan-dashboard-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .loan-card {
+    padding: 12px 15px;
+  }
+
+  .loan-card p {
+    font-size: 13px;
+  }
+
+  .loan-card h3 {
+    font-size: 20px;
+  }
+
+  .loan-card span {
+    font-size: 11px;
+  }
+
+  .loan-card svg {
+    font-size: 28px;
+  }
+
+  /* Filters: compact */
+  .loan-tabs {
+    gap: 8px;
+  }
+
+  .loan-tab {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .loan-search {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  /* Table: horizontal scroll is already enabled, but adjust padding */
+  .loan-table-wrapper {
+    border-radius: 12px;
+  }
+
+  .loan-table th,
+  .loan-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .status {
+    padding: 4px 8px;
+    font-size: 10px;
+    min-width: 60px;
+  }
+
+  .loan-view-icon {
+    font-size: 16px;
+  }
+}
+
+/* Small Mobile Devices (375px and below) */
+@media (max-width: 375px) {
+  .loan-dashboard-container {
+    padding: 55px 10px 15px;
+  }
+
+  .loan-table th,
+  .loan-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .loan-tab {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .loan-card h3 {
+    font-size: 18px;
+  }
+
+  .loan-card svg {
+    font-size: 24px;
+  }
+}
+
+/* Landscape orientation for mobile devices */
+@media (max-width: 768px) and (orientation: landscape) {
+  .loan-dashboard-container {
+    padding: 65px 20px 20px;
+  }
+
+  .loan-dashboard-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .loan-dashboard-filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .loan-tabs {
+    flex: 2;
+  }
+
+  .loan-search {
+    flex: 1;
+    min-width: 180px;
+  }
 }
