@@ -27,8 +27,7 @@
 /* Form Grid Layout */
 .customerregistration-form {
   display: grid;
-  grid-template-columns: 1fr;
-  /* Default to single column for mobile and below */
+  grid-template-columns: 1fr; /* Default to single column for mobile and below */
   gap: 15px;
   width: 100%;
 }
@@ -75,8 +74,7 @@
 
 /* Buttons */
 .customerregistration-button-container {
-  grid-column: 1 / -1;
-  /* Span all columns */
+  grid-column: 1 / -1; /* Span all columns */
   display: flex;
   justify-content: flex-end;
   gap: 15px;
@@ -120,43 +118,23 @@
   color: red;
 }
 
-
-/* Remove any red star marks for date fields */
-.customerregistration-form .input-field-container:has(input[type="date"]) .input-label::before,
-.customerregistration-form .input-field-container:has(input[type="date"]) .input-label::after {
-  content: none !important;
-}
-
-/* Or more generally, remove stars from all labels if they're being added by CSS */
-.customerregistration-form .input-label::before {
-  content: none !important;
-}
-
-.customerregistration-form .input-label::after {
-  content: none !important;
-}
-
 /* Responsive Design */
 
 /* 📱 Mobile: up to 740px */
 @media (max-width: 740px) {
   .customerregistration-form {
-    grid-template-columns: 1fr;
-    /* Single column */
+    grid-template-columns: 1fr; /* Single column */
     gap: 15px;
   }
-
   .customerregistration-button-container {
     flex-direction: column;
     gap: 10px;
   }
-
   .customerregistration-back-btn,
   .customerregistration-submit-btn {
     width: 100%;
     text-align: center;
   }
-
   .customerregistration-form-container {
     padding: 20px 15px;
     margin: 20px 10px;
@@ -166,17 +144,14 @@
 /* iPad Mini: 741px–1024px */
 @media (min-width: 741px) and (max-width: 1024px) {
   .customerregistration-form {
-    grid-template-columns: repeat(2, 1fr);
-    /* Two columns */
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
     gap: 20px;
   }
-
   .customerregistration-button-container {
     grid-column: span 2;
     justify-content: flex-end;
     gap: 15px;
   }
-
   .customerregistration-form-container {
     padding: 25px 20px;
     margin: 20px;
@@ -186,16 +161,13 @@
 /* Desktop: 1025px+ */
 @media (min-width: 1025px) {
   .customerregistration-form {
-    grid-template-columns: repeat(3, 1fr);
-    /* Three columns */
+    grid-template-columns: repeat(3, 1fr); /* Three columns */
     gap: 20px;
   }
-
   .customerregistration-button-container {
     grid-column: span 3;
     justify-content: flex-end;
   }
-
   .customerregistration-form-container {
     padding: 30px 25px;
     margin: 30px auto;

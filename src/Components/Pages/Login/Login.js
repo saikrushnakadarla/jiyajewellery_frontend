@@ -138,7 +138,7 @@ const Login = () => {
 
   const handleFaceLogin = async (faceData) => {
     setIsLoading(true);
-    
+
     try {
       const response = await fetch("http://localhost:5000/api/users/face-login", {
         method: "POST",
@@ -282,15 +282,18 @@ const Login = () => {
                     Guest
                   </button>
                 </div>
-
                 <div className="mt-3">
                   <p className="saleslogin-register-text">
                     Don't have an account?{" "}
                     <span
                       className="saleslogin-register-link"
                       onClick={() => navigate("/customerregistration")}
+                      style={{
+                        color: 'blue',
+                        cursor: 'pointer'
+                      }}
                     >
-                      Please register
+                      Please Click here
                     </span>
                   </p>
                 </div>

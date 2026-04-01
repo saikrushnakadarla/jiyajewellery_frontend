@@ -98,7 +98,7 @@ function CustomerRegistration() {
     apiData.append('pincode', formData.pincode);
     apiData.append('status', 'pending'); // Customers start as pending for admin approval
     apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-
+    
     // Convert base64 image to file
     const base64Image = faceData.image;
     const byteString = atob(base64Image.split(',')[1]);
@@ -121,7 +121,7 @@ function CustomerRegistration() {
       if (response.ok) {
         const result = await response.json();
         console.log("Success:", result);
-
+        
         // Show success alert
         Swal.fire({
           icon: 'success',
@@ -135,7 +135,7 @@ function CustomerRegistration() {
         });
       } else {
         const errorData = await response.json();
-
+        
         // Show error alert
         Swal.fire({
           icon: 'error',
@@ -146,7 +146,7 @@ function CustomerRegistration() {
       }
     } catch (error) {
       console.error("Error:", error);
-
+      
       // Show network error alert
       Swal.fire({
         icon: 'error',
@@ -160,7 +160,7 @@ function CustomerRegistration() {
   };
 
   const handleBack = () => {
-    navigate("/");
+    navigate("/login");
   };
 
   return (
@@ -168,7 +168,7 @@ function CustomerRegistration() {
       <div className="customerregistration-form-container">
         <h2>Customer Registration</h2>
         {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
-
+        
         {/* Face Registration Button */}
         <button
           type="button"
@@ -189,7 +189,7 @@ function CustomerRegistration() {
         >
           {faceData ? '✓ Face Registered' : '📸 Register Face for Login'}
         </button>
-
+        
         <form className="customerregistration-form" onSubmit={handleSubmit}>
           {/* Full Name */}
           <InputField
@@ -224,15 +224,6 @@ function CustomerRegistration() {
           />
 
           {/* Date of Birth */}
-          {/* <InputField
-            label="Date of Birth"
-            placeholder="Select birthdate"
-            type="date"
-            name="dob"
-            value={formData.dob}
-            onChange={handleChange}
-            required
-          /> */}
           <InputField
             label="Date of Birth"
             placeholder="Select birthdate"
@@ -240,11 +231,12 @@ function CustomerRegistration() {
             name="dob"
             value={formData.dob}
             onChange={handleChange}
+            required
           />
 
           {/* Gender */}
           <div className="customerregistration-gender-field">
-            <label className="input-label">Gender <span className="required-star" style={{ color: 'red', marginLeft: '4px' }}>*</span></label>
+            <label className="input-label">Gender</label>
             <div className="customerregistration-gender-options">
               <label>
                 <input
@@ -295,13 +287,6 @@ function CustomerRegistration() {
           />
 
           {/* Anniversary */}
-          {/* <InputField
-            label="Date of Anniversary"
-            type="date"
-            name="anniversary"
-            value={formData.anniversary}
-            onChange={handleChange}
-          /> */}
           <InputField
             label="Date of Anniversary"
             type="date"
@@ -427,8 +412,8 @@ function CustomerRegistration() {
             >
               Close
             </button>
-            <button
-              type="submit"
+            <button 
+              type="submit" 
               className="customerregistration-submit-btn"
               disabled={isSubmitting}
             >
@@ -437,7 +422,7 @@ function CustomerRegistration() {
           </div>
         </form>
       </div>
-
+      
       {/* Face Capture Modal */}
       {showFaceCapture && (
         <FaceCapture

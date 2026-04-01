@@ -48,13 +48,7 @@ const InputField = ({
 
   return (
     <div className="input-field-container">
-      {/* {label && <label className="input-label">{label}</label>} */}
-      {label && (
-        <label className="input-label">
-          {label}
-          {required && <span className="required-star" style={{ color: 'red', marginLeft: '4px' }}>*</span>}
-        </label>
-      )}
+      {label && <label className="input-label">{label}</label>}
 
       {type === "select" ? (
         <Select
