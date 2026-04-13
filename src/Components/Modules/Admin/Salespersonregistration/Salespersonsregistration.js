@@ -221,7 +221,7 @@ function SalespersonRegister() {
               name="dob"
               value={formData.dob}
               onChange={handleChange}
-              required
+              // required
             />
 
             <div className="customerregistration-gender-field">

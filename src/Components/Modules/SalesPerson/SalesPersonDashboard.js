@@ -77,14 +77,14 @@ function SalesPersonDashboard() {
         const allEstimates = await estimatesResponse.json();
 
         // Filter customers (users with role "customer")
-        const assignedCustomers = allUsers.filter(u => 
+        const assignedCustomers = allUsers.filter(u =>
           u.role && u.role.toLowerCase() === "customer"
         );
         setRecentCustomers(assignedCustomers.slice(0, 5));
 
         // Filter estimates created by this salesperson
-        const salespersonCreatedEstimates = allEstimates.filter(estimate => 
-          estimate.salesperson_id === salesPersonId || 
+        const salespersonCreatedEstimates = allEstimates.filter(estimate =>
+          estimate.salesperson_id === salesPersonId ||
           (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
         );
 
@@ -92,12 +92,12 @@ function SalesPersonDashboard() {
         const processedEstimates = salespersonCreatedEstimates.map(estimate => {
           let status = estimate.estimate_status || estimate.status || '';
           status = status.toLowerCase();
-          
+
           // Normalize status values
           if (status === "order" || status === "ordered") {
             status = "ordered";
           }
-          
+
           return {
             ...estimate,
             normalized_status: status
@@ -105,24 +105,24 @@ function SalesPersonDashboard() {
         });
 
         // Calculate total sales
-        const totalSales = processedEstimates.reduce((sum, estimate) => 
+        const totalSales = processedEstimates.reduce((sum, estimate) =>
           sum + (parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0), 0
         );
 
         // Count estimates by status
-        const pending = processedEstimates.filter(estimate => 
+        const pending = processedEstimates.filter(estimate =>
           estimate.normalized_status === "pending"
         ).length;
 
-        const accepted = processedEstimates.filter(estimate => 
+        const accepted = processedEstimates.filter(estimate =>
           estimate.normalized_status === "accepted"
         ).length;
 
-        const completed = processedEstimates.filter(estimate => 
+        const completed = processedEstimates.filter(estimate =>
           estimate.normalized_status === "ordered"
         ).length;
 
-        const rejected = processedEstimates.filter(estimate => 
+        const rejected = processedEstimates.filter(estimate =>
           estimate.normalized_status === "rejected"
         ).length;
 
@@ -160,7 +160,7 @@ function SalesPersonDashboard() {
   const processMonthlyData = (estimates) => {
     const months = [];
     const now = new Date();
-    
+
     // Generate last 6 months labels
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -180,16 +180,16 @@ function SalesPersonDashboard() {
       const estimateDate = new Date(estimate.date || estimate.created_at);
       if (isNaN(estimateDate.getTime())) return;
 
-      const monthIndex = months.findIndex(m => 
-        m.month === estimateDate.getMonth() && 
+      const monthIndex = months.findIndex(m =>
+        m.month === estimateDate.getMonth() &&
         m.year === estimateDate.getFullYear()
       );
 
       if (monthIndex !== -1) {
         months[monthIndex].estimates++;
-        
+
         const amount = parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0;
-        
+
         if (estimate.normalized_status === "ordered") {
           months[monthIndex].orders++;
           months[monthIndex].revenue += amount;
@@ -221,7 +221,7 @@ function SalesPersonDashboard() {
   };
 
   const getStatusBadgeClass = (status) => {
-    switch(status?.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'pending':
         return 'status-badge pending';
       case 'accepted':
@@ -297,7 +297,7 @@ function SalesPersonDashboard() {
         padding: 10,
         cornerRadius: 6,
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
@@ -325,7 +325,7 @@ function SalesPersonDashboard() {
           font: {
             size: 11
           },
-          callback: function(value, index, values) {
+          callback: function (value, index, values) {
             if (this.chart.canvas.id === 'revenue-chart') {
               return '₹' + value.toLocaleString('en-IN');
             }
@@ -355,7 +355,7 @@ function SalesPersonDashboard() {
         ...barOptions.scales.y,
         ticks: {
           ...barOptions.scales.y.ticks,
-          callback: function(value) {
+          callback: function (value) {
             return '₹' + value.toLocaleString('en-IN');
           }
         }
@@ -418,8 +418,8 @@ function SalesPersonDashboard() {
                   </span>
                 </div>
               </div>
-              <Button 
-                variant="light" 
+              <Button
+                variant="light"
                 className="add-sale-btn"
                 onClick={() => navigate('/add-sale')}
               >
@@ -431,44 +431,54 @@ function SalesPersonDashboard() {
         )}
 
         {/* Stats Cards */}
-        <div className="stats-grid">
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/sales-report")}
-          >
-            <div className="stat-content">
-              <span className="stat-label">Total Sales</span>
-              <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
+        <div className="row" style={{marginBottom:'15px'}}>
+          {/* Commented out Total Sales section
+  <div className="col-md-3">
+    <div 
+      className="stat-card clickable"
+      onClick={() => handleCardClick("/sales-report")}
+    >
+      <div className="stat-content">
+        <span className="stat-label">Total Sales</span>
+        <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
+      </div>
+    </div>
+  </div>
+  */}
+
+          <div className="col-md-4">
+            <div
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/sales-report")}
+            >
+              <div className="stat-content">
+                <span className="stat-label">Monthly Target</span>
+                <span className="stat-value">₹{monthlyTarget.toLocaleString('en-IN')}</span>
+              </div>
             </div>
           </div>
 
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/sales-report")}
-          >
-            <div className="stat-content">
-              <span className="stat-label">Monthly Target</span>
-              <span className="stat-value">₹{monthlyTarget.toLocaleString('en-IN')}</span>
+          <div className="col-md-4">
+            <div
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/customers")}
+            >
+              <div className="stat-content">
+                <span className="stat-label">Customers</span>
+                <span className="stat-value">{stats.totalCustomers}</span>
+              </div>
             </div>
           </div>
 
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/customers")}
-          >
-            <div className="stat-content">
-              <span className="stat-label">Customers</span>
-              <span className="stat-value">{stats.totalCustomers}</span>
-            </div>
-          </div>
-
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/salesperson-estimation")}
-          >
-            <div className="stat-content">
-              <span className="stat-label">Estimates</span>
-              <span className="stat-value">{stats.totalEstimates}</span>
+          <div className="col-md-4">
+            <div
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/salesperson-estimation")}
+            >
+              <div className="stat-content">
+                <span className="stat-label">Estimates</span>
+                <span className="stat-value">{stats.totalEstimates}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -540,7 +550,7 @@ function SalesPersonDashboard() {
             {/* Estimate Status Custom Chart */}
             <div className="chart-wrapper custom-chart-wrapper">
               {stats.totalEstimates > 0 ? (
-                <EstimateStatusChart 
+                <EstimateStatusChart
                   pending={stats.pendingEstimates}
                   accepted={stats.acceptedEstimates}
                   ordered={stats.completedOrders}
@@ -561,10 +571,10 @@ function SalesPersonDashboard() {
             </div>
             <div className="chart-wrapper">
               {monthlyData.revenue.some(val => val > 0) ? (
-                <Bar 
+                <Bar
                   id="revenue-chart"
-                  data={revenueData} 
-                  options={revenueBarOptions} 
+                  data={revenueData}
+                  options={revenueBarOptions}
                 />
               ) : (
                 <div className="no-data-message">No revenue data available</div>
@@ -577,8 +587,8 @@ function SalesPersonDashboard() {
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Estimates</h3>
-            <Button 
-              variant="outline-primary" 
+            <Button
+              variant="outline-primary"
               size="sm"
               onClick={() => navigate('/salesperson-estimation')}
             >
@@ -605,10 +615,10 @@ function SalesPersonDashboard() {
                       month: 'short',
                       year: 'numeric'
                     }) : 'N/A';
-                    
+
                     return (
-                      <tr 
-                        key={index} 
+                      <tr
+                        key={index}
                         onClick={() => handleEstimateClick(estimate.estimate_number)}
                         className="clickable-row"
                       >
@@ -658,7 +668,7 @@ function SalesPersonDashboard() {
                 </thead>
                 <tbody>
                   {recentCustomers.map((customer) => (
-                    <tr 
+                    <tr
                       key={customer.id}
                       onClick={() => navigate(`/customers/${customer.id}`)}
                       className="clickable-row"
@@ -668,10 +678,9 @@ function SalesPersonDashboard() {
                       <td>{customer.phone || 'N/A'}</td>
                       <td>{customer.company_name || 'N/A'}</td>
                       <td>
-                        <span className={`status-badge ${
-                          customer.status === 'approved' ? 'accepted' : 
+                        <span className={`status-badge ${customer.status === 'approved' ? 'accepted' :
                           customer.status === 'pending' ? 'pending' : 'rejected'
-                        }`}>
+                          }`}>
                           {customer.status?.toUpperCase() || 'PENDING'}
                         </span>
                       </td>

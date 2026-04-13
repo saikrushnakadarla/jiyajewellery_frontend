@@ -50,114 +50,187 @@ function CustomerRegistration() {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Function to store customer in accounts database
+const storeInAccountsDB = async (customerData) => {
+  try {
+    const accountsData = {
+      account_name: customerData.full_name,
+      print_name: customerData.full_name,
+      account_group: "CUSTOMERS",
+      op_bal: null,
+      metal_balance: null,
+      dr_cr: null,
+      address1: "",
+      address2: "",
+      city: customerData.city || "",
+      pincode: customerData.pincode || "",
+      state: customerData.state || "",
+      state_code: "",
+      phone: customerData.phone,
+      mobile: customerData.phone,
+      contact_person: null,
+      email: customerData.email,
+      birthday: customerData.dob || null,
+      anniversary: customerData.anniversary || null,
+      bank_account_no: "",
+      bank_name: "",
+      ifsc_code: "",
+      branch: "",
+      gst_in: "",
+      aadhar_card: "",
+      pan_card: "",
+      religion: "",
+      images: null
+    };
 
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
+    console.log("Sending to accounts API:", accountsData);
+
+    const response = await fetch("http://localhost:5001/account-details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(accountsData),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Account stored successfully:", result);
+      return true;
+    } else {
+      const errorData = await response.json();
+      console.error("Failed to store account:", errorData);
+      return false;
+    }
+  } catch (error) {
+    console.error("Error storing in accounts DB:", error);
+    return false;
+  }
+};
+
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+
+  // Validate passwords match
+  if (formData.password !== formData.confirmPassword) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Password Mismatch',
+      text: 'Passwords do not match. Please try again.',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Validate face capture for customers as well
+  if (!faceData) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Face Registration Required',
+      text: 'Please capture your face for face login feature.',
+      confirmButtonColor: '#3085d6',
+    });
+    setShowFaceCapture(true);
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Prepare data for API with face data
+  const apiData = new FormData();
+  apiData.append('full_name', formData.full_name);
+  apiData.append('email_id', formData.email);
+  apiData.append('phone', formData.phone);
+  apiData.append('date_of_birth', formData.dob);
+  apiData.append('gender', formData.gender);
+  apiData.append('designation', formData.designation);
+  apiData.append('date_of_anniversary', formData.anniversary);
+  apiData.append('country', formData.country);
+  apiData.append('state', formData.state);
+  apiData.append('city', formData.city);
+  apiData.append('password', formData.password);
+  apiData.append('confirm_password', formData.confirmPassword);
+  apiData.append('company_name', formData.company_name);
+  apiData.append('role', formData.role);
+  apiData.append('pincode', formData.pincode);
+  apiData.append('status', 'pending'); // Customers start as pending for admin approval
+  apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+
+  // Convert base64 image to file
+  const base64Image = faceData.image;
+  const byteString = atob(base64Image.split(',')[1]);
+  const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  const blob = new Blob([ab], { type: mimeString });
+  const file = new File([blob], `customer-face-${Date.now()}.jpg`, { type: mimeString });
+  apiData.append('face_photo', file);
+
+  try {
+    // First API call - Store in user database (existing functionality)
+    const response = await fetch("http://localhost:5000/api/users", {
+      method: "POST",
+      body: apiData,
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("User registration success:", result);
+
+      // Second API call - Store in accounts database (new functionality)
+      const customerDataForAccounts = {
+        full_name: formData.full_name,
+        email: formData.email,
+        phone: formData.phone,
+        city: formData.city,
+        pincode: formData.pincode,
+        state: formData.state,
+        dob: formData.dob,
+        anniversary: formData.anniversary
+      };
+
+      await storeInAccountsDB(customerDataForAccounts);
+
+      // Show success alert
+      Swal.fire({
+        icon: 'success',
+        title: 'Registration Successful!',
+        text: 'Your account has been created successfully and is pending admin approval.',
+        confirmButtonColor: '#3085d6',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login"); // Redirect to login page after successful registration
+        }
+      });
+    } else {
+      const errorData = await response.json();
+
+      // Show error alert
       Swal.fire({
         icon: 'error',
-        title: 'Password Mismatch',
-        text: 'Passwords do not match. Please try again.',
+        title: 'Registration Failed',
+        text: errorData.message || 'Registration failed. Please try again.',
         confirmButtonColor: '#3085d6',
       });
-      setIsSubmitting(false);
-      return;
     }
+  } catch (error) {
+    console.error("Error:", error);
 
-    // Validate face capture for customers as well
-    if (!faceData) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Face Registration Required',
-        text: 'Please capture your face for face login feature.',
-        confirmButtonColor: '#3085d6',
-      });
-      setShowFaceCapture(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Prepare data for API with face data
-    const apiData = new FormData();
-    apiData.append('full_name', formData.full_name);
-    apiData.append('email_id', formData.email);
-    apiData.append('phone', formData.phone);
-    apiData.append('date_of_birth', formData.dob);
-    apiData.append('gender', formData.gender);
-    apiData.append('designation', formData.designation);
-    apiData.append('date_of_anniversary', formData.anniversary);
-    apiData.append('country', formData.country);
-    apiData.append('state', formData.state);
-    apiData.append('city', formData.city);
-    apiData.append('password', formData.password);
-    apiData.append('confirm_password', formData.confirmPassword);
-    apiData.append('company_name', formData.company_name);
-    apiData.append('role', formData.role);
-    apiData.append('pincode', formData.pincode);
-    apiData.append('status', 'pending'); // Customers start as pending for admin approval
-    apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-
-    // Convert base64 image to file
-    const base64Image = faceData.image;
-    const byteString = atob(base64Image.split(',')[1]);
-    const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    const blob = new Blob([ab], { type: mimeString });
-    const file = new File([blob], `customer-face-${Date.now()}.jpg`, { type: mimeString });
-    apiData.append('face_photo', file);
-
-    try {
-      const response = await fetch("http://localhost:5000/api/users", {
-        method: "POST",
-        body: apiData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Success:", result);
-
-        // Show success alert
-        Swal.fire({
-          icon: 'success',
-          title: 'Registration Successful!',
-          text: 'Your account has been created successfully and is pending admin approval.',
-          confirmButtonColor: '#3085d6',
-        }).then((result) => {
-          if (result.isConfirmed) {
-            navigate("/login"); // Redirect to login page after successful registration
-          }
-        });
-      } else {
-        const errorData = await response.json();
-
-        // Show error alert
-        Swal.fire({
-          icon: 'error',
-          title: 'Registration Failed',
-          text: errorData.message || 'Registration failed. Please try again.',
-          confirmButtonColor: '#3085d6',
-        });
-      }
-    } catch (error) {
-      console.error("Error:", error);
-
-      // Show network error alert
-      Swal.fire({
-        icon: 'error',
-        title: 'Network Error',
-        text: 'Please check your connection and try again.',
-        confirmButtonColor: '#3085d6',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    // Show network error alert
+    Swal.fire({
+      icon: 'error',
+      title: 'Network Error',
+      text: 'Please check your connection and try again.',
+      confirmButtonColor: '#3085d6',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleBack = () => {
     navigate("/");

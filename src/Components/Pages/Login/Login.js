@@ -229,7 +229,7 @@ const Login = () => {
                     onChange={(e) => setEmailId(e.target.value)}
                     placeholder="Enter your email or phone number"
                     className="saleslogin-input"
-                    required
+                  // Remove the 'required' prop from here
                   />
                 </div>
 
@@ -241,7 +241,7 @@ const Login = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
                     className="saleslogin-input mb-3"
-                    required
+                  // Remove the 'required' prop from here
                   />
                   <span
                     className="saleslogin-eye-toggle position-absolute"
