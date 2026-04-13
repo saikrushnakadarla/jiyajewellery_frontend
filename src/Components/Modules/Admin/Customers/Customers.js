@@ -4,6 +4,7 @@ import DataTable from '../../../Pages/TableLayout/TableLayout';
 import { Button, Spinner, Alert, Badge } from 'react-bootstrap';
 import Navbar from '../../../Pages/Navbar/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const Customers = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/users');
+        const response = await fetch(`${baseURL}/api/users`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -42,7 +43,7 @@ const Customers = () => {
   // Fetch customer by ID
   const fetchCustomerById = async (customerId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${customerId}`);
+      const response = await fetch(`${baseURL}/api/users/${customerId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -71,7 +72,7 @@ const Customers = () => {
         status: status
       };
 
-      const response = await fetch(`http://localhost:5000/api/users/${customerId}`, {
+      const response = await fetch(`${baseURL}/api/users/${customerId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

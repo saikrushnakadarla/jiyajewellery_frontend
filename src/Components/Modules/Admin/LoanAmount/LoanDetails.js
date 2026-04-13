@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import { FaArrowLeft } from "react-icons/fa";
 import "./LoanDetails.css";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 const LoanDetails = () => {
   const { id } = useParams();
@@ -16,7 +17,7 @@ const LoanDetails = () => {
 
   const fetchLoanDetails = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/loan-amounts/${id}`);
+      const response = await fetch(`${baseURL}/api/loan-amounts/${id}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

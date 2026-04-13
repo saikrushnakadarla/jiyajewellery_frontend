@@ -7,6 +7,7 @@ import './Metaltype.css';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import { Button, Row, Col } from 'react-bootstrap';
 import Navbar from '../../../../Pages/Navbar/Navbar';
+import baseURL from '../../../ApiUrl/NodeBaseURL';
 
 // Global Search Filter Component
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
@@ -96,7 +97,7 @@ function Metaltype() {
   const fetchMetaltypeData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/metaltype');
+      const response = await fetch(`${baseURL}/metaltype`);
       if (!response.ok) throw new Error('Failed to fetch data');
       
       const data = await response.json();
@@ -144,7 +145,7 @@ function Metaltype() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`http://localhost:5000/metaltype/${id}`, {
+        const response = await fetch(`${baseURL}/metaltype/${id}`, {
           method: 'DELETE',
         });
 

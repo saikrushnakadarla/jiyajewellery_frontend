@@ -19,6 +19,7 @@ import Webcam from 'react-webcam';
 import SalesNavbar from "../../../Pages/Navbar/SalesNavbar";
 import './Attendance.css';
 import Swal from 'sweetalert2';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 function Attendance() {
   const navigate = useNavigate();
@@ -83,7 +84,7 @@ function Attendance() {
   const getAddressFromCoordinates = async (latitude, longitude) => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
+        `${baseURL}/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
         { timeout: 5000 }
       );
       if (response.data.success && response.data.data.display_name) {
@@ -240,7 +241,7 @@ function Attendance() {
   // ✅ Fetch company location, then immediately get user location passing company data directly
   const fetchCompanyLocation = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/get/companies');
+      const response = await axios.get(`${baseURL}/get/companies`);
 
       if (response.data && response.data.length > 0) {
         const company = response.data[0];
@@ -347,7 +348,7 @@ function Attendance() {
 
   const fetchAttendanceStatus = async (salespersonId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/attendance/status/${salespersonId}`);
+      const response = await axios.get(`${baseURL}/api/attendance/status/${salespersonId}`);
       if (response.data.success) {
         setAttendanceStatus(response.data.data);
         if (response.data.data.checked_in) {
@@ -363,7 +364,7 @@ function Attendance() {
   const fetchAttendanceHistory = async (salespersonId) => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/attendance/history/${salespersonId}?month=${selectedMonth}&year=${selectedYear}`
+        `${baseURL}/api/attendance/history/${salespersonId}?month=${selectedMonth}&year=${selectedYear}`
       );
       if (response.data.success) {
         setAttendanceHistory(response.data.data.attendance);
@@ -476,7 +477,7 @@ function Attendance() {
         formData.append('ip_address', 'unknown');
       }
 
-      const response = await axios.post('http://localhost:5000/api/attendance/check-in', formData, {
+      const response = await axios.post(`${baseURL}/api/attendance/check-in`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -555,7 +556,7 @@ function Attendance() {
         formData.append('ip_address', 'unknown');
       }
 
-      const response = await axios.post('http://localhost:5000/api/attendance/check-out', formData, {
+      const response = await axios.post(`${baseURL}/api/attendance/check-out`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

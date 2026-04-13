@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./CompanyInfoEditForm.css";
 import Navbar from "../../../Pages/Navbar/Navbar";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 const CompanyInfoEditForm = () => {
   const navigate = useNavigate();
@@ -115,10 +116,10 @@ const CompanyInfoEditForm = () => {
       let url, method;
       
       if (isEditing && formData.id) {
-        url = `http://localhost:5000/edit/companies/${formData.id}`;
+        url = `${baseURL}/edit/companies/${formData.id}`;
         method = 'PUT';
       } else {
-        url = 'http://localhost:5000/post/companies';
+        url = `${baseURL}/post/companies`;
         method = 'POST';
       }
 

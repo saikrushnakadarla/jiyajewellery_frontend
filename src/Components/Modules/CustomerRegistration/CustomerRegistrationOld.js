@@ -113,7 +113,7 @@
 //     apiData.append('face_photo', file);
 
 //     try {
-//       const response = await fetch("http://localhost:5000/api/users", {
+//       const response = await fetch("${baseURL}/api/users", {
 //         method: "POST",
 //         body: apiData,
 //       });
@@ -556,7 +556,7 @@ function CustomerRegistration() {
     apiData.append('face_photo', file);
 
     try {
-      const response = await fetch("http://localhost:5000/api/users", {
+      const response = await fetch(`${baseURL}/api/users`, {
         method: "POST",
         body: apiData,
       });

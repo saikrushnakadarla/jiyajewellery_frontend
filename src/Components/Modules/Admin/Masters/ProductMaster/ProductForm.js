@@ -6,6 +6,7 @@ import { Container, Row, Col, Button, Table } from "react-bootstrap";
 import Navbar from "../../../../Pages/Navbar/Navbar";
 import { FaEdit, FaTrash, FaCloudUploadAlt, FaQrcode } from "react-icons/fa";
 import "./ProductForm.css";
+import baseURL from "../../../ApiUrl/NodeBaseURL";
 
 // Import jsPDF and QRCode
 import { jsPDF } from "jspdf";
@@ -230,7 +231,7 @@ function ProductForm() {
     setCurrentRateInfo(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const response = await fetch(`http://localhost:5000/rates/by-purity/${purityValue}`);
+      const response = await fetch(`${baseURL}/rates/by-purity/${purityValue}`);
       
       if (response.ok) {
         const rateData = await response.json();
@@ -364,7 +365,7 @@ function ProductForm() {
     formData.append("invoice", pdfBlob, `${barcode}.pdf`);
 
     try {
-      const response = await fetch(`http://localhost:5000/upload-invoice`, {
+      const response = await fetch(`${baseURL}/upload-invoice`, {
         method: "POST",
         body: formData,
       });
@@ -384,7 +385,7 @@ function ProductForm() {
   const fetchAllData = async () => {
     try {
       // Fetch metal types
-      const metalResponse = await fetch('http://localhost:5000/metaltype');
+      const metalResponse = await fetch(`${baseURL}/metaltype`);
       if (metalResponse.ok) {
         const metalData = await metalResponse.json();
         setMetalTypes(Array.isArray(metalData) ? metalData : []);
@@ -392,7 +393,7 @@ function ProductForm() {
       setLoading(prev => ({ ...prev, metals: false }));
 
       // Fetch purities
-      const purityResponse = await fetch('http://localhost:5000/purity');
+      const purityResponse = await fetch(`${baseURL}/purity`);
       if (purityResponse.ok) {
         const purityData = await purityResponse.json();
         setPurities(Array.isArray(purityData) ? purityData : []);
@@ -400,7 +401,7 @@ function ProductForm() {
       setLoading(prev => ({ ...prev, purities: false }));
 
       // Fetch designs
-      const designResponse = await fetch('http://localhost:5000/designmaster');
+      const designResponse = await fetch(`${baseURL}/designmaster`);
       if (designResponse.ok) {
         const designData = await designResponse.json();
         setDesigns(Array.isArray(designData) ? designData : []);
@@ -408,7 +409,7 @@ function ProductForm() {
       setLoading(prev => ({ ...prev, designs: false }));
 
       // Fetch product names (categories)
-      const productNameResponse = await fetch('http://localhost:5000/get/category');
+      const productNameResponse = await fetch(`${baseURL}/get/category`);
       if (productNameResponse.ok) {
         const productNameData = await productNameResponse.json();
         setProductNames(Array.isArray(productNameData) ? productNameData : []);
@@ -442,14 +443,14 @@ function ProductForm() {
     setLoading(prev => ({ ...prev, barcode: true }));
 
     try {
-      const categoryResponse = await fetch(`http://localhost:5000/get/category-by-name/${encodeURIComponent(productName)}`);
+      const categoryResponse = await fetch(`${baseURL}/get/category-by-name/${encodeURIComponent(productName)}`);
 
       if (categoryResponse.ok) {
         const categoryData = await categoryResponse.json();
         const prefix = categoryData.prefix;
 
         if (prefix) {
-          const barcodeResponse = await fetch(`http://localhost:5000/getNextBarcodeByPrefix?prefix=${prefix}`);
+          const barcodeResponse = await fetch(`${baseURL}/getNextBarcodeByPrefix?prefix=${prefix}`);
 
           if (barcodeResponse.ok) {
             const barcodeData = await barcodeResponse.json();
@@ -487,7 +488,7 @@ function ProductForm() {
 
   const fetchOldBarcode = async () => {
     try {
-      const barcodeResponse = await fetch('http://localhost:5000/last-rbarcode');
+      const barcodeResponse = await fetch(`${baseURL}/last-rbarcode`);
       if (barcodeResponse.ok) {
         const barcodeData = await barcodeResponse.json();
         if (barcodeData.lastrbNumbers) {
@@ -740,7 +741,7 @@ function ProductForm() {
     if (imageName.startsWith('blob:')) {
       return imageName;
     }
-    return `http://localhost:5000/uploads/products/${imageName}`;
+    return `${baseURL}/uploads/products/${imageName}`;
   };
 
   const handleChange = async (e) => {
@@ -1013,11 +1014,11 @@ function ProductForm() {
   console.log("Submitting data...");
 
   try {
-    let url = "http://localhost:5000/post/product";
+    let url = `${baseURL}/post/product`;
     let method = "POST";
 
     if (editingRecord) {
-      url = `http://localhost:5000/update/product/${editingRecord.product_id}`;
+      url = `${baseURL}/update/product/${editingRecord.product_id}`;
       method = "PUT";
     }
 
@@ -1046,7 +1047,7 @@ function ProductForm() {
             
             // Update product with QR status
             try {
-              const qrResponse = await fetch(`http://localhost:5000/update-product-qr/${result.product_id}`, {
+              const qrResponse = await fetch(`${baseURL}/update-product-qr/${result.product_id}`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',

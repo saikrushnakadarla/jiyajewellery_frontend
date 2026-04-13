@@ -18,6 +18,7 @@ import {
 import AdminNavbar from "../../../Pages/Navbar/Navbar";
 import './AllSalesPersonAttendance.css';
 import Swal from 'sweetalert2';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 function AllAttendance() {
   const [attendanceData, setAttendanceData] = useState([]);
@@ -56,7 +57,7 @@ function AllAttendance() {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/attendance/admin/daily/${selectedDate}`
+        `${baseURL}/api/attendance/admin/daily/${selectedDate}`
       );
       
       if (response.data.success) {
@@ -552,9 +553,9 @@ function AllAttendance() {
                         <div className="photo-item">
                           <label>Check In Photo</label>
                           <img 
-                            src={`http://localhost:5000/api/attendance/photos/${selectedRecord.check_in_photo}`}
+                            src={`${baseURL}/api/attendance/photos/${selectedRecord.check_in_photo}`}
                             alt="Check In"
-                            onClick={() => window.open(`http://localhost:5000/api/attendance/photos/${selectedRecord.check_in_photo}`, '_blank')}
+                            onClick={() => window.open(`${baseURL}/api/attendance/photos/${selectedRecord.check_in_photo}`, '_blank')}
                           />
                         </div>
                       )}
@@ -562,9 +563,9 @@ function AllAttendance() {
                         <div className="photo-item">
                           <label>Check Out Photo</label>
                           <img 
-                            src={`http://localhost:5000/api/attendance/photos/${selectedRecord.check_out_photo}`}
+                            src={`${baseURL}/api/attendance/photos/${selectedRecord.check_out_photo}`}
                             alt="Check Out"
-                            onClick={() => window.open(`http://localhost:5000/api/attendance/photos/${selectedRecord.check_out_photo}`, '_blank')}
+                            onClick={() => window.open(`${baseURL}/api/attendance/photos/${selectedRecord.check_out_photo}`, '_blank')}
                           />
                         </div>
                       )}

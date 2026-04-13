@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
+import baseURL from "../ApiUrl/NodeBaseURL";
 
 ChartJS.register(
   CategoryScale,
@@ -65,8 +66,8 @@ function SalesPersonDashboard() {
         const salesPersonId = user.id.toString();
 
         const [usersResponse, estimatesResponse] = await Promise.all([
-          fetch('http://localhost:5000/api/users'),
-          fetch('http://localhost:5000/get-unique-estimates')
+          fetch(`${baseURL}/api/users`),
+          fetch(`${baseURL}/get-unique-estimates`)
         ]);
 
         if (!usersResponse.ok || !estimatesResponse.ok) {

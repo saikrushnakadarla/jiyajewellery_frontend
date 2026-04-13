@@ -18,6 +18,7 @@ import EstimateStatusChart from "./EstimatePieChart";
 import { FiUsers, FiUserCheck, FiPackage, FiFileText } from 'react-icons/fi';
 import { HiOutlineTrendingUp } from 'react-icons/hi';
 import { Button } from 'react-bootstrap';
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 ChartJS.register(
   CategoryScale,
@@ -55,7 +56,7 @@ function Dashboard() {
     const fetchData = async () => {
       try {
         // Fetch users data
-        const usersResponse = await fetch("http://localhost:5000/api/users");
+        const usersResponse = await fetch(`${baseURL}/api/users`);
         if (!usersResponse.ok) {
           throw new Error(`HTTP error! status: ${usersResponse.status}`);
         }
@@ -77,7 +78,7 @@ function Dashboard() {
         setRecentCustomers(customers.slice(0, 5));
 
         // Fetch products data
-        const productsResponse = await fetch("http://localhost:5000/get/products");
+        const productsResponse = await fetch(`${baseURL}/get/products`);
         if (!productsResponse.ok) {
           throw new Error(`HTTP error! status: ${productsResponse.status}`);
         }
@@ -85,7 +86,7 @@ function Dashboard() {
         setProductsCount(products.length);
 
         // Fetch estimates data
-        const estimatesResponse = await fetch("http://localhost:5000/get-unique-estimates");
+        const estimatesResponse = await fetch(`${baseURL}/get-unique-estimates`);
         if (!estimatesResponse.ok) {
           throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
         }

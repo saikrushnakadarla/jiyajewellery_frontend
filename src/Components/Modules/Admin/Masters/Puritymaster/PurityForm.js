@@ -4,6 +4,7 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import Navbar from "../../../../Pages/Navbar/Navbar";
 import "./PurityForm.css";
+import baseURL from "../../../ApiUrl/NodeBaseURL";
 
 function PurityForm() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ function PurityForm() {
   useEffect(() => {
     const fetchMetalTypes = async () => {
       try {
-        const response = await fetch("http://localhost:5000/metaltype");
+        const response = await fetch(`${baseURL}/metaltype`);
         if (response.ok) {
           const data = await response.json();
           setMetalTypes(data);
@@ -103,13 +104,13 @@ function PurityForm() {
     };
 
     try {
-      let url = "http://localhost:5000/purity";
+      let url = `${baseURL}/purity`;
       let method = "POST";
       let successMessage = 'Purity Added Successfully!';
       
       // If editing, use PUT request
       if (editingRecord) {
-        url = `http://localhost:5000/purity/${editingRecord.id}`;
+        url = `${baseURL}/purity/${editingRecord.id}`;
         method = "PUT";
         successMessage = 'Purity Updated Successfully!';
       }

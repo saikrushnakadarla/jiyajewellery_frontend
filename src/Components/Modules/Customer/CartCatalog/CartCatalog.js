@@ -3,6 +3,7 @@ import CustomerNavbar from "../../../Pages/Navbar/CustomerNavbar";
 import './CartCatalog.css';
 import { FaChevronLeft, FaChevronRight, FaTimes, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 const CartCatalog = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -35,7 +36,7 @@ const CartCatalog = () => {
 
       const user = JSON.parse(userString);
       
-      const response = await fetch(`http://localhost:5000/api/cart/user/${user.id}`);
+      const response = await fetch(`${baseURL}/api/cart/user/${user.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch cart items');
       }
@@ -76,7 +77,7 @@ const CartCatalog = () => {
   };
 
   const getImageUrl = (imageFilename) => {
-    return `http://localhost:5000/uploads/products/${imageFilename}`;
+    return `${baseURL}/uploads/products/${imageFilename}`;
   };
 
   // Remove from cart function
@@ -84,7 +85,7 @@ const CartCatalog = () => {
     setIsRemovingFromCart(prev => ({ ...prev, [cartId]: true }));
 
     try {
-      const response = await fetch(`http://localhost:5000/api/cart/remove/${cartId}`, {
+      const response = await fetch(`${baseURL}/api/cart/remove/${cartId}`, {
         method: 'DELETE'
       });
 
@@ -148,7 +149,7 @@ const handleOrderNow = async (cartItem) => {
     // Fallback: fetch the full product details
     let fullProduct = product;
     try {
-      const res = await fetch(`http://localhost:5000/get/products`);
+      const res = await fetch(`${baseURL}/get/products`);
       if (res.ok) {
         const allProducts = await res.json();
         const found = allProducts.find(p => p.product_id === cartItem.product_id);
@@ -223,7 +224,7 @@ const handleOrderNow = async (cartItem) => {
     localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
     
     // Optionally remove item from cart after selecting for order
-    const removeResponse = await fetch(`http://localhost:5000/api/cart/remove/${cartItem.cart_id}`, {
+    const removeResponse = await fetch(`${baseURL}/api/cart/remove/${cartItem.cart_id}`, {
       method: 'DELETE'
     });
     

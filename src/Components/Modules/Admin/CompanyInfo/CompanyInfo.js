@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./CompanyInfo.css";
 import Navbar from "../../../Pages/Navbar/Navbar";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 const CompanyInfo = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const CompanyInfo = () => {
 
   const fetchCompanyData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/get/companies');
+      const response = await fetch(`${baseURL}/get/companies`);
       if (!response.ok) {
         throw new Error('Failed to fetch company data');
       }
@@ -33,7 +34,7 @@ const CompanyInfo = () => {
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this company?')) {
       try {
-        const response = await fetch(`http://localhost:5000/delete/companies/${companyData.id}`, {
+        const response = await fetch(`${baseURL}/delete/companies/${companyData.id}`, {
           method: 'DELETE',
         });
         

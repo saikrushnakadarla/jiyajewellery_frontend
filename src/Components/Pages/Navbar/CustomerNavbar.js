@@ -4,6 +4,7 @@ import { FaShoppingCart, FaChevronDown, FaChevronUp, FaSignOutAlt } from 'react-
 import logo from '../images/jiya_logo.png';
 import './CustomerNavbar.css';
 import Swal from 'sweetalert2';
+import baseURL from '../../Modules/ApiUrl/NodeBaseURL';
 
 function CustomerNavbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +19,7 @@ function CustomerNavbar() {
       const userString = localStorage.getItem('user')
       if (userString) {
         const user = JSON.parse(userString)
-        const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`)
+        const response = await fetch(`${baseURL}/api/cart/summary/${user.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success) {

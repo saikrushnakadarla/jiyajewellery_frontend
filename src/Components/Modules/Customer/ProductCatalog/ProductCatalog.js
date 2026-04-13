@@ -3,6 +3,7 @@ import CustomerNavbar from "../../../Pages/Navbar/CustomerNavbar"
 import './ProductCatalog.css'
 import { FaChevronLeft, FaChevronRight, FaTimes, FaShoppingCart, FaCheck, FaSpinner } from 'react-icons/fa'
 import { useNavigate } from 'react-router-dom'
+import baseURL from '../../ApiUrl/NodeBaseURL'
 
 const ProductCatalog = () => {
   const [products, setProducts] = useState([])
@@ -53,7 +54,7 @@ const ProductCatalog = () => {
     setCheckingCartStatus(true)
     try {
       // First, fetch current cart items
-      const response = await fetch(`http://localhost:5000/api/cart/user/${userId}`)
+      const response = await fetch(`${baseURL}/api/cart/user/${userId}`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -77,7 +78,7 @@ const ProductCatalog = () => {
     if (!userData) return false
     
     try {
-      const response = await fetch(`http://localhost:5000/api/cart/check/${userData.id}/${productId}`)
+      const response = await fetch(`${baseURL}/api/cart/check/${userData.id}/${productId}`)
       if (response.ok) {
         const data = await response.json()
         return data.success && data.inCart
@@ -93,7 +94,7 @@ const ProductCatalog = () => {
       const userString = localStorage.getItem('user')
       if (userString) {
         const user = JSON.parse(userString)
-        const response = await fetch(`http://localhost:5000/api/cart/summary/${user.id}`)
+        const response = await fetch(`${baseURL}/api/cart/summary/${user.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success) {
@@ -109,7 +110,7 @@ const ProductCatalog = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/get/products')
+      const response = await fetch(`${baseURL}/get/products`)
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -141,7 +142,7 @@ const ProductCatalog = () => {
   }
 
   const getImageUrl = (imageFilename) => {
-    return `http://localhost:5000/uploads/products/${imageFilename}`
+    return `${baseURL}/uploads/products/${imageFilename}`
   }
 
   // Add to cart function
@@ -160,7 +161,7 @@ const ProductCatalog = () => {
     setIsAddingToCart(prev => ({ ...prev, [productId]: true }))
 
     try {
-      const response = await fetch('http://localhost:5000/api/cart/add', {
+      const response = await fetch(`${baseURL}/api/cart/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

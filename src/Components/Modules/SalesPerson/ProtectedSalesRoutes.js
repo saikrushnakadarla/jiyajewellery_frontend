@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import baseURL from '../ApiUrl/NodeBaseURL';
 
 const ProtectedSalesRoute = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +46,7 @@ const ProtectedSalesRoute = ({ children }) => {
 
       // Check with backend if already checked in today
       try {
-        const response = await axios.get(`http://localhost:5000/api/attendance/status/${user.id}`);
+        const response = await axios.get(`${baseURL}/api/attendance/status/${user.id}`);
         
         if (response.data.success) {
           const attendance = response.data.data;

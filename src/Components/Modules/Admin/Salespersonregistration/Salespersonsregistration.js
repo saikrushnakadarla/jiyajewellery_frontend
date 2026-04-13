@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import FaceCapture from "../FaceCapture/FaceCapture";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 function SalespersonRegister() {
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ function SalespersonRegister() {
     apiData.append('face_photo', file);
 
     try {
-      const response = await fetch("http://localhost:5000/api/users", {
+      const response = await fetch(`${baseURL}/api/users`, {
         method: "POST",
         body: apiData,
       });

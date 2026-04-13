@@ -7,6 +7,7 @@ import { FaEdit, FaTrash, FaQrcode } from 'react-icons/fa';
 import { Button, Row, Col, Modal } from 'react-bootstrap';
 import Navbar from '../../../../Pages/Navbar/Navbar';
 import './ProductMaster.css';
+import baseURL from '../../../ApiUrl/NodeBaseURL';
 
 // Global Search Filter Component
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
@@ -66,7 +67,7 @@ function ProductMaster() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/get/products');
+      const response = await fetch(`${baseURL}/get/products`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.status}`);
@@ -108,7 +109,7 @@ function ProductMaster() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`http://localhost:5000/delete/product/${productId}`, {
+        const response = await fetch(`${baseURL}/delete/product/${productId}`, {
           method: 'DELETE',
         });
 
@@ -131,13 +132,13 @@ function ProductMaster() {
       setSelectedQRCode(barcode);
       
       // Check if QR PDF exists on server
-      const response = await fetch(`http://localhost:5000/invoices/${barcode}.pdf`, {
+      const response = await fetch(`${baseURL}/invoices/${barcode}.pdf`, {
         method: 'HEAD' // HEAD request to check if file exists without downloading
       });
       
       if (response.ok) {
         // File exists, set the URL for iframe
-        setQrCodeUrl(`http://localhost:5000/invoices/${barcode}.pdf`);
+        setQrCodeUrl(`${baseURL}/invoices/${barcode}.pdf`);
         setShowQRModal(true);
       } else {
         // File doesn't exist, show message
@@ -162,7 +163,7 @@ function ProductMaster() {
   // Download QR Code PDF
   const handleDownloadQRCode = async (barcode) => {
     try {
-      const response = await fetch(`http://localhost:5000/invoices/${barcode}.pdf`);
+      const response = await fetch(`${baseURL}/invoices/${barcode}.pdf`);
       
       if (response.ok) {
         const blob = await response.blob();

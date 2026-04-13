@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import { FaArrowLeft } from "react-icons/fa";
 import "./AddLoanAmountForm.css";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 const AddLoanAmountForm = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const AddLoanAmountForm = () => {
     setError("");
     
     try {
-      const response = await fetch("http://localhost:5000/api/users");
+      const response = await fetch(`${baseURL}/api/users`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -137,7 +138,7 @@ const AddLoanAmountForm = () => {
         duration_months: parseInt(formData.duration_months)
       };
       
-      const response = await fetch("http://localhost:5000/api/loan-amounts", {
+      const response = await fetch(`${baseURL}/api/loan-amounts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

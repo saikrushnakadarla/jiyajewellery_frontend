@@ -7,6 +7,7 @@ import { FaEdit, FaTrash } from 'react-icons/fa';
 import { Button, Row, Col } from 'react-bootstrap';
 import Navbar from '../../../../Pages/Navbar/Navbar';
 import './CategoryProducts.css';
+import baseURL from '../../../ApiUrl/NodeBaseURL';
 
 // Global Search Filter Component
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
@@ -61,7 +62,7 @@ function CategoryProducts() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/get/category');
+      const response = await fetch(`${baseURL}/get/category`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.status}`);
@@ -103,7 +104,7 @@ function CategoryProducts() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`http://localhost:5000/delete/category/${categoryId}`, {
+        const response = await fetch(`${baseURL}/delete/category/${categoryId}`, {
           method: 'DELETE',
         });
 

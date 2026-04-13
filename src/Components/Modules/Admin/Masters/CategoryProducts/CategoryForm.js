@@ -4,6 +4,7 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import Navbar from "../../../../Pages/Navbar/Navbar";
 import "./CategoryForm.css";
+import baseURL from "../../../ApiUrl/NodeBaseURL";
 
 function CategoryForm() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ function CategoryForm() {
   useEffect(() => {
     const fetchMetalTypes = async () => {
       try {
-        const response = await fetch("http://localhost:5000/metaltype");
+        const response = await fetch(`${baseURL}/metaltype`);
         if (response.ok) {
           const data = await response.json();
           setMetalTypes(data);
@@ -67,7 +68,7 @@ function CategoryForm() {
     const fetchBarcode = async () => {
       if (!editingRecord) {
         try {
-          const response = await fetch("http://localhost:5000/last-rbarcode");
+          const response = await fetch(`${baseURL}/last-rbarcode`);
           if (response.ok) {
             const data = await response.json();
             // Use the lastrbNumbers from the response
@@ -271,12 +272,12 @@ function CategoryForm() {
     };
 
     try {
-      let url = "http://localhost:5000/post/category";
+      let url = `${baseURL}/post/category`;
       let method = "POST";
 
       // If editing, update the record
       if (editingRecord) {
-        url = `http://localhost:5000/put/category/${editingRecord.category_id}`;
+        url = `${baseURL}/put/category/${editingRecord.category_id}`;
         method = "PUT";
       }
 

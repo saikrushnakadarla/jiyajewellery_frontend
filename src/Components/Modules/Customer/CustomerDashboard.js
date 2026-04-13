@@ -17,6 +17,7 @@ import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import { FiFileText, FiClock, FiShoppingBag, FiXCircle } from 'react-icons/fi';
 import { Button } from "react-bootstrap";
+import baseURL from "../ApiUrl/NodeBaseURL";
 
 ChartJS.register(
   CategoryScale,
@@ -72,7 +73,7 @@ function Dashboard() {
         }
 
         // Fetch estimates data
-        const estimatesResponse = await fetch("http://localhost:5000/get-unique-estimates");
+        const estimatesResponse = await fetch(`${baseURL}/get-unique-estimates`);
         if (!estimatesResponse.ok) {
           throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
         }
@@ -144,7 +145,7 @@ function Dashboard() {
         setRecentEstimates(recentEst);
 
         // Fetch all users to get customer details
-        const usersResponse = await fetch('http://localhost:5000/api/users');
+        const usersResponse = await fetch(`${baseURL}/api/users`);
         if (usersResponse.ok) {
           const allUsers = await usersResponse.json();
           // Filter to get only the current customer (since this is customer dashboard)

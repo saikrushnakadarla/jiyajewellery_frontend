@@ -6,6 +6,7 @@ import logo from "../../Pages/images/JIYAA JEWELS logo_page-0001.jpg";
 import "./Login.css";
 import { FaEye, FaEyeSlash, FaCamera } from "react-icons/fa";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
+import baseURL from "../../Modules/ApiUrl/NodeBaseURL";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/users/login", {
+      const response = await fetch(`${baseURL}/api/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -140,7 +141,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/users/face-login", {
+      const response = await fetch(`${baseURL}/api/users/face-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

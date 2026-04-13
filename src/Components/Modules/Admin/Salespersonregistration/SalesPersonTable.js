@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from '../../../Pages/TableLayout/TableLayout'; // Import the reusable DataTable component
 import { Button } from 'react-bootstrap';
 import Navbar from '../../../Pages/Navbar/Navbar';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 const SalesPersonTable = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const SalesPersonTable = () => {
   useEffect(() => {
     const fetchSalesPersons = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/users');
+        const response = await fetch(`${baseURL}/api/users`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

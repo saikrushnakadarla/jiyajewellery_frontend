@@ -17,6 +17,7 @@ import Webcam from 'react-webcam';
 import SalesNavbar from "../../../Pages/Navbar/SalesNavbar";
 import './Attendance.css';
 import Swal from 'sweetalert2';
+import baseURL from '../../ApiUrl/NodeBaseURL';
 
 function Attendance() {
   const navigate = useNavigate();
@@ -110,7 +111,7 @@ function Attendance() {
   // Fetch company location from the API
   const fetchCompanyLocation = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/get/companies');
+      const response = await axios.get(`${baseURL}/get/companies`);
       if (response.data && response.data.length > 0) {
         const company = response.data[0]; // Get the first company
         console.log('Company data:', company); // Debug log
@@ -164,7 +165,7 @@ const getAddressFromCoordinates = async (latitude, longitude) => {
   try {
     // Use your backend API as a proxy to avoid CORS issues
     const response = await axios.get(
-      `http://localhost:5000/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
+      `${baseURL}/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
       { timeout: 5000 }
     );
     
@@ -290,7 +291,7 @@ const getAddressFromCoordinates = async (latitude, longitude) => {
   const fetchAttendanceStatus = async (salespersonId) => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/attendance/status/${salespersonId}`
+        `${baseURL}/api/attendance/status/${salespersonId}`
       );
       
       if (response.data.success) {
@@ -310,7 +311,7 @@ const getAddressFromCoordinates = async (latitude, longitude) => {
   const fetchAttendanceHistory = async (salespersonId) => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/attendance/history/${salespersonId}?month=${selectedMonth}&year=${selectedYear}`
+        `${baseURL}/api/attendance/history/${salespersonId}?month=${selectedMonth}&year=${selectedYear}`
       );
       
       if (response.data.success) {
@@ -437,7 +438,7 @@ const getAddressFromCoordinates = async (latitude, longitude) => {
       }
 
       const response = await axios.post(
-        'http://localhost:5000/api/attendance/check-in',
+        `${baseURL}/api/attendance/check-in`,
         formData,
         {
           headers: {
@@ -548,7 +549,7 @@ const getAddressFromCoordinates = async (latitude, longitude) => {
       }
 
       const response = await axios.post(
-        'http://localhost:5000/api/attendance/check-out',
+        `${baseURL}/api/attendance/check-out`,
         formData,
         {
           headers: {

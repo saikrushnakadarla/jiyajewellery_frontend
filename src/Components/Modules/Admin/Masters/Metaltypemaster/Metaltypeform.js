@@ -4,6 +4,7 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import Navbar from "../../../../Pages/Navbar/Navbar";
 import "./Metaltypeform.css";
+import baseURL from "../../../ApiUrl/NodeBaseURL";
 
 function Metaltypeform() {
   const navigate = useNavigate();
@@ -71,12 +72,12 @@ function Metaltypeform() {
     };
 
     try {
-      let url = "http://localhost:5000/metaltype";
+      let url = `${baseURL}/metaltype`;
       let method = "POST";
       
       // If editing, update the record
       if (editingRecord) {
-        url = `http://localhost:5000/metaltype/${editingRecord.id}`;
+        url = `${baseURL}/metaltype/${editingRecord.id}`;
         method = "PUT";
       }
 

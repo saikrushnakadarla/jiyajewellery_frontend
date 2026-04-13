@@ -58,7 +58,7 @@ const VisitLogs = () => {
   // Fetch all salespersons
   const fetchSalespersons = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/users');
+      const response = await axios.get(`${baseURL}/api/users`);
       console.log('Fetched users:', response.data);
       
       // Filter only users with role 'salesman'

@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { IoTrendingUp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
+import baseURL from "../../ApiUrl/NodeBaseURL";
 
 const LoanAmount = () => {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ const LoanAmount = () => {
   const fetchLoans = async () => {
     try {
       console.log("Fetching loans...");
-      const response = await fetch("http://localhost:5000/api/loan-amounts");
+      const response = await fetch(`${baseURL}/api/loan-amounts`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

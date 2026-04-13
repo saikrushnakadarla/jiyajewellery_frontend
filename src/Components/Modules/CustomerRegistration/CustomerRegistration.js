@@ -5,6 +5,8 @@ import "./CustomerRegistration.css";
 import Swal from 'sweetalert2';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
+import baseURL2 from "../ApiUrl/NodeBaseURL2";
+import baseURL from "../ApiUrl/NodeBaseURL";
 
 function CustomerRegistration() {
   const navigate = useNavigate();
@@ -85,7 +87,7 @@ const storeInAccountsDB = async (customerData) => {
 
     console.log("Sending to accounts API:", accountsData);
 
-    const response = await fetch("http://localhost:5001/account-details", {
+    const response = await fetch(`${baseURL2}/account-details`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -172,7 +174,7 @@ const storeInAccountsDB = async (customerData) => {
 
   try {
     // First API call - Store in user database (existing functionality)
-    const response = await fetch("http://localhost:5000/api/users", {
+    const response = await fetch(`${baseURL}/api/users`, {
       method: "POST",
       body: apiData,
     });

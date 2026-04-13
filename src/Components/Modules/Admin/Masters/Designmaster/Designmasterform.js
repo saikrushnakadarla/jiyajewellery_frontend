@@ -4,6 +4,7 @@ import InputField from "../../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
 import Navbar from "../../../../Pages/Navbar/Navbar";
 import "./Designmasterform.css";
+import baseURL from "../../../ApiUrl/NodeBaseURL";
 
 function Designmasterform() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function Designmasterform() {
   useEffect(() => {
     const fetchMetalTypes = async () => {
       try {
-        const response = await fetch("http://localhost:5000/metaltype");
+        const response = await fetch(`${baseURL}/metaltype`);
         if (response.ok) {
           const data = await response.json();
           setMetalTypes(data);
@@ -93,12 +94,12 @@ function Designmasterform() {
     };
 
     try {
-      let url = "http://localhost:5000/designmaster";
+      let url = `${baseURL}/designmaster`;
       let method = "POST";
       
       // If editing, update the record
       if (editingRecord) {
-        url = `http://localhost:5000/designmaster/${editingRecord.id}`;
+        url = `${baseURL}/designmaster/${editingRecord.id}`;
         method = "PUT";
       }
 
