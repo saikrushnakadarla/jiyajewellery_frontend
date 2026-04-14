@@ -4,7 +4,6 @@ import InputField from "../../Pages/TableLayout/InputField";
 import "./CustomerRegistration.css";
 import Swal from 'sweetalert2';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import baseURL from "../ApiUrl/NodeBaseURL";
 
@@ -14,8 +13,6 @@ function CustomerRegistration() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showFaceCapture, setShowFaceCapture] = useState(false);
-  const [faceData, setFaceData] = useState(null);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -31,7 +28,7 @@ function CustomerRegistration() {
     password: "",
     confirmPassword: "",
     company_name: "",
-    role: "customer", // Changed to lowercase for consistency
+    role: "customer",
     pincode: "",
   });
 
@@ -40,199 +37,162 @@ function CustomerRegistration() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFaceCaptured = (data) => {
-    setFaceData(data);
-    setShowFaceCapture(false);
-    Swal.fire({
-      icon: 'success',
-      title: 'Face Captured!',
-      text: 'Your face has been successfully registered.',
-      timer: 1500,
-      showConfirmButton: false
-    });
-  };
-
   // Function to store customer in accounts database
-const storeInAccountsDB = async (customerData) => {
-  try {
-    const accountsData = {
-      account_name: customerData.full_name,
-      print_name: customerData.full_name,
-      account_group: "CUSTOMERS",
-      op_bal: null,
-      metal_balance: null,
-      dr_cr: null,
-      address1: "",
-      address2: "",
-      city: customerData.city || "",
-      pincode: customerData.pincode || "",
-      state: customerData.state || "",
-      state_code: "",
-      phone: customerData.phone,
-      mobile: customerData.phone,
-      contact_person: null,
-      email: customerData.email,
-      birthday: customerData.dob || null,
-      anniversary: customerData.anniversary || null,
-      bank_account_no: "",
-      bank_name: "",
-      ifsc_code: "",
-      branch: "",
-      gst_in: "",
-      aadhar_card: "",
-      pan_card: "",
-      religion: "",
-      images: null
-    };
-
-    console.log("Sending to accounts API:", accountsData);
-
-    const response = await fetch(`${baseURL2}/account-details`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(accountsData),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("Account stored successfully:", result);
-      return true;
-    } else {
-      const errorData = await response.json();
-      console.error("Failed to store account:", errorData);
-      return false;
-    }
-  } catch (error) {
-    console.error("Error storing in accounts DB:", error);
-    return false;
-  }
-};
-
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-
-  // Validate passwords match
-  if (formData.password !== formData.confirmPassword) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Password Mismatch',
-      text: 'Passwords do not match. Please try again.',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Validate face capture for customers as well
-  if (!faceData) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Face Registration Required',
-      text: 'Please capture your face for face login feature.',
-      confirmButtonColor: '#3085d6',
-    });
-    setShowFaceCapture(true);
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Prepare data for API with face data
-  const apiData = new FormData();
-  apiData.append('full_name', formData.full_name);
-  apiData.append('email_id', formData.email);
-  apiData.append('phone', formData.phone);
-  apiData.append('date_of_birth', formData.dob);
-  apiData.append('gender', formData.gender);
-  apiData.append('designation', formData.designation);
-  apiData.append('date_of_anniversary', formData.anniversary);
-  apiData.append('country', formData.country);
-  apiData.append('state', formData.state);
-  apiData.append('city', formData.city);
-  apiData.append('password', formData.password);
-  apiData.append('confirm_password', formData.confirmPassword);
-  apiData.append('company_name', formData.company_name);
-  apiData.append('role', formData.role);
-  apiData.append('pincode', formData.pincode);
-  apiData.append('status', 'pending'); // Customers start as pending for admin approval
-  apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-
-  // Convert base64 image to file
-  const base64Image = faceData.image;
-  const byteString = atob(base64Image.split(',')[1]);
-  const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  const blob = new Blob([ab], { type: mimeString });
-  const file = new File([blob], `customer-face-${Date.now()}.jpg`, { type: mimeString });
-  apiData.append('face_photo', file);
-
-  try {
-    // First API call - Store in user database (existing functionality)
-    const response = await fetch(`${baseURL}/api/users`, {
-      method: "POST",
-      body: apiData,
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("User registration success:", result);
-
-      // Second API call - Store in accounts database (new functionality)
-      const customerDataForAccounts = {
-        full_name: formData.full_name,
-        email: formData.email,
-        phone: formData.phone,
-        city: formData.city,
-        pincode: formData.pincode,
-        state: formData.state,
-        dob: formData.dob,
-        anniversary: formData.anniversary
+  const storeInAccountsDB = async (customerData) => {
+    try {
+      const accountsData = {
+        account_name: customerData.full_name,
+        print_name: customerData.full_name,
+        account_group: "CUSTOMERS",
+        op_bal: null,
+        metal_balance: null,
+        dr_cr: null,
+        address1: "",
+        address2: "",
+        city: customerData.city || "",
+        pincode: customerData.pincode || "",
+        state: customerData.state || "",
+        state_code: "",
+        phone: customerData.phone,
+        mobile: customerData.phone,
+        contact_person: null,
+        email: customerData.email,
+        birthday: customerData.dob || null,
+        anniversary: customerData.anniversary || null,
+        bank_account_no: "",
+        bank_name: "",
+        ifsc_code: "",
+        branch: "",
+        gst_in: "",
+        aadhar_card: "",
+        pan_card: "",
+        religion: "",
+        images: null
       };
 
-      await storeInAccountsDB(customerDataForAccounts);
+      console.log("Sending to accounts API:", accountsData);
 
-      // Show success alert
-      Swal.fire({
-        icon: 'success',
-        title: 'Registration Successful!',
-        text: 'Your account has been created successfully and is pending admin approval.',
-        confirmButtonColor: '#3085d6',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          navigate("/login"); // Redirect to login page after successful registration
-        }
+      const response = await fetch(`${baseURL2}/account-details`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(accountsData),
       });
-    } else {
-      const errorData = await response.json();
 
-      // Show error alert
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Account stored successfully:", result);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error("Failed to store account:", errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error storing in accounts DB:", error);
+      return false;
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
       Swal.fire({
         icon: 'error',
-        title: 'Registration Failed',
-        text: errorData.message || 'Registration failed. Please try again.',
+        title: 'Password Mismatch',
+        text: 'Passwords do not match. Please try again.',
         confirmButtonColor: '#3085d6',
       });
+      setIsSubmitting(false);
+      return;
     }
-  } catch (error) {
-    console.error("Error:", error);
 
-    // Show network error alert
-    Swal.fire({
-      icon: 'error',
-      title: 'Network Error',
-      text: 'Please check your connection and try again.',
-      confirmButtonColor: '#3085d6',
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    // Prepare data for API (No face data)
+    const apiData = {
+      full_name: formData.full_name,
+      email_id: formData.email,
+      phone: formData.phone,
+      date_of_birth: formData.dob,
+      gender: formData.gender,
+      designation: formData.designation,
+      date_of_anniversary: formData.anniversary,
+      country: formData.country,
+      state: formData.state,
+      city: formData.city,
+      password: formData.password,
+      confirm_password: formData.confirmPassword,
+      company_name: formData.company_name,
+      role: formData.role,
+      pincode: formData.pincode,
+      status: 'pending'
+    };
+
+    try {
+      // First API call - Store in user database
+      const response = await fetch(`${baseURL}/api/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(apiData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("User registration success:", result);
+
+        // Second API call - Store in accounts database
+        const customerDataForAccounts = {
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone,
+          city: formData.city,
+          pincode: formData.pincode,
+          state: formData.state,
+          dob: formData.dob,
+          anniversary: formData.anniversary
+        };
+
+        await storeInAccountsDB(customerDataForAccounts);
+
+        // Show success alert
+        Swal.fire({
+          icon: 'success',
+          title: 'Registration Successful!',
+          text: 'Your account has been created successfully and is pending admin approval.',
+          confirmButtonColor: '#3085d6',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/login");
+          }
+        });
+      } else {
+        const errorData = await response.json();
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Registration Failed',
+          text: errorData.message || 'Registration failed. Please try again.',
+          confirmButtonColor: '#3085d6',
+        });
+      }
+    } catch (error) {
+      console.error("Error:", error);
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Network Error',
+        text: 'Please check your connection and try again.',
+        confirmButtonColor: '#3085d6',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleBack = () => {
     navigate("/");
@@ -243,27 +203,6 @@ const storeInAccountsDB = async (customerData) => {
       <div className="customerregistration-form-container">
         <h2>Customer Registration</h2>
         {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
-
-        {/* Face Registration Button */}
-        <button
-          type="button"
-          onClick={() => setShowFaceCapture(true)}
-          className="customer-face-register-btn"
-          style={{
-            marginBottom: '20px',
-            padding: '10px 20px',
-            background: faceData ? '#10b981' : '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            width: '100%',
-            fontSize: '1rem',
-            fontWeight: '500'
-          }}
-        >
-          {faceData ? '✓ Face Registered' : '📸 Register Face for Login'}
-        </button>
 
         <form className="customerregistration-form" onSubmit={handleSubmit}>
           {/* Full Name */}
@@ -299,15 +238,6 @@ const storeInAccountsDB = async (customerData) => {
           />
 
           {/* Date of Birth */}
-          {/* <InputField
-            label="Date of Birth"
-            placeholder="Select birthdate"
-            type="date"
-            name="dob"
-            value={formData.dob}
-            onChange={handleChange}
-            required
-          /> */}
           <InputField
             label="Date of Birth"
             placeholder="Select birthdate"
@@ -370,13 +300,6 @@ const storeInAccountsDB = async (customerData) => {
           />
 
           {/* Anniversary */}
-          {/* <InputField
-            label="Date of Anniversary"
-            type="date"
-            name="anniversary"
-            value={formData.anniversary}
-            onChange={handleChange}
-          /> */}
           <InputField
             label="Date of Anniversary"
             type="date"
@@ -512,15 +435,6 @@ const storeInAccountsDB = async (customerData) => {
           </div>
         </form>
       </div>
-
-      {/* Face Capture Modal */}
-      {showFaceCapture && (
-        <FaceCapture
-          onFaceCaptured={handleFaceCaptured}
-          onClose={() => setShowFaceCapture(false)}
-          mode="register"
-        />
-      )}
     </div>
   );
 }

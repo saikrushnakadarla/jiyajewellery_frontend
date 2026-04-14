@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Navbar from "../../Pages/Navbar/CustomerNavbar";
 import "./CustomerDashboard.css";
+import Swal from 'sweetalert2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,9 +16,10 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
-import { FiFileText, FiClock, FiShoppingBag, FiXCircle } from 'react-icons/fi';
+import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCamera } from 'react-icons/fi';
 import { Button } from "react-bootstrap";
 import baseURL from "../ApiUrl/NodeBaseURL";
+import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +49,9 @@ function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
+  const [hasFaceRegistered, setHasFaceRegistered] = useState(false);
+  const [showFacePrompt, setShowFacePrompt] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,6 +76,9 @@ function Dashboard() {
           setLoading(false);
           return;
         }
+
+        // Check if user has face registered
+        await checkFaceRegistration(customerId);
 
         // Fetch estimates data
         const estimatesResponse = await fetch(`${baseURL}/get-unique-estimates`);
@@ -166,6 +174,118 @@ function Dashboard() {
     fetchData();
   }, []);
 
+  // Check if user has face registered
+  const checkFaceRegistration = async (userId) => {
+    try {
+      const response = await fetch(`${baseURL}/api/users/${userId}`);
+      if (response.ok) {
+        const userData = await response.json();
+        const hasFace = userData.face_descriptor && userData.face_descriptor !== 'null' && userData.face_descriptor !== null;
+        setHasFaceRegistered(hasFace);
+        
+        // Show face registration prompt if not registered
+        if (!hasFace) {
+          setShowFacePrompt(true);
+          setTimeout(() => {
+            showFaceRegistrationAlert();
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking face registration:", error);
+    }
+  };
+
+  // Show face registration alert
+  const showFaceRegistrationAlert = () => {
+    Swal.fire({
+      title: 'Face Login Setup',
+      text: 'Would you like to set up Face Login for quick and secure access to your account?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, Set Up Now',
+      cancelButtonText: 'Remind Me Later',
+      allowOutsideClick: false
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setShowFaceCapture(true);
+        setShowFacePrompt(false);
+      } else {
+        setShowFacePrompt(false);
+        // Show reminder that they can set it up later
+        Swal.fire({
+          title: 'Reminder Set',
+          text: 'You can set up Face Login anytime from the dashboard by clicking the "Register Face" button.',
+          icon: 'info',
+          timer: 3000,
+          showConfirmButton: true
+        });
+      }
+    });
+  };
+
+  // Handle face capture
+  const handleFaceCaptured = async (faceData) => {
+    try {
+      const userData = localStorage.getItem("user");
+      const user = JSON.parse(userData);
+      const userId = user.customer_id || user.id || user.userId || user.customerId;
+
+      // Prepare face data for API
+      const formData = new FormData();
+      formData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+      
+      // Convert base64 image to file
+      const base64Image = faceData.image;
+      const byteString = atob(base64Image.split(',')[1]);
+      const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const file = new File([blob], `face-${userId}-${Date.now()}.jpg`, { type: mimeString });
+      formData.append('face_photo', file);
+
+      // Update user with face data
+      const response = await fetch(`${baseURL}/api/users/${userId}`, {
+        method: 'PUT',
+        body: formData
+      });
+
+      if (response.ok) {
+        setHasFaceRegistered(true);
+        setShowFaceCapture(false);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Face Registered Successfully!',
+          text: 'You can now use Face Login for quick access to your account.',
+          confirmButtonColor: '#3085d6',
+          timer: 3000
+        });
+      } else {
+        throw new Error('Failed to register face');
+      }
+    } catch (error) {
+      console.error("Error saving face data:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Registration Failed',
+        text: 'Failed to register face. Please try again.',
+        confirmButtonColor: '#3085d6'
+      });
+    }
+  };
+
+  // Handle manual face registration
+  const handleManualFaceRegistration = () => {
+    setShowFaceCapture(true);
+  };
+
   // Function to process monthly data from estimates
   const processMonthlyData = (estimates) => {
     const months = [];
@@ -215,7 +335,6 @@ function Dashboard() {
   };
 
   const handleEstimateClick = (estimateNumber) => {
-    // Navigate to estimate details or open modal
     navigate(`/estimation/${estimateNumber}`);
   };
 
@@ -371,15 +490,49 @@ function Dashboard() {
                 <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'}!</h1>
                 <p>Here's what's happening with your estimates</p>
               </div>
-              <Button 
-                variant="light" 
-                className="add-sale-btn"
-                onClick={() => navigate('/customer-estimates')}
-              >
-                <i className="bi bi-plus-circle"></i>
-                Create New Estimate
-              </Button>
+              <div className="welcome-actions">
+                {/* Face Registration Button */}
+                <Button 
+                  variant="light" 
+                  className="face-register-btn"
+                  onClick={handleManualFaceRegistration}
+                  style={{
+                    marginRight: '12px',
+                    background: hasFaceRegistered ? '#10b981' : '#f59e0b',
+                    border: 'none',
+                    color: 'white'
+                  }}
+                >
+                  <FiCamera style={{ marginRight: '8px' }} />
+                  {hasFaceRegistered ? 'Face Registered ✓' : 'Register Face for Login'}
+                </Button>
+                <Button 
+                  variant="light" 
+                  className="add-sale-btn"
+                  onClick={() => navigate('/customer-estimates')}
+                >
+                  <i className="bi bi-plus-circle"></i>
+                  Create New Estimate
+                </Button>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Face Registration Status Banner (shown only if not registered) */}
+        {!hasFaceRegistered && (
+          <div className="face-registration-banner">
+            <div className="banner-content">
+              <FiCamera className="banner-icon" />
+              <span>Enable Face Login for quick and secure access to your account!</span>
+            </div>
+            <Button 
+              variant="primary" 
+              size="sm"
+              onClick={handleManualFaceRegistration}
+            >
+              Set Up Now
+            </Button>
           </div>
         )}
 
@@ -648,6 +801,15 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Face Capture Modal */}
+      {showFaceCapture && (
+        <FaceCapture
+          onFaceCaptured={handleFaceCaptured}
+          onClose={() => setShowFaceCapture(false)}
+          mode="register"
+        />
+      )}
     </>
   );
 }
