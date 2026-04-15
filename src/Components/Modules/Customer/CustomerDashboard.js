@@ -487,7 +487,7 @@ function Dashboard() {
           <div className="welcome-section">
             <div className="welcome-card">
               <div className="welcome-content">
-                <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'}!</h1>
+                <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'} Sir!</h1>
                 <p>Here's what's happening with your estimates</p>
               </div>
               <div className="welcome-actions">
