@@ -110,6 +110,7 @@ const SalesPersonTable = () => {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="main-container">
         <div className="sales-persons-table-container" style={{ marginTop: '90px' }}>
@@ -130,6 +131,7 @@ const SalesPersonTable = () => {
             initialSearchValue=""
           />
         </div>
+      </div>
       </div>
     </>
   );

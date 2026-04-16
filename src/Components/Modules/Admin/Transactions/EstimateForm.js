@@ -1081,6 +1081,7 @@ const EstimateForm = () => {
 
   return (
     <>
+      <div className="watermark-container">
       <Navbar />
       <div className="main-container" style={{ marginTop: '60px' }}>
         <Container className="estimate-form-container">
@@ -1615,6 +1616,7 @@ const EstimateForm = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      </div>
     </>
   );
 };

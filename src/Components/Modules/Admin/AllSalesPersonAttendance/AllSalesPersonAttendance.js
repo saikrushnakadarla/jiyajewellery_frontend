@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import watermarkimage from "../../../Pages/images/jiya_logo.png"; // Adjust the path as needed
 import { 
   faCalendarAlt,
   faUser,
@@ -215,6 +216,7 @@ function AllAttendance() {
 
   return (
     <>
+     <div className="watermark-container">
       <AdminNavbar />
       <div className="all-attendance-container" style={{ marginTop: '80px' }}>
         <div className="attendance-header">
@@ -576,6 +578,7 @@ function AllAttendance() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </>
   );

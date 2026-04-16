@@ -725,6 +725,7 @@ const Reports = () => {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="reports-main-container">
         <div className="reports-content-container">
@@ -964,6 +965,7 @@ const Reports = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      </div>
     </>
   );
 };

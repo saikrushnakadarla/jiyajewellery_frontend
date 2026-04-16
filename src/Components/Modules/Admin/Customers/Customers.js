@@ -5,6 +5,8 @@ import { Button, Spinner, Alert, Badge } from 'react-bootstrap';
 import Navbar from '../../../Pages/Navbar/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import baseURL from '../../ApiUrl/NodeBaseURL';
+import './Customers.css';
+import watermarkimage from '../../../../Components/Pages/images/jiya_logo.png';
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -217,7 +219,7 @@ const Customers = () => {
 
   if (loading) {
     return (
-      <>
+      <div className="watermark-container">
         <Navbar />
         <div className="main-container" style={{ marginTop: '70px' }}>
           <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
@@ -226,25 +228,25 @@ const Customers = () => {
             </Spinner>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
+      <div className="watermark-container">
         <Navbar />
         <div className="main-container" style={{ marginTop: '70px' }}>
           <Alert variant="danger">
             Error loading customers: {error}
           </Alert>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="watermark-container">
       <Navbar/>
       <div className="main-container">
         <div className="customers-table-container" style={{marginTop:'90px'}}>
@@ -262,7 +264,7 @@ const Customers = () => {
           />
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

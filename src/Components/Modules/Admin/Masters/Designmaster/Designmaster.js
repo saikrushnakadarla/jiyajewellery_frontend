@@ -213,6 +213,7 @@ function Designmaster() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="main-container">
         <div className="designmaster-table-container">
@@ -315,6 +316,7 @@ function Designmaster() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </>
   );

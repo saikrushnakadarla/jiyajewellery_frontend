@@ -210,6 +210,7 @@ const Login = () => {
   };
 
   return (
+     <div className="watermark-container">
     <div className="saleslogin-container container-fluid">
       <div className="row vh-100 d-flex align-items-center justify-content-center">
         <div className="col-12 col-md-6 d-flex justify-content-center align-items-center saleslogin-left">
@@ -326,6 +327,7 @@ const Login = () => {
           mode="login"
         />
       )}
+    </div>
     </div>
   );
 };

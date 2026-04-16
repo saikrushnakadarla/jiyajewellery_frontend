@@ -445,6 +445,7 @@ const EstimateTable = () => {
 
   return (
     <>
+     <div className="watermark-container">
       <Navbar />
       <div className="main-container">
         <div className="estimates-table-container">
@@ -670,6 +671,7 @@ const EstimateTable = () => {
             </Button>
           </Modal.Footer>
         </Modal>
+      </div>
       </div>
     </>
   );

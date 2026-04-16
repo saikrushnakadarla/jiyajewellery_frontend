@@ -1,0 +1,34 @@
+/* Watermark Styles - Same as AllAttendance component */
+.watermark-container {
+  position: relative;
+  min-height: 100vh;
+  background: white;
+}
+
+.watermark-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../../../../Components/Pages/images/jiya_logo.png');
+  background-repeat: repeat;
+  background-position: center;
+  background-size: 200px;
+  opacity: 0.09;  /* Same opacity as AllAttendance component */
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ensure content appears above watermark */
+.main-container {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}
+
+.customers-table-container {
+  position: relative;
+  z-index: 2;
+}

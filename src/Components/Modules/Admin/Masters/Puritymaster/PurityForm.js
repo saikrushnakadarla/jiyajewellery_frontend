@@ -175,6 +175,7 @@ function PurityForm() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="purity-container">
         <div className="purity-card">
@@ -259,6 +260,7 @@ function PurityForm() {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </>
   );

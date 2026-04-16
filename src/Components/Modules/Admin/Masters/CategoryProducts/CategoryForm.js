@@ -335,6 +335,7 @@ function CategoryForm() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="category-form-container">
         <div className="category-form-card">
@@ -451,6 +452,7 @@ function CategoryForm() {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </>
   );

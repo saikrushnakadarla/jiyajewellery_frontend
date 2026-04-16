@@ -168,7 +168,7 @@
 .summary-label {
   display: block;
   font-size: 14px;
-  color: #718096;
+  color: #2d3748;
   margin-bottom: 5px;
 }
 
@@ -252,7 +252,7 @@
   padding: 15px;
   text-align: left;
   font-weight: 600;
-  color: #4a5568;
+  color: #2d3748;
   font-size: 14px;
   border-bottom: 2px solid #e2e8f0;
 }
@@ -542,6 +542,29 @@
 
 .photo-item img:hover {
   transform: scale(1.05);
+}
+
+/* Watermark Styles - Increased Brightness */
+.watermark-container {
+  position: relative;
+  min-height: 100vh;
+  background: white;
+}
+
+.watermark-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../../../Pages/images/jiya_logo.png');
+  background-repeat: repeat;
+  background-position: center;
+  background-size: 200px;
+  opacity: 0.11;  /* Changed from 0.08 to 0.15 for better visibility */
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Animations */

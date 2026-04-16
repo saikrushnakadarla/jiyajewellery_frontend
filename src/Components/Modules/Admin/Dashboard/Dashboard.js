@@ -339,6 +339,7 @@ function Dashboard() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar/>
       <div className="container-fluid dashboard-container">
         {/* Top Cards Row */}
@@ -613,6 +614,7 @@ function Dashboard() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </>
   );

@@ -1166,6 +1166,7 @@ function ProductForm() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="product-form-container">
         <div className="product-form-card">
@@ -1687,6 +1688,7 @@ function ProductForm() {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </>
   );

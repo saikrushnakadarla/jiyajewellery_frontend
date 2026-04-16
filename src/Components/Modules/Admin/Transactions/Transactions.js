@@ -15,6 +15,7 @@ const Transactions = () => {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="transactions-main-container">
         {/* <div className="transactions-header">
@@ -45,6 +46,7 @@ const Transactions = () => {
           {activeTab === 'estimation' && <EstimateTable />}
           {activeTab === 'visit-logs' && <AdminVisitLogs />}
         </div>
+      </div>
       </div>
     </>
   );

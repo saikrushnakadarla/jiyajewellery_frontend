@@ -232,3 +232,37 @@
 .mb-3 {
     margin-bottom: 1.5rem !important;
 }
+
+/* Watermark Styles */
+.watermark-container {
+  position: relative;
+  min-height: 100vh;
+  background: white;
+}
+
+.watermark-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../../../../Pages/images/jiya_logo.png');
+  background-repeat: repeat;
+  background-position: center;
+  background-size: 200px;
+  opacity: 0.11;  /* Adjust this value (0.05 to 0.2) for desired visibility */
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ensure content appears above watermark */
+.main-container {
+  position: relative;
+  z-index: 2;
+}
+
+.estimates-table-container {
+  position: relative;
+  z-index: 2;
+}

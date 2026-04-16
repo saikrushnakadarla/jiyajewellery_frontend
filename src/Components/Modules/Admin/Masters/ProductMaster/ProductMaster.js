@@ -366,6 +366,7 @@ function ProductMaster() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="main-container">
         <div className="product-master-table-container">
@@ -502,6 +503,7 @@ function ProductMaster() {
           </Button>
         </Modal.Footer>
       </Modal>
+      </div>
     </>
   );
 }

@@ -216,6 +216,7 @@ function Metaltype() {
 
   return (
     <>
+    <div className="watermark-container">
       <Navbar />
       <div className="main-container">
         <div className="metaltype-table-container">
@@ -318,6 +319,7 @@ function Metaltype() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </>
   );
