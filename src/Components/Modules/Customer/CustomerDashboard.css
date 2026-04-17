@@ -558,3 +558,131 @@ canvas {
     flex-direction: column;
   }
 }
+
+
+
+/* Screenshot Protection */
+.screenshot-protected {
+  position: relative;
+}
+
+/* Disable screenshot on iOS */
+@supports (-webkit-touch-callout: none) {
+  .customer-dashboard-container {
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Screenshot protection overlay - activates during screenshot attempt */
+.screenshot-protection-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.screenshot-protection-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.protection-content {
+  text-align: center;
+  color: white;
+  padding: 20px;
+}
+
+.protection-content svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  color: #ef4444;
+}
+
+.protection-content h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.protection-content p {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* Security watermark */
+.security-watermark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.05;
+  font-size: 100px;
+  font-weight: bold;
+  color: #000;
+  transform: rotate(-45deg);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Blur effect for sensitive content during screenshot */
+.screenshot-blur {
+  filter: blur(10px);
+  transition: filter 0.1s ease;
+}
+
+/* Disable text selection */
+.customer-dashboard-container {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in inputs */
+input, textarea, select {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+
+/* Add to CustomerDashboard.css */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Additional security measures */
+@media print {
+  .customer-dashboard-container {
+    display: none !important;
+  }
+}
+
+/* Prevent selection on all dashboard elements */
+.customer-dashboard-container * {
+  -webkit-touch-callout: none;
+}

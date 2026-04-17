@@ -4,7 +4,7 @@ import InputField from "../../../Pages/TableLayout/InputField";
 import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash, FaQrcode } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaQrcode, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
@@ -18,10 +18,33 @@ const EstimateForm = () => {
   const location = useLocation();
   const today = new Date().toISOString().split("T")[0];
 
-  // Add scanner states
+  // Scanner states
   const [showScanner, setShowScanner] = useState(false);
   const [isScannerInitialized, setIsScannerInitialized] = useState(false);
   const scannerRef = useRef(null);
+  
+  // Camera capture states
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
+  // Packet images state
+  const [packetImages, setPacketImages] = useState([]);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  
+  // Packet level state (shared across all entries for this customer)
+  const [packetBarcode, setPacketBarcode] = useState("");
+  const [packetWt, setPacketWt] = useState("");
+
+  // Store the saved estimate number for updates
+  const [savedEstimateNumber, setSavedEstimateNumber] = useState("");
+  const [isEstimateSaved, setIsEstimateSaved] = useState(false);
+
+  // Total quantity state
+  const [totalQuantity, setTotalQuantity] = useState(0);
 
   // Initialize scanner when modal opens
   useEffect(() => {
@@ -79,17 +102,14 @@ const EstimateForm = () => {
     try {
       stopScanner();
 
-      // Extract barcode from QR code data
       const barcode = extractBarcodeFromQR(decodedText);
 
       if (barcode) {
-        // Set the barcode in form data
         setFormData(prev => ({
           ...prev,
           barcode: barcode
         }));
 
-        // Trigger barcode change to fetch product details
         handleBarcodeChange(barcode);
         
         alert(`Scanned: ${barcode}`);
@@ -103,12 +123,10 @@ const EstimateForm = () => {
   };
 
   const extractBarcodeFromQR = (qrData) => {
-    // Try to parse as JSON first
     try {
       const parsedData = JSON.parse(qrData);
       return parsedData.barcode || parsedData.PCode || parsedData.code || parsedData.BarCode;
     } catch {
-      // If not JSON, try to extract barcode from string
       const barcodeMatch = qrData.match(/(barcode|Barcode|PCode|code)[:\s]*([^\s,]+)/i);
       return barcodeMatch ? barcodeMatch[2] : qrData;
     }
@@ -131,62 +149,87 @@ const EstimateForm = () => {
     setShowScanner(true);
   };
 
-  // Barcode field with scanner button component
-  const BarcodeFieldWithScanner = () => (
-    <Col xs={12} md={3}>
-      <div style={{ position: 'relative' }}>
-        <InputField
-          label="Barcode"
-          name="barcode"
-          value={formData.barcode || ""}
-          type="select"
-          onChange={handleInputChange}
-          options={[
-            { value: "", label: "Select Barcode", disabled: true },
-            ...barcodeOptions,
-            ...tagsData.map(tag => ({
-              value: tag.PCode_BarCode,
-              label: tag.PCode_BarCode
-            }))
-          ]}
-        />
-        
-        {/* Scanner Button - Visible on ALL devices, positioned to the right of the dropdown */}
-        <Button
-          variant="outline-primary"
-          size="sm"
-          onClick={startScanner}
-          style={{
-            position: 'absolute',
-            right: '0',
-            top: '32px',
-            fontSize: '12px',
-            padding: '4px 8px',
-            zIndex: 10,
-            backgroundColor: '#a36e29',
-            color: 'white',
-            borderColor: '#a36e29'
-          }}
-          title="Scan Barcode/QR Code"
-        >
-          <FaQrcode /> Scan
-        </Button>
-      </div>
-    </Col>
-  );
+  // Camera functions
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Failed to access camera. Please check permissions.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const captureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handleImageUpload(file);
+      }, 'image/jpeg');
+      
+      stopCamera();
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const files = Array.from(event.target.files);
+    files.forEach(file => handleImageUpload(file));
+  };
+
+  const handleImageUpload = (file) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPacketImages(prev => [...prev, {
+        file,
+        preview: reader.result,
+        name: file.name,
+        size: file.size
+      }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = (index) => {
+    setPacketImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
 
   // Get user data from localStorage
   const getUserData = () => {
     try {
       const userData = localStorage.getItem('user');
-      console.log("Raw localStorage user data:", userData);
       if (userData) {
         const parsedData = JSON.parse(userData);
-        console.log("Parsed user data:", parsedData);
-        console.log("User ID:", parsedData?.id, "User Role:", parsedData?.role);
         return parsedData;
       }
-      console.warn("No user data found in localStorage");
       return null;
     } catch (error) {
       console.error('Error parsing user data from localStorage:', error);
@@ -197,9 +240,6 @@ const EstimateForm = () => {
   const user = getUserData();
   const salespersonId = user?.id ? String(user.id) : "";
   const sourceBy = user?.role || "";
-
-  console.log("Salesperson ID from localStorage:", salespersonId);
-  console.log("Source By (role) from localStorage:", sourceBy);
 
   const initialFormData = {
     date: today,
@@ -236,7 +276,8 @@ const EstimateForm = () => {
     opentag_id: "",
     salesperson_id: salespersonId,
     source_by: sourceBy,
-    images: []
+    images: [],
+    qty: 1
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -264,11 +305,33 @@ const EstimateForm = () => {
   const [discount, setDiscount] = useState(0);
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentProductImages, setCurrentProductImages] = useState([]);
+  const [usedBarcodes, setUsedBarcodes] = useState(new Set());
 
   // Function to get full image URL
   const getImageUrl = (imageName) => {
     if (!imageName) return "";
     return `${baseURL}/uploads/products/${imageName}`;
+  };
+
+  // Generate packet barcode
+  const generatePacketBarcode = async () => {
+    try {
+      const response = await axios.get(`${baseURL}/next-packet-barcode`);
+      if (response.data.success && response.data.packet_barcode) {
+        return response.data.packet_barcode;
+      }
+    } catch (error) {
+      console.error('Error fetching packet barcode:', error);
+    }
+    // Fallback to local generation if API fails
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `PKT${timestamp}${random}`;
+  };
+
+  // Calculate total quantity from entries
+  const calculateTotalQuantity = (entriesList) => {
+    return entriesList.reduce((sum, entry) => sum + (entry.qty || 1), 0);
   };
 
   // Fetch all products for dropdowns
@@ -472,14 +535,12 @@ const EstimateForm = () => {
             pieace_cost: productDetails.pieace_cost || "",
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1,
+            qty: 1,
             salesperson_id: salespersonId,
             source_by: sourceBy,
             images: productImages
           };
 
-          console.log("Updated form data after product selection:", updatedFormData);
-          
           setFormData(prev => ({
             ...prev,
             ...updatedFormData
@@ -498,6 +559,11 @@ const EstimateForm = () => {
     try {
       if (!barcode) {
         resetFormData();
+        return;
+      }
+
+      if (usedBarcodes.has(`${formData.customer_id}_${barcode}`)) {
+        alert('This product has already been added for this customer!');
         return;
       }
 
@@ -544,13 +610,11 @@ const EstimateForm = () => {
             pieace_cost: productDetails.pieace_cost || "",
             disscount_percentage: productDetails.disscount_percentage || "",
             disscount: productDetails.disscount || "",
-            qty: productDetails.qty || 1,
+            qty: 1,
             salesperson_id: salespersonId,
             source_by: sourceBy,
             images: productImages
           };
-
-          console.log("Updated form data after barcode selection:", updatedFormData);
 
           setFormData(prev => ({
             ...prev,
@@ -616,15 +680,13 @@ const EstimateForm = () => {
             pieace_cost: selectedTag.pieace_cost || "",
             disscount_percentage: selectedTag.disscount_percentage || "",
             disscount: selectedTag.disscount || "",
-            qty: selectedTag.qty || 1,
+            qty: 1,
             opentag_id: selectedTag.opentag_id || "",
             pricing: selectedTag.Pricing || "By Weight",
             salesperson_id: salespersonId,
             source_by: sourceBy,
             images: []
           };
-
-          console.log("Updated form data after tag selection:", updatedFormData);
 
           setFormData(prev => ({
             ...prev,
@@ -642,10 +704,10 @@ const EstimateForm = () => {
   const resetFormData = () => {
     const resetData = {
       ...initialFormData,
+      estimate_number: formData.estimate_number, // Keep estimate number
       salesperson_id: salespersonId,
       source_by: sourceBy
     };
-    console.log("Reset form data:", resetData);
     setFormData(resetData);
     setIsQtyEditable(true);
     setCurrentProductImages([]);
@@ -653,7 +715,6 @@ const EstimateForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    console.log(`Input changed: ${name} = ${value}`);
 
     setFormData((prevData) => {
       let updatedData = {
@@ -666,11 +727,14 @@ const EstimateForm = () => {
         if (selectedCustomerOption) {
           updatedData.customer_name = selectedCustomerOption.value;
           updatedData.customer_id = selectedCustomerOption.customerId;
-          console.log(`Customer selected: ${selectedCustomerOption.value}, ID: ${selectedCustomerOption.customerId}`);
         } else {
           updatedData.customer_name = "";
           updatedData.customer_id = "";
         }
+        setUsedBarcodes(new Set());
+        // Reset saved state when customer changes
+        setIsEstimateSaved(false);
+        setSavedEstimateNumber("");
       }
 
       if (name === "product_name" && value !== prevData.product_name) {
@@ -704,7 +768,6 @@ const EstimateForm = () => {
 
         if (currentRate) {
           updatedData.rate = currentRate;
-          console.log(`Calculated rate for ${updatedData.metal_type} ${updatedData.purity}: ${currentRate}`);
         }
       }
 
@@ -714,7 +777,6 @@ const EstimateForm = () => {
         const discountAmount = (discountPercentage / 100) * makingCharges;
 
         updatedData.disscount = discountAmount.toFixed(2);
-        console.log(`Discount calculated: ${discountPercentage}% of ${makingCharges} = ${discountAmount.toFixed(2)}`);
       }
 
       if (name === "mc_on") {
@@ -722,12 +784,11 @@ const EstimateForm = () => {
         updatedData.making_charges = "";
       }
 
-      console.log("Updated form data after input change:", updatedData);
       return updatedData;
     });
   };
 
-  // Calculate net weight when gross or stone weight changes
+  // Calculation useEffect hooks
   useEffect(() => {
     const grossWeight = parseFloat(formData.gross_weight) || 0;
     const stonesWeight = parseFloat(formData.stone_weight) || 0;
@@ -739,7 +800,6 @@ const EstimateForm = () => {
     }));
   }, [formData.gross_weight, formData.stone_weight]);
 
-  // Calculate wastage weight and total weight
   useEffect(() => {
     const wastagePercentage = parseFloat(formData.va_percent) || 0;
     const grossWeight = parseFloat(formData.gross_weight) || 0;
@@ -763,7 +823,6 @@ const EstimateForm = () => {
     }));
   }, [formData.va_on, formData.va_percent, formData.gross_weight, formData.weight_bw]);
 
-  // Calculate making charges
   useEffect(() => {
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
     const mcPerGram = parseFloat(formData.mc_per_gram) || 0;
@@ -782,18 +841,9 @@ const EstimateForm = () => {
         ...prev,
         making_charges: calculatedMakingCharges.toFixed(2),
       }));
-    } else if (formData.mc_on === "MC / Piece") {
-      if (makingCharges && totalWeight > 0) {
-        const calculatedMcPerGram = makingCharges / totalWeight;
-        setFormData((prev) => ({
-          ...prev,
-          mc_per_gram: calculatedMcPerGram.toFixed(2),
-        }));
-      }
     }
-  }, [formData.mc_on, formData.mc_per_gram, formData.making_charges, formData.total_weight_av, formData.rate_amt]);
+  }, [formData.mc_on, formData.mc_per_gram, formData.total_weight_av, formData.rate_amt]);
 
-  // Calculate rate amount
   useEffect(() => {
     const rate = parseFloat(formData.rate) || 0;
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
@@ -809,7 +859,6 @@ const EstimateForm = () => {
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
 
-  // Calculate tax and total price
   useEffect(() => {
     const taxPercentStr = formData.tax_percent || "3% GST";
     const taxPercent = parseFloat(taxPercentStr.replace('% GST', '').trim()) || 3;
@@ -819,7 +868,6 @@ const EstimateForm = () => {
     const discountAmt = parseFloat(formData.disscount) || 0;
     const hmCharges = parseFloat(formData.hm_charges) || 0;
 
-    const totalAmount = rateAmt + stonesPrice + totalMC + hmCharges;
     const taxableAmount = rateAmt + stonesPrice + totalMC + hmCharges - discountAmt;
     const taxAmt = (taxableAmount * taxPercent) / 100;
     const totalPrice = taxableAmount + taxAmt;
@@ -831,12 +879,10 @@ const EstimateForm = () => {
     }));
   }, [formData.tax_percent, formData.rate_amt, formData.stone_price, formData.making_charges, formData.disscount, formData.hm_charges]);
 
-  // Fetch last estimate number
   useEffect(() => {
     const fetchLastEstimateNumber = async () => {
       try {
         const response = await axios.get(`${baseURL}/lastEstimateNumber`);
-        console.log("Fetched last estimate number:", response.data.lastEstimateNumber);
         setFormData((prev) => ({
           ...prev,
           estimate_number: response.data.lastEstimateNumber,
@@ -851,43 +897,114 @@ const EstimateForm = () => {
     fetchLastEstimateNumber();
   }, [salespersonId, sourceBy]);
 
-  // Handle add/update entry
-  const handleAdd = () => {
-    console.log("Current form data before adding:", formData);
+  // Fetch packet barcode initially
+  useEffect(() => {
+    const fetchInitialPacketBarcode = async () => {
+      try {
+        const response = await axios.get(`${baseURL}/next-packet-barcode`);
+        if (response.data.success && response.data.packet_barcode) {
+          setPacketBarcode(response.data.packet_barcode);
+        }
+      } catch (error) {
+        console.error('Error fetching packet barcode:', error);
+      }
+    };
     
-    if (!formData.product_name || !formData.barcode) {
-      alert("Please select a product first");
-      return;
-    }
+    fetchInitialPacketBarcode();
+  }, []);
 
-    if (!formData.customer_name || !formData.customer_id) {
-      alert("Please select a customer");
-      return;
-    }
+  // Handle Add Entry - Only store in estimates table, no PDF download
+  // Handle Add Entry - Only store in estimates table, no PDF download
+const handleAddEntry = async () => {
+  if (!formData.barcode) {
+    alert("Please select a product via barcode first");
+    return;
+  }
 
-    const entryToAdd = {
-      ...formData,
-      salesperson_id: formData.salesperson_id || salespersonId,
-      source_by: formData.source_by || sourceBy
+  if (!formData.customer_name || !formData.customer_id) {
+    alert("Please select a customer");
+    return;
+  }
+
+  const barcodeKey = `${formData.customer_id}_${formData.barcode}`;
+  if (!isEditing && usedBarcodes.has(barcodeKey)) {
+    alert("This product has already been added for this customer!");
+    return;
+  }
+
+  const entryToAdd = {
+    ...formData,
+    qty: isEditing ? formData.qty : 1,
+    salesperson_id: formData.salesperson_id || salespersonId,
+    source_by: formData.source_by || sourceBy
+  };
+
+  let updatedEntries;
+  if (isEditing) {
+    updatedEntries = entries.map((entry, index) =>
+      index === editIndex ? entryToAdd : entry
+    );
+    setIsEditing(false);
+    setEditIndex(null);
+  } else {
+    updatedEntries = [...entries, entryToAdd];
+    setUsedBarcodes(prev => new Set(prev).add(barcodeKey));
+  }
+
+  setEntries(updatedEntries);
+  setTotalQuantity(calculateTotalQuantity(updatedEntries));
+
+  // Calculate totals for all entries
+  const totalAmount = updatedEntries.reduce((sum, item) => {
+    const stonePrice = parseFloat(item.stone_price) || 0;
+    const makingCharges = parseFloat(item.making_charges) || 0;
+    const rateAmt = parseFloat(item.rate_amt) || 0;
+    const hmCharges = parseFloat(item.hm_charges) || 0;
+    return sum + stonePrice + makingCharges + rateAmt + hmCharges;
+  }, 0);
+
+  const discountAmt = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
+  const taxableAmount = totalAmount - discountAmt;
+  const taxAmount = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
+  const netAmount = taxableAmount + taxAmount;
+
+  // Ensure packet barcode is set
+  let currentPacketBarcode = packetBarcode;
+  if (!currentPacketBarcode || currentPacketBarcode.trim() === '') {
+    currentPacketBarcode = await generatePacketBarcode();
+    setPacketBarcode(currentPacketBarcode);
+  }
+
+  try {
+    // Save the CURRENT entry ONLY (not all entries)
+    // The backend will handle INSERT for each new entry
+    const requestData = {
+      ...entryToAdd,
+      customer_id: entryToAdd.customer_id,
+      customer_name: entryToAdd.customer_name,
+      salesperson_id: entryToAdd.salesperson_id || salespersonId,
+      source_by: entryToAdd.source_by || sourceBy,
+      total_amount: totalAmount.toFixed(2),
+      taxable_amount: taxableAmount.toFixed(2),
+      tax_amount: taxAmount.toFixed(2),
+      net_amount: netAmount.toFixed(2),
+      packet_barcode: currentPacketBarcode,
+      packet_wt: packetWt || null,
+      pack_images: [], // Images will be uploaded on print
+      force_insert: true // Flag to force INSERT instead of UPDATE
     };
 
-    console.log("Entry to add:", entryToAdd);
-
-    let updatedEntries;
-    if (isEditing) {
-      updatedEntries = entries.map((entry, index) =>
-        index === editIndex ? entryToAdd : entry
-      );
-      setIsEditing(false);
-      setEditIndex(null);
-    } else {
-      updatedEntries = [...entries, entryToAdd];
+    const response = await axios.post(`${baseURL}/add/estimate`, requestData);
+    
+    // Store the estimate number for future updates
+    if (response.data.estimate_number) {
+      setSavedEstimateNumber(response.data.estimate_number);
+      setIsEstimateSaved(true);
     }
 
-    setEntries(updatedEntries);
-    localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
-    console.log("Entries after add:", updatedEntries);
+    alert(`Entry saved successfully!\nEstimate Number: ${formData.estimate_number}\nPacket Barcode: ${currentPacketBarcode}`);
 
+    // Reset form for next entry
     setFormData(prev => ({
       ...initialFormData,
       estimate_number: prev.estimate_number,
@@ -896,73 +1013,20 @@ const EstimateForm = () => {
       date: today,
       salesperson_id: salespersonId,
       source_by: sourceBy,
-      images: []
+      images: [],
+      qty: 1
     }));
     setCurrentProductImages([]);
-  };
+    
+  } catch (error) {
+    console.error("Error saving entry:", error);
+    alert("Failed to save entry. Please try again.");
+  }
+};
 
-  // Load entries from localStorage
-  useEffect(() => {
-    const storedEntries = JSON.parse(localStorage.getItem("estimateDetails")) || [];
-    console.log("Loaded entries from localStorage:", storedEntries);
-    setEntries(storedEntries);
-
-    const storedDiscount = parseFloat(localStorage.getItem("estimateDiscount")) || 0;
-    setDiscount(storedDiscount);
-  }, []);
-
-  const handleEdit = (index) => {
-    console.log("Editing entry at index:", index, entries[index]);
-    setFormData(entries[index]);
-    setIsEditing(true);
-    setEditIndex(index);
-    setCurrentProductImages(entries[index].images || []);
-  };
-
-  const handleDelete = (index) => {
-    if (window.confirm("Are you sure you want to delete this entry?")) {
-      const updatedEntries = entries.filter((_, i) => i !== index);
-      setEntries(updatedEntries);
-      localStorage.setItem("estimateDetails", JSON.stringify(updatedEntries));
-      alert("Entry deleted successfully!");
-    }
-  };
-
-  // Handle discount change
-  const handleDiscountChange = (e) => {
-    const discountValue = parseFloat(e.target.value) || 0;
-
-    if (discountValue > 15) {
-      alert("Discount cannot be greater than 15%");
-      return;
-    }
-
-    setDiscount(discountValue);
-    localStorage.setItem("estimateDiscount", discountValue);
-
-    const updatedEstimateDetails = entries.map((item) => {
-      const makingCharges = parseFloat(item.making_charges) || 0;
-      const calculatedDiscount = (makingCharges * discountValue) / 100;
-      const originalTotalPrice = parseFloat(item.total_price) || 0;
-      const updatedTotalPrice = originalTotalPrice - calculatedDiscount;
-
-      return {
-        ...item,
-        disscount: calculatedDiscount.toFixed(2),
-        disscount_percentage: discountValue,
-        total_price: updatedTotalPrice.toFixed(2),
-      };
-    });
-
-    setEntries(updatedEstimateDetails);
-    localStorage.setItem("estimateDetails", JSON.stringify(updatedEstimateDetails));
-  };
-
-  // Handle print/save
+  // Handle Print - Update existing estimate and download PDF
   const handlePrint = async () => {
     try {
-      console.log("=== STARTING PRINT PROCESS ===");
-      
       if (entries.length === 0) {
         alert("Please add at least one item before printing");
         return;
@@ -973,9 +1037,21 @@ const EstimateForm = () => {
         return;
       }
 
-      console.log("All entries to save:", entries);
+      // Ensure packet barcode is set
+      let finalPacketBarcode = packetBarcode;
+      if (!finalPacketBarcode || finalPacketBarcode.trim() === '') {
+        finalPacketBarcode = await generatePacketBarcode();
+        setPacketBarcode(finalPacketBarcode);
+      }
+      
+      const entriesWithPacketDetails = entries.map(entry => ({
+        ...entry,
+        packet_barcode: finalPacketBarcode,
+        packet_wt: packetWt || null
+      }));
 
-      const totalAmount = entries.reduce((sum, item) => {
+      // Calculate totals
+      const totalAmount = entriesWithPacketDetails.reduce((sum, item) => {
         const stonePrice = parseFloat(item.stone_price) || 0;
         const makingCharges = parseFloat(item.making_charges) || 0;
         const rateAmt = parseFloat(item.rate_amt) || 0;
@@ -983,20 +1059,35 @@ const EstimateForm = () => {
         return sum + stonePrice + makingCharges + rateAmt + hmCharges;
       }, 0);
 
-      const discountAmt = entries.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
+      const discountAmt = entriesWithPacketDetails.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
       const taxableAmount = totalAmount - discountAmt;
-      const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
+      const taxAmount = entriesWithPacketDetails.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      console.log("Calculated totals:", {
-        totalAmount,
-        discountAmt,
-        taxableAmount,
-        taxAmount,
-        netAmount
-      });
+      // Upload packet images
+      let uploadedFilenames = [];
+      
+      const imageFiles = packetImages.filter(img => img.file).map(img => img.file);
+      if (imageFiles.length > 0) {
+        const formDataObj = new FormData();
+        imageFiles.forEach((file) => {
+          formDataObj.append('images', file);
+        });
+        
+        try {
+          const uploadResponse = await axios.post(`${baseURL}/upload/pack-images`, formDataObj, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          
+          uploadedFilenames = uploadResponse.data.filenames || [];
+          console.log('Uploaded images:', uploadedFilenames);
+        } catch (uploadError) {
+          console.error('Error uploading images:', uploadError);
+        }
+      }
 
-      const savePromises = entries.map((entry, index) => {
+      // Update existing estimates with packet details and images
+      const updatePromises = entriesWithPacketDetails.map(async (entry) => {
         const requestData = {
           ...entry,
           customer_id: entry.customer_id,
@@ -1007,28 +1098,21 @@ const EstimateForm = () => {
           taxable_amount: taxableAmount.toFixed(2),
           tax_amount: taxAmount.toFixed(2),
           net_amount: netAmount.toFixed(2),
+          packet_barcode: finalPacketBarcode,
+          packet_wt: packetWt || null,
+          pack_images: uploadedFilenames
         };
 
-        console.log(`Sending entry ${index + 1} to backend:`, requestData);
-        console.log(`salesperson_id being sent: ${requestData.salesperson_id}`);
-        console.log(`source_by being sent: ${requestData.source_by}`);
-
-        return axios.post(`${baseURL}/add/estimate`, requestData)
-          .then(response => {
-            console.log(`Entry ${index + 1} saved successfully:`, response.data);
-            return response;
-          })
-          .catch(error => {
-            console.error(`Error saving entry ${index + 1}:`, error.response?.data || error.message);
-            throw error;
-          });
+        // Use update endpoint
+        return axios.post(`${baseURL}/update/estimate-with-packet`, requestData);
       });
 
-      await Promise.all(savePromises);
+      await Promise.all(updatePromises);
 
+      // Generate and download PDF
       const pdfDoc = pdf(
         <PDFContent
-          entries={entries}
+          entries={entriesWithPacketDetails}
           totalAmount={totalAmount.toFixed(2)}
           taxableAmount={taxableAmount.toFixed(2)}
           taxAmount={taxAmount.toFixed(2)}
@@ -1037,20 +1121,32 @@ const EstimateForm = () => {
           estimateNumber={formData.estimate_number}
           sellerName="Sadashri Jewels"
           customerName={entries[0]?.customer_name || ""}
+          packetBarcode={finalPacketBarcode}
+          packetImages={uploadedFilenames}
         />
       );
 
       const blob = await pdfDoc.toBlob();
       saveAs(blob, `estimate_${formData.estimate_number}.pdf`);
 
-      alert("Estimates saved successfully!");
+      alert(`Estimate printed successfully!\nPacket Barcode: ${finalPacketBarcode}`);
 
-      localStorage.removeItem("estimateDetails");
-      localStorage.removeItem("estimateDiscount");
+      // Reset all states
       setEntries([]);
+      setTotalQuantity(0);
       setDiscount(0);
+      setUsedBarcodes(new Set());
+      setPacketBarcode("");
+      setPacketWt("");
+      setPacketImages([]);
+      setIsEstimateSaved(false);
+      setSavedEstimateNumber("");
+      
+      // Fetch new estimate number
+      const response = await axios.get(`${baseURL}/lastEstimateNumber`);
       setFormData({
         ...initialFormData,
+        estimate_number: response.data.lastEstimateNumber,
         salesperson_id: salespersonId,
         source_by: sourceBy
       });
@@ -1059,8 +1155,7 @@ const EstimateForm = () => {
       navigate("/salesperson-estimation");
     } catch (error) {
       console.error("Error in handlePrint:", error);
-      console.error("Error details:", error.response?.data || error.message);
-      alert("Failed to save or generate PDF. Please try again.");
+      alert("Failed to update or generate PDF. Please try again.");
     }
   };
 
@@ -1072,25 +1167,13 @@ const EstimateForm = () => {
     navigate(-1);
   };
 
-  const showProductImages = (productImages) => {
-    setCurrentProductImages(productImages || []);
-    setShowImagesModal(true);
+  const getFilteredBarcodeOptions = () => {
+    if (!formData.customer_id) return barcodeOptions;
+    
+    return barcodeOptions.filter(opt => {
+      return !usedBarcodes.has(`${formData.customer_id}_${opt.value}`);
+    });
   };
-
-  const isByFixed = formData.pricing === "By fixed";
-
-  const totalAmount = entries.reduce((sum, item) => {
-    const stonePrice = parseFloat(item.stone_price) || 0;
-    const makingCharges = parseFloat(item.making_charges) || 0;
-    const rateAmt = parseFloat(item.rate_amt) || 0;
-    const hmCharges = parseFloat(item.hm_charges) || 0;
-    return sum + stonePrice + makingCharges + rateAmt + hmCharges;
-  }, 0);
-
-  const discountAmt = entries.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
-  const taxableAmount = totalAmount - discountAmt;
-  const taxAmount = entries.reduce((sum, item) => sum + parseFloat(item.tax_amt || 0), 0);
-  const netAmount = taxableAmount + taxAmount;
 
   return (
     <>
@@ -1121,441 +1204,205 @@ const EstimateForm = () => {
               </Col>
             </Row>
 
-            <Col xs={12} md={3}>
-              <InputField
-                label="Customer Name"
-                name="customer_name"
-                value={formData.customer_name || ""}
-                type="select"
-                onChange={handleInputChange}
-                options={[
-                  { value: "", label: "Select Customer Name", disabled: true },
-                  ...customerOptions
-                ]}
-              />
-            </Col>
+            {/* Customer Name, Barcode, Add Entry, and Total Quantity in same row */}
+            <Row className="align-items-end">
+              <Col xs={12} md={3}>
+                <InputField
+                  label="Customer Name"
+                  name="customer_name"
+                  value={formData.customer_name || ""}
+                  type="select"
+                  onChange={handleInputChange}
+                  options={[
+                    { value: "", label: "Select Customer Name", disabled: true },
+                    ...customerOptions
+                  ]}
+                  required
+                />
+              </Col>
 
-            <Col xs={12} md={3}>
-              <InputField
-                label="Product Name"
-                name="product_name"
-                value={formData.product_name || ""}
-                type="select"
-                onChange={handleInputChange}
-                options={[
-                  { value: "", label: "Select Product Name", disabled: true },
-                  ...productOptions
-                ]}
-              />
-            </Col>
-
-            {/* Replace the original barcode column with the new BarcodeFieldWithScanner */}
-            <BarcodeFieldWithScanner />
-
-            {/* <Col xs={12} md={2}>
-              <InputField
-                label="Metal Type"
-                name="metal_type"
-                value={formData.metal_type || ""}
-                onChange={handleInputChange}
-                type="select"
-                options={[
-                  { value: "", label: "Select Metal Type", disabled: true },
-                  ...metalTypeOptions
-                ]}
-              />
-            </Col>
-
-            <Col xs={12} md={2}>
-              <InputField
-                label="Product Design Name"
-                name="design_name"
-                value={formData.design_name || ""}
-                onChange={handleInputChange}
-                type="select"
-                options={[
-                  { value: "", label: "Select Design", disabled: true },
-                  ...designOptions
-                ]}
-              />
-            </Col>
-
-            <Col xs={12} md={2}>
-              <InputField
-                label="Purity"
-                name="purity"
-                value={formData.purity || ""}
-                onChange={handleInputChange}
-                type="select"
-                options={[
-                  { value: "", label: "Select Purity", disabled: true },
-                  ...purityOptions
-                ]}
-              />
-            </Col>
-
-            <Col xs={12} md={2}>
-              <InputField
-                label="Pricing"
-                name="pricing"
-                type="select"
-                value={formData.pricing || "By Weight"}
-                onChange={handleInputChange}
-                options={[
-                  { value: "By Weight", label: "By Weight" },
-                  { value: "By fixed", label: "By fixed" }
-                ]}
-              />
-            </Col> */}
-
-            {isByFixed ? (
-              <>
-                {/* <Col xs={12} md={1}>
+              <Col xs={12} md={4}>
+                <div className="barcode-field-wrapper">
                   <InputField
-                    label="Piece Cost"
-                    name="pieace_cost"
-                    value={formData.pieace_cost || ""}
-                    onChange={handleInputChange}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label="Amount"
-                    name="rate_amt"
-                    value={formData.rate_amt || "0.00"}
-                    onChange={handleInputChange}
-                    readOnly={false}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label="Qty"
-                    name="qty"
-                    value={formData.qty || ""}
-                    onChange={handleInputChange}
-                    readOnly={!isQtyEditable}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Tax %" name="tax_percent" value={formData.tax_percent} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Tax Amt" name="tax_amt" value={formData.tax_amt || "0.00"} onChange={handleInputChange} />
-                </Col> */}
-                <Col xs={12} md={2}>
-                  <InputField label="Total Price" name="total_price" value={formData.total_price || "0.00"} onChange={handleInputChange} />
-                </Col>
-              </>
-            ) : (
-              <>
-                {/* <Col xs={12} md={1}>
-                  <InputField label="Gross Wt" name="gross_weight" value={formData.gross_weight || ""} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Stones Wt" name="stone_weight" value={formData.stone_weight || ""} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="St Price" name="stone_price" value={formData.stone_price || ""} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Wt BW" name="weight_bw" value={formData.weight_bw || "0.000"} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={2}>
-                  <InputField
-                    label="Wastage On"
-                    name="va_on"
+                    label="Barcode"
+                    name="barcode"
+                    value={formData.barcode || ""}
                     type="select"
-                    value={formData.va_on || "Gross Weight"}
                     onChange={handleInputChange}
                     options={[
-                      { value: "Gross Weight", label: "Gross Weight" },
-                      { value: "Weight BW", label: "Weight BW" }
+                      { value: "", label: "Select Barcode", disabled: true },
+                      ...getFilteredBarcodeOptions(),
+                      ...tagsData.map(tag => ({
+                        value: tag.PCode_BarCode,
+                        label: tag.PCode_BarCode
+                      }))
                     ]}
                   />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Wastage %" name="va_percent" value={formData.va_percent || ""} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="W.Wt" name="wastage_weight" value={formData.wastage_weight || "0.000"} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={2}>
-                  <InputField label="Total Weight AW" name="total_weight_av" value={formData.total_weight_av || "0.000"} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Rate" name="rate" value={formData.rate || ""} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label="Amount"
-                    name="rate_amt"
-                    value={formData.rate_amt || "0.00"}
-                    onChange={handleInputChange}
-                  />
-                </Col>
-                <Col xs={12} md={2}>
-                  <InputField
-                    label="MC On"
-                    name="mc_on"
-                    type="select"
-                    value={formData.mc_on || "MC %"}
-                    onChange={handleInputChange}
-                    options={[
-                      { value: "MC / Gram", label: "MC / Gram" },
-                      { value: "MC / Piece", label: "MC / Piece" },
-                      { value: "MC %", label: "MC %" }
-                    ]}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label={formData.mc_on === "MC %" ? "MC %" : "MC/Gm"}
-                    name="mc_per_gram"
-                    value={formData.mc_per_gram || ""}
-                    onChange={handleInputChange}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label="Total MC"
-                    name="making_charges"
-                    value={formData.making_charges || "0.00"}
-                    onChange={handleInputChange}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField
-                    label="HMCharge"
-                    name="hm_charges"
-                    value={formData.hm_charges || "60.00"}
-                    onChange={handleInputChange}
-                  />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Tax %" name="tax_percent" value={formData.tax_percent || "03% GST"} onChange={handleInputChange} />
-                </Col>
-                <Col xs={12} md={1}>
-                  <InputField label="Tax Amt" name="tax_amt" value={formData.tax_amt || "0.00"} onChange={handleInputChange} />
-                </Col> */}
-                <Col xs={12} md={2}>
-                  <InputField label="Total Price" name="total_price" value={formData.total_price || "0.00"} onChange={handleInputChange} />
-                </Col>
-              </>
-            )}
+                  
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={startScanner}
+                    className="scanner-btn"
+                    title="Scan Barcode/QR Code"
+                  >
+                    <FaQrcode /> Scan
+                  </Button>
+                </div>
+              </Col>
 
-            {/* Image Preview Section */}
-            <Col xs={12} className="mt-2 mb-2">
-              <Row className="align-items-center">
-                <Col xs={12} md={2}>
-                  <div className="d-flex align-items-center">
-                    <span className="me-2" style={{ fontSize: "14px", fontWeight: "bold" }}>
-                      Product Images:
-                    </span>
+              <Col xs={12} md={2} className="mb-3">
+                <Button
+                  className="add-entry-btn"
+                  onClick={handleAddEntry}
+                  style={{ width: 'auto', padding: '8px 20px' }}
+                >
+                  {isEditing ? "Update Entry" : "Add Entry"}
+                </Button>
+              </Col>
+              
+              <Col xs={12} md={3} className="mb-3 d-flex align-items-center">
+                <div className="total-qty-container">
+                  <span className="total-qty-label">Total Qty:</span>
+                  <span className="total-qty-value">{totalQuantity}</span>
+                </div>
+                {isEstimateSaved && (
+                  <span className="saved-badge" style={{ marginLeft: '10px', color: 'green', fontSize: '12px' }}>
+                    ✓ Saved: {savedEstimateNumber}
+                  </span>
+                )}
+              </Col>
+            </Row>
+          </Row>
 
-                    {formData.images && formData.images.length > 0 && (
-                      <Col xs={12} md={8}>
-                        <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
-                          {formData.images.slice(0, 3).map((image, index) => (
-                            <div key={index} style={{ width: "60px", height: "60px", overflow: "hidden", border: "1px solid #ddd", borderRadius: "4px" }}>
-                              <Image
-                                src={getImageUrl(image)}
-                                alt={`Preview ${index + 1}`}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = 'https://via.placeholder.com/60x60?text=Image';
+          {/* Packet Details Section - Always Visible */}
+          <Row className="estimate-form-section2 mt-3">
+            <Col xs={12}>
+              <div className="packet-section">
+                <h5 style={{ color: '#a36e29', marginBottom: '15px', fontWeight: '600' }}>Packet Details</h5>
+                <Row>
+                  <Col xs={12} md={4}>
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
+                        Packet Barcode <span style={{ color: 'red' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          backgroundColor: 'white'
+                        }}
+                        value={packetBarcode}
+                        onChange={(e) => setPacketBarcode(e.target.value)}
+                        placeholder="Enter or auto-generated"
+                      />
+                    </div>
+                  </Col>
+                  
+                  <Col xs={12} md={3}>
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
+                        Packet Weight (Optional)
+                      </label>
+                      <input
+                        type="number"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          backgroundColor: 'white'
+                        }}
+                        value={packetWt}
+                        onChange={(e) => setPacketWt(e.target.value)}
+                        step="0.001"
+                        placeholder="Enter weight"
+                      />
+                    </div>
+                  </Col>
+                  
+                  <Col xs={12} md={5}>
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
+                      Packet Images
+                    </label>
+                    <div className="packet-images-container">
+                      <div className="image-upload-buttons">
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={triggerFileUpload}
+                          className="me-2"
+                        >
+                          <FaUpload /> Upload
+                        </Button>
+                        <Button
+                          variant="outline-success"
+                          size="sm"
+                          onClick={startCamera}
+                        >
+                          <FaCamera /> Capture
+                        </Button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleFileUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+                      
+                      {packetImages.length > 0 && (
+                        <div className="image-preview-container">
+                          {packetImages.map((img, index) => (
+                            <div key={index} className="image-preview-item">
+                              <img 
+                                src={img.preview} 
+                                alt={`Packet ${index + 1}`}
+                                onClick={() => {
+                                  setPreviewImage(img.preview);
+                                  setShowImagePreview(true);
                                 }}
                               />
+                              <button 
+                                className="remove-image-btn"
+                                onClick={() => removeImage(index)}
+                              >
+                                <FaTimes />
+                              </button>
                             </div>
                           ))}
-                          {formData.images.length > 3 && (
-                            <div style={{ 
-                              width: "60px", 
-                              height: "60px", 
-                              display: "flex", 
-                              alignItems: "center", 
-                              justifyContent: "center",
-                              border: "1px solid #ddd", 
-                              borderRadius: "4px",
-                              backgroundColor: "#f8f9fa"
-                            }}>
-                              <span style={{ fontSize: "12px" }}>+{formData.images.length - 3}</span>
-                            </div>
-                          )}
                         </div>
-                      </Col>
-                    )}
-                  </div>
-                </Col>
-
-                <Col xs={12} md={6} className="mt-2">
-                  <Button
-                    style={{
-                      backgroundColor: "#a36e29",
-                      borderColor: "#a36e29",
-                      fontSize: "14px",
-                      padding: "6px 20px"
-                    }}
-                    onClick={handleAdd}
-                  >
-                    {isEditing ? "Update Entry" : "Add Entry"}
-                  </Button>
-                </Col>
-                
-              </Row>
+                      )}
+                    </div>
+                  </Col>
+                </Row>
+              </div>
             </Col>
-
           </Row>
 
-          <Row className="estimate-form-section2">
-            <Table bordered hover responsive>
-              <thead>
-                <tr style={{ fontSize: "14px" }}>
-                  <th>S No</th>
-                  <th>Product Name</th>
-                  <th>Customer Name</th>
-                  <th>Barcode</th>
-                  {/* <th>Metal Type</th>
-                  <th>Gross Weight</th>
-                  <th>Stones Weight</th>
-                  <th>Total Weight</th>
-                  <th>Rate</th> */}
-                  <th>Total Price</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.length > 0 ? (
-                  entries.map((entry, index) => (
-                    <tr key={index} style={{ fontSize: "14px" }}>
-                      <td>{index + 1}</td>
-                      <td>{entry.product_name}</td>
-                      <td>{entry.customer_name}</td>
-                      <td>{entry.barcode}</td>
-                      {/* <td>{entry.metal_type}</td>
-                      <td>{entry.gross_weight}</td>
-                      <td>{entry.stone_weight}</td>
-                      <td>{entry.total_weight_av}</td>
-                      <td>{entry.rate}</td> */}
-                      <td>{entry.total_price}</td>
-                      <td>
-                        <div className="d-flex align-items-center">
-                          <FaEdit
-                            style={{ cursor: 'pointer', marginLeft: '10px', color: 'blue' }}
-                            onClick={() => handleEdit(index)}
-                          />
-                          <FaTrash
-                            style={{ cursor: 'pointer', marginLeft: '10px', color: 'red' }}
-                            onClick={() => handleDelete(index)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="12" className="text-center">
-                      No entries added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-          </Row>
-
-          <Row className="estimate-form-section2">
-            <Table bordered hover responsive>
-              <tbody>
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="20" className="text-right">
-                    Total Amount
-                  </td>
-                  <td colSpan="4">{totalAmount.toFixed(2)}</td>
-                </tr>
-
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="16" className="text-right">Discount Amount</td>
-                  <td colSpan="4">
-                    @
-                    <input
-                      type="number"
-                      value={discount}
-                      onChange={handleDiscountChange}
-                      style={{ width: '80px', padding: '1px', marginLeft: '5px' }}
-                    />
-                  </td>
-                  <td colSpan="4">
-                    {discountAmt.toFixed(2)}
-                  </td>
-                </tr>
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="20" className="text-right">
-                    Taxable Amount
-                  </td>
-                  <td colSpan="4">{taxableAmount.toFixed(2)}</td>
-                </tr>
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="20" className="text-right">
-                    Tax Amount
-                  </td>
-                  <td colSpan="4">{taxAmount.toFixed(2)}</td>
-                </tr>
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="20" className="text-right">
-                    Net Amount
-                  </td>
-                  <td colSpan="4">{netAmount.toFixed(2)}</td>
-                </tr>
-                <tr style={{ fontSize: "14px" }}>
-                  <td colSpan="20" className="text-right">
-                    Net Payable Amount
-                  </td>
-                  <td colSpan="4">{Math.round(netAmount).toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </Table>
-
-            <Col xs={12} md={12} className="d-flex justify-content-end" style={{ marginTop: "-10px" }}>
+          {/* Action Buttons */}
+          <Row className="mt-3">
+            <Col xs={12} className="d-flex justify-content-end action-buttons-container">
               <Button
+                className="close-btn"
                 onClick={handleClose}
-                style={{
-                  width: "60px",
-                  backgroundColor: "gray",
-                  borderColor: "gray",
-                  marginLeft: "5px",
-                  fontSize: "14px",
-                  marginTop: "1px",
-                  padding: "1px 8px",
-                  height: "33px"
-                }}
               >
                 Close
               </Button>
               <Button
-                className="cus-back-btn"
-                variant="secondary"
+                className="cancel-btn"
                 onClick={handleBack}
-                style={{
-                  width: "60px",
-                  marginLeft: '15px',
-                  fontSize: "14px",
-                  marginTop: "1px",
-                  padding: "1px 8px",
-                  height: "33px"
-                }}
               >
                 Cancel
               </Button>
               <Button
-                style={{
-                  backgroundColor: "#a36e29",
-                  borderColor: "#a36e29",
-                  marginLeft: '15px',
-                  fontSize: "14px",
-                  marginTop: "1px",
-                  padding: "1px 8px",
-                  height: "33px"
-                }}
+                className="print-btn"
                 onClick={handlePrint}
               >
                 Print
@@ -1583,7 +1430,47 @@ const EstimateForm = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Images Modal */}
+      {/* Camera Capture Modal */}
+      <Modal show={showCamera} onHide={stopCamera} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Capture Packet Image</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ textAlign: 'center' }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
+          />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={stopCamera}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={captureImage}>
+            Capture
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal show={showImagePreview} onHide={() => setShowImagePreview(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Image Preview</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ textAlign: 'center' }}>
+          {previewImage && (
+            <img 
+              src={previewImage} 
+              alt="Preview" 
+              style={{ maxWidth: '100%', maxHeight: '70vh' }}
+            />
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Product Images Modal */}
       <Modal
         show={showImagesModal}
         onHide={() => setShowImagesModal(false)}
@@ -1609,9 +1496,6 @@ const EstimateForm = () => {
                         e.target.src = 'https://via.placeholder.com/200x200?text=Image+Not+Found';
                       }}
                     />
-                    <small className="text-muted d-block mt-1">
-                      {image}
-                    </small>
                   </div>
                 </Col>
               ))}

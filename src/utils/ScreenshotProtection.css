@@ -1,0 +1,204 @@
+/* ScreenshotProtection.css */
+
+/* Protection overlay */
+.screenshot-protection-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.screenshot-protection-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.protection-content {
+  text-align: center;
+  color: white;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.protection-content svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  color: #ef4444;
+}
+
+.protection-content h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.protection-content p {
+  font-size: 14px;
+  opacity: 0.8;
+  margin: 4px 0;
+}
+
+/* Security watermark */
+.security-watermark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.03;
+  font-size: 80px;
+  font-weight: bold;
+  color: #000;
+  transform: rotate(-45deg);
+  white-space: nowrap;
+  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+
+/* Screenshot protected container */
+.screenshot-protected {
+  position: relative;
+}
+
+/* Blur effect for sensitive content during screenshot */
+.customer-dashboard-container.screenshot-protection-active .stat-value,
+.customer-dashboard-container.screenshot-protection-active .breakdown-value,
+.customer-dashboard-container.screenshot-protection-active .amount,
+.customer-dashboard-container.screenshot-protection-active .customer-name,
+.customer-dashboard-container.screenshot-protection-active .recent-table,
+.customer-dashboard-container.screenshot-protection-active .chart-wrapper,
+.customer-dashboard-container.screenshot-protection-active canvas,
+.customer-dashboard-container.screenshot-protection-active .stat-card,
+.customer-dashboard-container.screenshot-protection-active .breakdown-card {
+  filter: blur(8px) !important;
+  transition: filter 0.1s ease !important;
+  pointer-events: none !important;
+}
+
+/* Protected element overlay */
+[data-protected="true"] {
+  position: relative;
+}
+
+[data-protected="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Disable text selection for protected content */
+.screenshot-protected {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in inputs */
+.screenshot-protected input,
+.screenshot-protected textarea,
+.screenshot-protected select,
+.screenshot-protected button {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* iOS specific protection */
+@supports (-webkit-touch-callout: none) {
+  .screenshot-protected {
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Print protection */
+@media print {
+  .screenshot-protected,
+  .customer-dashboard-container {
+    display: none !important;
+  }
+  
+  body::after {
+    content: "Printing is disabled for security reasons.";
+    display: block;
+    text-align: center;
+    margin-top: 50px;
+    font-size: 18px;
+    color: #ef4444;
+  }
+}
+
+/* Additional protection for table data */
+.screenshot-protected table {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Protection for chart containers */
+.screenshot-protected .chart-wrapper,
+.screenshot-protected .custom-chart-wrapper {
+  position: relative;
+}
+
+.screenshot-protection-active .chart-wrapper::after,
+.screenshot-protection-active .custom-chart-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(5px);
+  z-index: 2;
+  pointer-events: none;
+}

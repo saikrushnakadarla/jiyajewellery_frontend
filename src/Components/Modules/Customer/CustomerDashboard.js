@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Navbar from "../../Pages/Navbar/CustomerNavbar";
@@ -20,6 +20,7 @@ import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCamera } from 'react-i
 import { Button } from "react-bootstrap";
 import baseURL from "../ApiUrl/NodeBaseURL";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
+import ScreenshotProtection from "../../../utils/ScreenshotProtection"; // Adjust path as needed
 
 ChartJS.register(
   CategoryScale,
@@ -33,6 +34,7 @@ ChartJS.register(
 
 function Dashboard() {
   const navigate = useNavigate();
+   const protectionRef = useRef(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [estimatesCount, setEstimatesCount] = useState({
     pending: 0,
@@ -52,6 +54,23 @@ function Dashboard() {
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [hasFaceRegistered, setHasFaceRegistered] = useState(false);
   const [showFacePrompt, setShowFacePrompt] = useState(false);
+
+  //  useScreenshotPrevention(true);
+
+
+   // Initialize screenshot protection
+  useEffect(() => {
+    // Initialize protection
+    protectionRef.current = new ScreenshotProtection();
+
+    // Clean up on unmount
+    return () => {
+      if (protectionRef.current) {
+        protectionRef.current.destroy();
+      }
+    };
+  }, []);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -481,7 +500,7 @@ function Dashboard() {
   return (
     <>
       <Navbar/>
-      <div className="customer-dashboard-container">
+      <div className="customer-dashboard-container  screenshot-protected">
         {/* Welcome Message */}
         {currentUser && (
           <div className="welcome-section">
