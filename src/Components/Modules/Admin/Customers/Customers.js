@@ -13,7 +13,7 @@ const Customers = () => {
   const [customersData, setCustomersData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updating, setUpdating] = useState({}); // Track which customers are being updated
+  const [updating, setUpdating] = useState({});
 
   // Fetch customers data from API
   useEffect(() => {
@@ -59,16 +59,13 @@ const Customers = () => {
   // Update customer status
   const updateCustomerStatus = async (customerId, status) => {
     try {
-      // Set updating state for this customer
       setUpdating(prev => ({ ...prev, [customerId]: true }));
 
-      // First, fetch the latest customer data by ID
       const customer = await fetchCustomerById(customerId);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
-      // Prepare the updated data with the new status
       const updatedCustomer = {
         ...customer,
         status: status
@@ -86,7 +83,6 @@ const Customers = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Update the local state to reflect the change
       setCustomersData(prevData => 
         prevData.map(customer => 
           customer.id === customerId 
@@ -95,14 +91,12 @@ const Customers = () => {
         )
       );
 
-      // Show success message
       alert(`Customer ${status} successfully. ${status === 'approved' ? 'An email with credentials has been sent.' : 'A rejection email has been sent.'}`);
 
     } catch (err) {
       console.error('Error updating customer status:', err);
       alert(`Failed to update customer status: ${err.message}`);
     } finally {
-      // Remove updating state for this customer
       setUpdating(prev => ({ ...prev, [customerId]: false }));
     }
   };
@@ -121,7 +115,7 @@ const Customers = () => {
     }
   };
 
-  // Format the data to match the table structure
+  // Format the data to match the table structure with location fields
   const formattedCustomersData = useMemo(() => {
     return customersData.map(customer => ({
       id: customer.id,
@@ -129,7 +123,11 @@ const Customers = () => {
       phone: customer.phone || 'N/A',
       email: customer.email_id,
       address: `${customer.city || ''}, ${customer.state || ''}, ${customer.country || ''}`,
-      status: customer.status // Include status in the formatted data
+      status: customer.status,
+      // Add individual location fields for filtering
+      state: customer.state || 'N/A',
+      city: customer.city || 'N/A',
+      date: customer.created_at || new Date().toISOString() // Add date field for date filter
     }));
   }, [customersData]);
 
@@ -149,8 +147,12 @@ const Customers = () => {
         accessor: 'email',
       },
       {
-        Header: 'Address',
-        accessor: 'address',
+        Header: 'City',
+        accessor: 'city',
+      },
+      {
+        Header: 'State',
+        accessor: 'state',
       },
       {
         Header: 'Status',
@@ -172,8 +174,6 @@ const Customers = () => {
           const isUpdating = updating[customerId];
           const currentStatus = row.original.status;
           
-          // Only disable if status is already approved or rejected
-          // Allow actions for pending status
           const isDisabled = currentStatus === 'approved' || currentStatus === 'rejected';
           
           return (
@@ -213,10 +213,6 @@ const Customers = () => {
     [updating]
   );
 
-  const handleAddCustomer = () => {
-    navigate('/customerregister');
-  };
-
   if (loading) {
     return (
       <div className="watermark-container">
@@ -252,15 +248,16 @@ const Customers = () => {
         <div className="customers-table-container" style={{marginTop:'90px'}}>
           <div className="d-flex justify-content-between align-items-center mb-4" style={{marginLeft:'50px'}}>
             <h3>Customers</h3>
-            {/* <Button variant="primary" onClick={handleAddCustomer}>
-              Add Customer
-            </Button> */}
           </div>
           
           <DataTable 
             columns={columns} 
-            data={formattedCustomersData} 
-            initialSearchValue=""
+            data={formattedCustomersData}
+            showLocationFilters={true}
+            locationFilterFields={{
+              state: 'state',
+              city: 'city'
+            }}
           />
         </div>
       </div>

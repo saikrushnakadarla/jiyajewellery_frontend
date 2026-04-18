@@ -3,7 +3,15 @@ import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Global Search Filter Component
-function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
+function GlobalFilter({ 
+  globalFilter, 
+  setGlobalFilter, 
+  handleDateFilter, 
+  showLocationFilters = false,
+  locationFilters = {},
+  setLocationFilters = () => {},
+  locationOptions = { states: [], cities: [] }
+}) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
@@ -11,57 +19,136 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
     handleDateFilter(fromDate, toDate);
   };
 
+  const handleLocationChange = (type, value) => {
+    setLocationFilters(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
+
   return (
-    <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
-      <input
-        value={globalFilter || ''}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="form-control"
-        placeholder="Search..."
-        style={{ maxWidth: '200px' }}
-      />
-      <input
-        type="date"
-        value={fromDate}
-        onChange={(e) => setFromDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-      />
-      <input
-        type="date"
-        value={toDate}
-        onChange={(e) => setToDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-      />
-      <button onClick={applyDateFilter} className="btn btn-primary">
-        OK
-      </button>
+    <div className="dataTable_search mb-3">
+      <div className="d-flex align-items-center gap-2 flex-nowrap">
+        <input
+          value={globalFilter || ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="form-control"
+          placeholder="Search..."
+          style={{ width: '180px' }}
+        />
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="form-control"
+          placeholder="mm/dd/yyyy"
+          style={{ width: '140px' }}
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="form-control"
+          placeholder="mm/dd/yyyy"
+          style={{ width: '140px' }}
+        />
+        
+        {showLocationFilters && (
+          <>
+            <select
+              value={locationFilters.state || ''}
+              onChange={(e) => handleLocationChange('state', e.target.value)}
+              className="form-select"
+              style={{ width: '140px' }}
+            >
+              <option value="">All States</option>
+              {locationOptions.states.map((state, index) => (
+                <option key={index} value={state}>{state}</option>
+              ))}
+            </select>
+            
+            <select
+              value={locationFilters.city || ''}
+              onChange={(e) => handleLocationChange('city', e.target.value)}
+              className="form-select"
+              style={{ width: '140px' }}
+            >
+              <option value="">All Cities</option>
+              {locationOptions.cities.map((city, index) => (
+                <option key={index} value={city}>{city}</option>
+              ))}
+            </select>
+          </>
+        )}
+        
+        <button onClick={applyDateFilter} className="btn btn-primary" style={{ width: '80px' }}>
+          OK
+        </button>
+      </div>
     </div>
   );
 }
 
 // Reusable DataTable Component
-export default function DataTable({ columns, data }) {
+export default function DataTable({ 
+  columns, 
+  data, 
+  showLocationFilters = false,
+  locationFilterFields = { state: 'state', city: 'city' }
+}) {
   const [filteredData, setFilteredData] = useState(data);
+  const [locationFilters, setLocationFilters] = useState({
+    state: '',
+    city: ''
+  });
 
+  // Extract unique location options from data
+  const locationOptions = React.useMemo(() => {
+    if (!showLocationFilters) return { states: [], cities: [] };
+    
+    const states = [...new Set(data.map(item => item[locationFilterFields.state]).filter(Boolean))];
+    const cities = [...new Set(data.map(item => item[locationFilterFields.city]).filter(Boolean))];
+    
+    return { states, cities };
+  }, [data, showLocationFilters, locationFilterFields]);
+
+  // Apply all filters (global search, date, location)
   useEffect(() => {
-    setFilteredData(data); // Sync filteredData with data whenever data changes
-  }, [data]);
+    applyAllFilters();
+  }, [data, locationFilters]);
+
+  const applyAllFilters = (dateFilteredData = null) => {
+    let filtered = dateFilteredData || data;
+    
+    // Apply location filters
+    if (showLocationFilters) {
+      filtered = filtered.filter(item => {
+        const stateMatch = !locationFilters.state || 
+          item[locationFilterFields.state] === locationFilters.state;
+        const cityMatch = !locationFilters.city || 
+          item[locationFilterFields.city] === locationFilters.city;
+        
+        return stateMatch && cityMatch;
+      });
+    }
+    
+    setFilteredData(filtered);
+  };
 
   const handleDateFilter = (fromDate, toDate) => {
+    let filtered = data;
+    
     if (fromDate || toDate) {
-      const filtered = data.filter((item) => {
-        const itemDate = new Date(item.date).setHours(0, 0, 0, 0); // Normalize to midnight for accurate comparison
+      filtered = data.filter((item) => {
+        const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
         const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
         const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
 
         return (!from || itemDate >= from) && (!to || itemDate <= to);
       });
-      setFilteredData(filtered);
-    } else {
-      setFilteredData(data); // Reset to original data if no date filters
     }
+    
+    applyAllFilters(filtered);
   };
 
   const {
@@ -91,7 +178,15 @@ export default function DataTable({ columns, data }) {
 
   return (
     <div className="dataTable_wrapper container-fluid">
-      <GlobalFilter globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} handleDateFilter={handleDateFilter} />
+      <GlobalFilter 
+        globalFilter={globalFilter} 
+        setGlobalFilter={setGlobalFilter} 
+        handleDateFilter={handleDateFilter}
+        showLocationFilters={showLocationFilters}
+        locationFilters={locationFilters}
+        setLocationFilters={setLocationFilters}
+        locationOptions={locationOptions}
+      />
 
       <div className="table-responsive">
         <table {...getTableProps()} className="table table-striped">
