@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../Pages/TableLayout/InputField";
 import "./CustomerRegistration.css";
 import Swal from 'sweetalert2';
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import baseURL from "../ApiUrl/NodeBaseURL";
 
@@ -13,6 +13,8 @@ function CustomerRegistration() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -30,7 +32,80 @@ function CustomerRegistration() {
     company_name: "",
     role: "customer",
     pincode: "",
+    latitude: "",
+    longitude: ""
   });
+
+  // Function to get current location
+  const getCurrentLocation = () => {
+    setIsGettingLocation(true);
+    setLocationError("");
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setIsGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({
+          ...prev,
+          latitude: latitude.toString(),
+          longitude: longitude.toString()
+        }));
+        setIsGettingLocation(false);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Location Captured!',
+          text: `Latitude: ${latitude.toFixed(6)}, Longitude: ${longitude.toFixed(6)}`,
+          timer: 2000,
+          showConfirmButton: true,
+          confirmButtonColor: '#3085d6',
+        });
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        let errorMessage = "Unable to retrieve your location. ";
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += "Please allow location access in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage += "The request to get your location timed out.";
+            break;
+          default:
+            errorMessage += "An unknown error occurred.";
+        }
+        
+        setLocationError(errorMessage);
+        
+        Swal.fire({
+          icon: 'warning',
+          title: 'Location Access',
+          text: errorMessage + " You can still register without location.",
+          confirmButtonColor: '#3085d6',
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  // Auto-get location when component mounts
+  useEffect(() => {
+    // Automatically try to get location when component loads
+    getCurrentLocation();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -67,7 +142,9 @@ function CustomerRegistration() {
         aadhar_card: "",
         pan_card: "",
         religion: "",
-        images: null
+        images: null,
+        latitude: customerData.latitude || null,
+        longitude: customerData.longitude || null
       };
 
       console.log("Sending to accounts API:", accountsData);
@@ -111,7 +188,7 @@ function CustomerRegistration() {
       return;
     }
 
-    // Prepare data for API (No face data)
+    // Prepare data for API
     const apiData = {
       full_name: formData.full_name,
       email_id: formData.email,
@@ -128,6 +205,8 @@ function CustomerRegistration() {
       company_name: formData.company_name,
       role: formData.role,
       pincode: formData.pincode,
+      latitude: formData.latitude || null,
+      longitude: formData.longitude || null,
       status: 'pending'
     };
 
@@ -154,7 +233,9 @@ function CustomerRegistration() {
           pincode: formData.pincode,
           state: formData.state,
           dob: formData.dob,
-          anniversary: formData.anniversary
+          anniversary: formData.anniversary,
+          latitude: formData.latitude,
+          longitude: formData.longitude
         };
 
         await storeInAccountsDB(customerDataForAccounts);
@@ -167,7 +248,7 @@ function CustomerRegistration() {
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
-            navigate("/login");
+            navigate("/");
           }
         });
       } else {
@@ -357,6 +438,55 @@ function CustomerRegistration() {
             ]}
           />
 
+          {/* Pincode */}
+          <InputField
+            label="Pincode"
+            placeholder="Enter Pincode"
+            name="pincode"
+            value={formData.pincode}
+            onChange={handleChange}
+            required
+          />
+
+          {/* Location Section */}
+          <div className="customerregistration-location-section">
+            <label className="input-label">Current Location</label>
+            <div className="customerregistration-location-container">
+              <button
+                type="button"
+                className="customerregistration-location-btn"
+                onClick={getCurrentLocation}
+                disabled={isGettingLocation}
+              >
+                {isGettingLocation ? (
+                  <>
+                    <FaSpinner className="fa-spin" /> Getting Location...
+                  </>
+                ) : (
+                  <>
+                    <FaMapMarkerAlt /> Capture Current Location
+                  </>
+                )}
+              </button>
+              {locationError && (
+                <div className="customerregistration-location-error">
+                  {locationError}
+                </div>
+              )}
+              {(formData.latitude && formData.longitude) && (
+                <div className="customerregistration-location-display">
+                  <div className="location-coordinates">
+                    <span><strong>Latitude:</strong> {Number(formData.latitude).toFixed(6)}</span>
+                    <span><strong>Longitude:</strong> {Number(formData.longitude).toFixed(6)}</span>
+                  </div>
+                  <div className="location-success">
+                    ✓ Location captured successfully
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Password */}
           <div className="customerregistration-password-container">
             <InputField
@@ -401,16 +531,6 @@ function CustomerRegistration() {
             name="company_name"
             placeholder="Enter Company Name"
             value={formData.company_name}
-            onChange={handleChange}
-            required
-          />
-
-          {/* Pincode */}
-          <InputField
-            label="Pincode"
-            placeholder="Enter Pincode"
-            name="pincode"
-            value={formData.pincode}
             onChange={handleChange}
             required
           />

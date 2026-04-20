@@ -1,16 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Row, Col, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import baseURL from '../../ApiUrl/NodeBaseURL';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../../Pages/Navbar/SalesNavbar';
-import { FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, FaUserCheck, FaCalendarCheck } from 'react-icons/fa';
+import { 
+  FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, 
+  FaUserCheck, FaCalendarCheck, FaMapMarkerAlt, FaCrosshairs,
+  FaSpinner, FaExclamationTriangle
+} from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
 
 const VisitLogsForm = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
+
+  // Constants
+  const MAX_DISTANCE_METERS = 50; // Customer must be within 50 meters
 
   // Get user data from localStorage
   const getUserData = () => {
@@ -34,6 +41,20 @@ const VisitLogsForm = () => {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerEmail, setCustomerEmail] = useState('');
+
+  // Location state (similar to attendance)
+  const [location, setLocation] = useState({
+    latitude: null,
+    longitude: null,
+    address: '',
+    loading: false,
+    error: null,
+    withinRange: false,
+    distance: null,
+    lastUpdated: null
+  });
+  const watchIdRef = useRef(null);
+  const [isLocationServiceAvailable, setIsLocationServiceAvailable] = useState(true);
 
   // State for form
   const [formData, setFormData] = useState({
@@ -80,31 +101,222 @@ const VisitLogsForm = () => {
     unique_customers: 0
   });
 
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Get address from coordinates using backend proxy
+  const getAddressFromCoordinates = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `${baseURL}/api/attendance/geocode?lat=${latitude}&lon=${longitude}`,
+        { timeout: 5000 }
+      );
+      if (response.data.success && response.data.data.display_name) {
+        return response.data.data.display_name;
+      }
+    } catch (error) {
+      console.log('Geocoding failed:', error.message);
+    }
+    return `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  };
+
+  // Get current location with high accuracy (similar to attendance)
+  const getCurrentLocation = useCallback(() => {
+    // Clear any existing watcher
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+
+    setLocation(prev => ({ ...prev, loading: true, error: null }));
+
+    if (!navigator.geolocation) {
+      setLocation(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Geolocation is not supported by your browser'
+      }));
+      setIsLocationServiceAvailable(false);
+      return;
+    }
+
+    setIsLocationServiceAvailable(true);
+
+    const TARGET_ACCURACY = 30;
+    const MAX_WATCH_TIME = 15000;
+    let bestPosition = null;
+    let resolved = false;
+
+    const finalize = async (position) => {
+      if (resolved) return;
+      resolved = true;
+
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+
+      const { latitude, longitude, accuracy } = position.coords;
+      console.log(`Location captured: lat=${latitude}, lng=${longitude}, accuracy=${accuracy}m`);
+
+      let withinRange = false;
+      let distance = null;
+
+      if (selectedCustomer?.latitude && selectedCustomer?.longitude) {
+        distance = calculateDistance(
+          latitude, longitude,
+          parseFloat(selectedCustomer.latitude), 
+          parseFloat(selectedCustomer.longitude)
+        );
+        withinRange = distance <= MAX_DISTANCE_METERS;
+        console.log(`Distance from customer: ${distance?.toFixed(2)}m, Within range: ${withinRange}`);
+      }
+
+      const address = await getAddressFromCoordinates(latitude, longitude);
+
+      setLocation({
+        latitude,
+        longitude,
+        address,
+        loading: false,
+        error: null,
+        withinRange,
+        distance: distance ? distance.toFixed(2) : null,
+        lastUpdated: new Date().toISOString()
+      });
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (!resolved && bestPosition) {
+        console.log(`Max watch time reached, using best position`);
+        finalize(bestPosition);
+      } else if (!resolved) {
+        resolved = true;
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        setLocation(prev => ({
+          ...prev,
+          loading: false,
+          error: 'Could not get accurate location. Please try again.'
+        }));
+      }
+    }, MAX_WATCH_TIME);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const { accuracy } = position.coords;
+        console.log(`watchPosition update: accuracy=${accuracy}m`);
+
+        if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
+          bestPosition = position;
+        }
+
+        if (accuracy <= TARGET_ACCURACY) {
+          clearTimeout(timeoutId);
+          finalize(position);
+        }
+      },
+      (error) => {
+        clearTimeout(timeoutId);
+        if (resolved) return;
+        resolved = true;
+
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+
+        let errorMessage = 'Unable to retrieve your location. ';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please enable location permissions.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.';
+            break;
+          default:
+            errorMessage += 'Please try again.';
+        }
+        setLocation(prev => ({ ...prev, loading: false, error: errorMessage }));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
+  }, [selectedCustomer]);
+
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
     fetchVisitLogs();
     fetchStatistics();
+    
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
-  // OTP Timer effect - FIXED: Stop timer when OTP is verified
+  // Recalculate distance when location or selected customer changes
+  useEffect(() => {
+    if (location.latitude && location.longitude && selectedCustomer?.latitude && selectedCustomer?.longitude) {
+      const distance = calculateDistance(
+        location.latitude, location.longitude,
+        parseFloat(selectedCustomer.latitude), 
+        parseFloat(selectedCustomer.longitude)
+      );
+      const withinRange = distance <= MAX_DISTANCE_METERS;
+
+      setLocation(prev => {
+        if (prev.distance === distance?.toFixed(2) && prev.withinRange === withinRange) {
+          return prev;
+        }
+        return {
+          ...prev,
+          distance: distance ? distance.toFixed(2) : null,
+          withinRange,
+          lastUpdated: prev.lastUpdated || new Date().toISOString()
+        };
+      });
+    }
+  }, [location.latitude, location.longitude, selectedCustomer]);
+
+  // OTP Timer effect
   useEffect(() => {
     let interval;
-    // Only run timer if OTP is sent AND not verified AND timer > 0
     if (otpSent && !otpVerified && otpTimer > 0) {
       interval = setInterval(() => {
         setOtpTimer(prev => prev - 1);
       }, 1000);
     } else if (otpTimer === 0 && otpSent && !otpVerified) {
-      // Only expire if not verified
       setOtpSent(false);
       setGeneratedOtp('');
       setOtpMessage('OTP expired. Please request a new one.');
     }
     return () => clearInterval(interval);
-  }, [otpTimer, otpSent, otpVerified]); // Added otpVerified dependency
+  }, [otpTimer, otpSent, otpVerified]);
 
-  // Fetch customers from API
+  // Fetch customers from API (now includes location data)
   const fetchCustomers = async () => {
     try {
       setLoading(true);
@@ -113,7 +325,6 @@ const VisitLogsForm = () => {
       setCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
-      console.error('Error response:', error.response?.data);
       alert('Failed to fetch customers: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
@@ -155,7 +366,22 @@ const VisitLogsForm = () => {
         customer_id: customer.id,
         customer_name: customer.full_name
       }));
-      setCustomerEmail(customer.email || ''); // email comes from backend as 'email' alias
+      setCustomerEmail(customer.email || '');
+      
+      // Reset location and get fresh location when customer changes
+      setLocation({
+        latitude: null,
+        longitude: null,
+        address: '',
+        loading: false,
+        error: null,
+        withinRange: false,
+        distance: null,
+        lastUpdated: null
+      });
+      
+      // Get fresh location for the new customer
+      setTimeout(() => getCurrentLocation(), 100);
     } else {
       setSelectedCustomer(null);
       setFormData(prev => ({
@@ -185,6 +411,64 @@ const VisitLogsForm = () => {
     }));
   };
 
+  // Validate location before sending OTP or logging visit
+  const validateLocation = () => {
+    if (!location.latitude || !location.longitude) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Location Required',
+        text: 'Please enable location services to proceed.'
+      });
+      return false;
+    }
+
+    if (!selectedCustomer?.latitude || !selectedCustomer?.longitude) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Customer Location Missing',
+        text: 'This customer does not have location data. Please contact administrator.'
+      });
+      return false;
+    }
+
+    const distance = calculateDistance(
+      location.latitude, location.longitude,
+      parseFloat(selectedCustomer.latitude), 
+      parseFloat(selectedCustomer.longitude)
+    );
+    const withinRange = distance <= MAX_DISTANCE_METERS;
+
+    if (!withinRange) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Outside Allowed Range',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>You are not within the allowed visit range.</strong></p>
+            <p>You must be within <strong>${MAX_DISTANCE_METERS} meters</strong> of the customer's location to log a visit.</p>
+            <p><strong>Distance: ${distance?.toFixed(2)} meters</strong></p>
+            <hr>
+            <p><strong>Customer Location:</strong></p>
+            <p style="font-size: 0.9em; color: #666;">Lat: ${parseFloat(selectedCustomer.latitude).toFixed(6)}, Lng: ${parseFloat(selectedCustomer.longitude).toFixed(6)}</p>
+            <p><strong>Your Location:</strong></p>
+            <p style="font-size: 0.9em; color: #666;">Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}</p>
+          </div>
+        `,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Refresh Location',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          getCurrentLocation();
+        }
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   // Send OTP to customer
   const handleSendOTP = async () => {
     if (!selectedCustomer) {
@@ -194,6 +478,11 @@ const VisitLogsForm = () => {
 
     if (!customerEmail) {
       setOtpError('Customer email not found');
+      return;
+    }
+
+    // Validate location before sending OTP
+    if (!validateLocation()) {
       return;
     }
 
@@ -210,11 +499,11 @@ const VisitLogsForm = () => {
 
       if (response.data.success) {
         setOtpSent(true);
-        setOtpVerified(false); // Ensure verified is false
-        setGeneratedOtp(response.data.otp); // For testing only - remove in production
-        setOtpTimer(600); // 10 minutes in seconds
+        setOtpVerified(false);
+        setGeneratedOtp(response.data.otp);
+        setOtpTimer(600);
         setOtpMessage(`✅ OTP sent to ${customerEmail}`);
-        setFormData(prev => ({ ...prev, otp: '' })); // Clear OTP input
+        setFormData(prev => ({ ...prev, otp: '' }));
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
@@ -236,13 +525,10 @@ const VisitLogsForm = () => {
       return;
     }
 
-    // In production, you should verify OTP on backend
-    // For now, we'll verify locally (remove in production)
     if (formData.otp === generatedOtp) {
       setOtpVerified(true);
       setOtpMessage('✅ OTP verified successfully!');
       setOtpError('');
-      // Timer will stop automatically due to otpVerified being true in useEffect
     } else {
       setOtpError('❌ Invalid OTP. Please try again.');
     }
@@ -261,61 +547,77 @@ const VisitLogsForm = () => {
       return;
     }
 
+    // Validate location again before saving
+    if (!validateLocation()) {
+      return;
+    }
+
     try {
       setLoading(true);
 
       const response = await axios.post(`${baseURL}/visit-logs/save-visit-log`, {
         ...formData,
         salesperson_id: salespersonId,
-        source_by: sourceBy
+        source_by: sourceBy,
+        salesperson_latitude: location.latitude,
+        salesperson_longitude: location.longitude,
+        customer_latitude: selectedCustomer.latitude,
+        customer_longitude: selectedCustomer.longitude,
+        distance_meters: location.distance,
+        location_verified: location.withinRange
       });
 
-      // After successful save
-if (response.data.success) {
-  alert('✅ Visit logged successfully!');
-  
-  // Set session flag
-  sessionStorage.setItem('visitLogCompleted', 'true');
-  
-  // Ask if they want to go to dashboard or continue logging
-  Swal.fire({
-    title: 'Visit Logged Successfully!',
-    text: 'What would you like to do next?',
-    icon: 'success',
-    showDenyButton: true,
-    confirmButtonColor: '#f59e0b',
-    denyButtonColor: '#3b82f6',
-    confirmButtonText: 'Go to Dashboard',
-    denyButtonText: 'Log Another Visit'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      navigate('/salesperson-dashboard');
-    }
-    // If denied, stay on visit logs page
-  });
+      if (response.data.success) {
+        // Set session flag
+        sessionStorage.setItem('visitLogCompleted', 'true');
+        
+        Swal.fire({
+          title: 'Visit Logged Successfully!',
+          text: 'What would you like to do next?',
+          icon: 'success',
+          showDenyButton: true,
+          confirmButtonColor: '#f59e0b',
+          denyButtonColor: '#3b82f6',
+          confirmButtonText: 'Go to Dashboard',
+          denyButtonText: 'Log Another Visit'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate('/salesperson-dashboard');
+          }
+        });
 
-  // Reset form (your existing code)
-  setFormData({
-    customer_id: '',
-    customer_name: '',
-    visit_date: today,
-    outcome: 'Follow Up',
-    notes: '',
-    otp: ''
-  });
-  setSelectedCustomer(null);
-  setCustomerEmail('');
-  setOtpSent(false);
-  setOtpVerified(false);
-  setGeneratedOtp('');
-  setOtpTimer(0);
-  setOtpMessage('');
-  setOtpError('');
+        // Reset form
+        setFormData({
+          customer_id: '',
+          customer_name: '',
+          visit_date: today,
+          outcome: 'Follow Up',
+          notes: '',
+          otp: ''
+        });
+        setSelectedCustomer(null);
+        setCustomerEmail('');
+        setOtpSent(false);
+        setOtpVerified(false);
+        setGeneratedOtp('');
+        setOtpTimer(0);
+        setOtpMessage('');
+        setOtpError('');
+        setLocation({
+          latitude: null,
+          longitude: null,
+          address: '',
+          loading: false,
+          error: null,
+          withinRange: false,
+          distance: null,
+          lastUpdated: null
+        });
 
-  // Refresh logs and statistics
-  fetchVisitLogs();
-  fetchStatistics();
-}
+        // Refresh logs and statistics
+        fetchVisitLogs();
+        fetchStatistics();
+      }
     } catch (error) {
       console.error('Error logging visit:', error);
       alert('❌ Failed to log visit. Please try again.');
@@ -341,7 +643,13 @@ if (response.data.success) {
       });
 
       if (response.data.success) {
-        alert('✅ Visit log updated successfully');
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated',
+          text: 'Visit log updated successfully',
+          timer: 1500,
+          showConfirmButton: false
+        });
         setShowEditModal(false);
         fetchVisitLogs();
         fetchStatistics();
@@ -354,12 +662,28 @@ if (response.data.success) {
 
   // Handle delete
   const handleDelete = async (visit_id) => {
-    if (window.confirm('Are you sure you want to delete this visit log?')) {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'This action cannot be undone!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
       try {
         const response = await axios.delete(`${baseURL}/visit-logs/delete/${visit_id}`);
 
         if (response.data.success) {
-          alert('✅ Visit log deleted successfully');
+          Swal.fire({
+            icon: 'success',
+            title: 'Deleted',
+            text: 'Visit log deleted successfully',
+            timer: 1500,
+            showConfirmButton: false
+          });
           fetchVisitLogs();
           fetchStatistics();
         }
@@ -392,12 +716,100 @@ if (response.data.success) {
     { value: 'Other', label: 'Other', color: 'secondary', icon: '📝' }
   ];
 
+  // Render location status
+  const renderLocationStatus = () => {
+    if (location.loading) {
+      return (
+        <div className="vl-location-loading">
+          <FaSpinner className="fa-spin" />
+          <span>Getting your location...</span>
+        </div>
+      );
+    }
+
+    if (location.error) {
+      return (
+        <div className="vl-location-error">
+          <FaExclamationTriangle />
+          <span>{location.error}</span>
+          <button onClick={getCurrentLocation} className="vl-retry-btn">
+            <FaCrosshairs /> Retry
+          </button>
+        </div>
+      );
+    }
+
+    if (!selectedCustomer) {
+      return (
+        <div className="vl-location-info">
+          <FaMapMarkerAlt />
+          <span>Select a customer to verify location</span>
+        </div>
+      );
+    }
+
+    if (!selectedCustomer?.latitude || !selectedCustomer?.longitude) {
+      return (
+        <div className="vl-location-warning">
+          <FaExclamationTriangle />
+          <span>Customer location not available</span>
+        </div>
+      );
+    }
+
+    if (!location.latitude || !location.longitude) {
+      return (
+        <div className="vl-location-warning">
+          <FaExclamationTriangle />
+          <span>Waiting for your location...</span>
+          <button onClick={getCurrentLocation} className="vl-retry-btn">
+            <FaCrosshairs /> Get Location
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="vl-location-details">
+        <p className="vl-address">
+          <FaMapMarkerAlt /> {location.address}
+        </p>
+        <p className="vl-coordinates">
+          Your Location: {location.latitude?.toFixed(6)}, {location.longitude?.toFixed(6)}
+        </p>
+        <p className="vl-coordinates">
+          Customer Location: {parseFloat(selectedCustomer.latitude).toFixed(6)}, {parseFloat(selectedCustomer.longitude).toFixed(6)}
+        </p>
+        {location.distance && (
+          <div className={`vl-distance-indicator ${location.withinRange ? 'within-range' : 'outside-range'}`}>
+            <FaCheckCircle className={location.withinRange ? 'text-success' : 'text-danger'} />
+            <span>
+              Distance: {location.distance} meters
+              {location.withinRange
+                ? ` ✓ (Within ${MAX_DISTANCE_METERS}m range)`
+                : ` ✗ (Outside ${MAX_DISTANCE_METERS}m range)`}
+            </span>
+          </div>
+        )}
+        {!location.withinRange && location.latitude && (
+          <div className="vl-location-warning-message">
+            <FaExclamationTriangle />
+            <span>You must be within {MAX_DISTANCE_METERS}m of the customer to log a visit</span>
+            <button onClick={getCurrentLocation} className="vl-refresh-btn">
+              <FaCrosshairs /> Refresh Location
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <Navbar />
       <div className="vl-main-container" style={{ marginTop: '60px' }}>
         <Container className="vl-container">
-          {/* Header Card - NEW */}
+          {/* Header Card */}
           <Row className="vl-header-card-row mb-4">
             <Col md={12}>
               <div className="vl-header-card">
@@ -506,7 +918,7 @@ if (response.data.success) {
                       <option value="">-- Select Customer --</option>
                       {customers.map(customer => (
                         <option key={customer.id} value={customer.id}>
-                          {customer.full_name}
+                          {customer.full_name} {customer.latitude ? '📍' : '⚠️'}
                         </option>
                       ))}
                     </Form.Select>
@@ -565,6 +977,25 @@ if (response.data.success) {
               </Row>
             </Col>
 
+            {/* Location Section */}
+            <Col md={12} className="vl-location-section">
+              <div className="vl-location-card">
+                <div className="vl-location-header">
+                  <FaMapMarkerAlt className="vl-location-icon" />
+                  <h4>Location Verification</h4>
+                  <button 
+                    onClick={getCurrentLocation} 
+                    className="vl-refresh-location-btn" 
+                    title="Refresh Location" 
+                    disabled={location.loading}
+                  >
+                    <FaCrosshairs spin={location.loading} />
+                  </button>
+                </div>
+                {renderLocationStatus()}
+              </div>
+            </Col>
+
             {/* OTP Section */}
             {selectedCustomer && (
               <Col md={12} className="vl-otp-section">
@@ -580,7 +1011,7 @@ if (response.data.success) {
                     <Button
                       variant="warning"
                       onClick={handleSendOTP}
-                      disabled={otpSent || otpVerified || !customerEmail || otpSending}
+                      disabled={otpSent || otpVerified || !customerEmail || otpSending || !location.withinRange}
                       className="vl-otp-send-btn"
                     >
                       {otpSending ? 'Sending...' : otpSent ? (
@@ -649,8 +1080,9 @@ if (response.data.success) {
               <Button
                 variant="primary"
                 onClick={handleLogVisit}
-                disabled={!otpVerified || loading}
+                disabled={!otpVerified || loading || !location.withinRange}
                 className="vl-log-btn"
+                title={!location.withinRange ? 'You must be within range of the customer' : ''}
               >
                 {loading ? 'Logging...' : '📝 Log Visit'}
               </Button>
@@ -681,6 +1113,7 @@ if (response.data.success) {
                       <th>Date</th>
                       <th>Customer</th>
                       <th>Outcome</th>
+                      <th>Distance</th>
                       <th>Notes</th>
                       <th>OTP Status</th>
                       <th>Actions</th>
@@ -689,7 +1122,7 @@ if (response.data.success) {
                   <tbody>
                     {loading && !visitLogs.length ? (
                       <tr>
-                        <td colSpan="7" className="vl-loading-cell">Loading...</td>
+                        <td colSpan="8" className="vl-loading-cell">Loading...</td>
                       </tr>
                     ) : visitLogs.length > 0 ? (
                       visitLogs.map((log, index) => {
@@ -703,6 +1136,13 @@ if (response.data.success) {
                               <span className={`vl-badge vl-badge-${outcomeOption?.color || 'secondary'}`}>
                                 {outcomeOption?.icon} {log.outcome}
                               </span>
+                            </td>
+                            <td>
+                              {log.distance_meters ? (
+                                <span className={log.distance_meters <= MAX_DISTANCE_METERS ? 'text-success' : 'text-danger'}>
+                                  {log.distance_meters}m
+                                </span>
+                              ) : '-'}
                             </td>
                             <td className="vl-notes-cell">{log.notes || '-'}</td>
                             <td>
@@ -738,7 +1178,7 @@ if (response.data.success) {
                       })
                     ) : (
                       <tr>
-                        <td colSpan="7" className="vl-empty-cell">No visit logs found</td>
+                        <td colSpan="8" className="vl-empty-cell">No visit logs found</td>
                       </tr>
                     )}
                   </tbody>
@@ -817,6 +1257,12 @@ if (response.data.success) {
                   {outcomeOptions.find(o => o.value === viewingLog.outcome)?.icon} {viewingLog.outcome}
                 </span>
               </div>
+              {viewingLog.distance_meters && (
+                <div className="vl-detail-item">
+                  <span className="vl-detail-label">Distance:</span>
+                  <span className="vl-detail-value">{viewingLog.distance_meters} meters</span>
+                </div>
+              )}
               <div className="vl-detail-item">
                 <span className="vl-detail-label">Notes:</span>
                 <span className="vl-detail-value">{viewingLog.notes || 'No notes'}</span>

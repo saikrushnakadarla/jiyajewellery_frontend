@@ -916,3 +916,205 @@
     align-items: center;
   }
 }
+
+/* Location Section Styles */
+.vl-location-section {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.vl-location-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.vl-location-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.vl-location-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.vl-location-icon {
+  color: #f59e0b;
+  font-size: 20px;
+}
+
+.vl-refresh-location-btn {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.vl-refresh-location-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  color: #f59e0b;
+}
+
+.vl-refresh-location-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vl-location-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6c757d;
+  padding: 10px;
+  background: #fff3cd;
+  border-radius: 4px;
+}
+
+.vl-location-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #dc3545;
+  padding: 10px;
+  background: #f8d7da;
+  border-radius: 4px;
+}
+
+.vl-location-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6c757d;
+  padding: 10px;
+  background: #e2e3e5;
+  border-radius: 4px;
+}
+
+.vl-location-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #856404;
+  padding: 10px;
+  background: #fff3cd;
+  border-radius: 4px;
+}
+
+.vl-location-details {
+  padding: 10px;
+  background: white;
+  border-radius: 4px;
+}
+
+.vl-address {
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vl-coordinates {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 5px;
+  font-family: monospace;
+}
+
+.vl-distance-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.vl-distance-indicator.within-range {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.vl-distance-indicator.outside-range {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.vl-location-warning-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  color: #856404;
+  margin-top: 10px;
+}
+
+.vl-retry-btn,
+.vl-refresh-btn {
+  margin-left: auto;
+  padding: 5px 10px;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vl-retry-btn:hover,
+.vl-refresh-btn:hover {
+  background: #d4880a;
+}
+
+/* OTP button disabled when outside range */
+.vl-otp-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Log button disabled when outside range */
+.vl-log-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Text colors for distance */
+.text-success {
+  color: #28a745 !important;
+  font-weight: 500;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
