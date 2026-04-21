@@ -1,3 +1,5 @@
+/* EstimateTable.css - Updated to fix shaking effect */
+
 .estimates-table-container {
     max-width: 1500px;
     margin: auto;
@@ -127,13 +129,16 @@
     border-color: #8d5e24 !important;
 }
 
-/* Modal Styles */
+/* Modal Styles - Fixed to prevent shaking */
 .modal-xl {
     max-width: 95%;
 }
 
 .modal-content {
     border-radius: 10px;
+    /* Remove any transform transitions that might cause shaking */
+    transform: none !important;
+    transition: none !important;
 }
 
 .modal-header {
@@ -144,6 +149,16 @@
 .modal-title {
     color: #495057;
     font-weight: 600;
+}
+
+/* Fix Bootstrap modal transitions */
+.modal.fade .modal-dialog {
+    transition: transform 0.2s ease-out !important;
+    transform: translate(0, -25px);
+}
+
+.modal.show .modal-dialog {
+    transform: translate(0, 0) !important;
 }
 
 /* Loading Spinner */
@@ -161,36 +176,36 @@
 
 /* Watermark Styles */
 .watermark-container {
-  position: relative;
-  min-height: 100vh;
-  background: white;
+    position: relative;
+    min-height: 100vh;
+    background: white;
 }
 
 .watermark-container::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url('../../../Pages/images/jiya_logo.png');
-  background-repeat: repeat;
-  background-position: center;
-  background-size: 200px;
-  opacity: 0.11;  /* Adjust this value (0.05 to 0.2) for desired visibility */
-  pointer-events: none;
-  z-index: 1;
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('../../../Pages/images/jiya_logo.png');
+    background-repeat: repeat;
+    background-position: center;
+    background-size: 200px;
+    opacity: 0.11;
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* Ensure content appears above watermark */
 .main-container {
-  position: relative;
-  z-index: 2;
+    position: relative;
+    z-index: 2;
 }
 
 .estimates-table-container {
-  position: relative;
-  z-index: 2;
+    position: relative;
+    z-index: 2;
 }
 
 /* Responsive Design */
@@ -255,4 +270,147 @@
 
 .action-icons svg:hover {
     transform: scale(1.2);
+}
+
+/* Packet Images Container - Fixed to prevent shaking */
+.packet-images-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 5px;
+}
+
+.packet-image-thumbnail {
+    display: inline-block;
+    margin: 5px;
+    cursor: pointer;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    padding: 3px;
+    /* Use will-change for better performance */
+    will-change: transform, box-shadow;
+    /* Slower, smoother transitions */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* Prevent layout shifts */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.packet-image-thumbnail:hover {
+    border-color: #a36e29;
+    box-shadow: 0 4px 8px rgba(163, 110, 41, 0.2);
+    /* Use translate3d for hardware acceleration */
+    transform: translate3d(0, -2px, 0);
+}
+
+.packet-image-thumbnail img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 3px;
+    /* Prevent image from causing layout shifts */
+    display: block;
+    /* Use hardware acceleration */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+
+/* Packet Barcode Styles */
+.packet-barcode-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+}
+
+.packet-barcode-display svg {
+    color: #a36e29;
+    font-size: 1.2em;
+}
+
+/* Modal Image Preview - Fixed */
+.modal-content .packet-images-container {
+    justify-content: flex-start;
+}
+
+/* Fix for image modal preview */
+.modal-body img {
+    /* Prevent shaking in modal */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Responsive adjustments for packet images */
+@media (max-width: 768px) {
+    .packet-image-thumbnail img {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .packet-images-container {
+        gap: 5px;
+    }
+}
+
+/* Badge styles for packet weight */
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+    color: white;
+    font-size: 0.8em;
+    padding: 5px 8px;
+}
+
+/* Table cell with barcode */
+.dataTable_cell .fa-barcode {
+    margin-right: 5px;
+}
+
+/* Image modal backdrop */
+.modal-backdrop.show {
+    opacity: 0.7;
+}
+
+/* Override Bootstrap modal transitions to prevent shaking */
+.modal-dialog {
+    transition: transform 0.2s ease-out !important;
+}
+
+.modal.fade .modal-dialog {
+    transform: translate(0, -25px) !important;
+}
+
+.modal.show .modal-dialog {
+    transform: translate(0, 0) !important;
+}
+
+/* Disable transitions during modal close to prevent visual glitches */
+.modal.fade:not(.show) {
+    opacity: 0;
+}
+
+/* Ensure images don't cause reflow */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+
+/* Fix image shaking */
+.packet-image-thumbnail {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.packet-image-thumbnail:hover {
+  border-color: #a36e29;
+  box-shadow: 0 4px 8px rgba(163, 110, 41, 0.2);
+}
+
+/* Prevent modal image shake */
+.modal-body img {
+  transition: none !important;
+  animation: none !important;
 }

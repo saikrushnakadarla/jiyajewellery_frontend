@@ -3,8 +3,8 @@ import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table, Form, Badge } from 'react-bootstrap';
+import { FaEdit, FaTrash, FaEye, FaBarcode, FaImage } from 'react-icons/fa';
+import { Button, Row, Col, Modal, Table, Form, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import Navbar from '../../../Pages/Navbar/Navbar';
 import './EstimateTable.css';
@@ -55,6 +55,8 @@ const EstimateTable = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [repairDetails, setRepairDetails] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -112,6 +114,20 @@ const EstimateTable = () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
+  }, []);
+
+  // Parse pack images safely
+  const parsePackImages = useCallback((packImages) => {
+    if (!packImages) return [];
+    try {
+      if (typeof packImages === 'string') {
+        return JSON.parse(packImages);
+      }
+      return Array.isArray(packImages) ? packImages : [];
+    } catch (error) {
+      console.error('Error parsing pack images:', error);
+      return [];
+    }
   }, []);
 
   const handleEdit = useCallback(async (estimate_number, mobile) => {
@@ -201,7 +217,6 @@ const EstimateTable = () => {
     }
   }, []);
 
-  // Update the handleViewDetails function
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
       const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
@@ -222,6 +237,9 @@ const EstimateTable = () => {
           details.uniqueData.estimate_status = currentEstimate.estimate_status || currentEstimate.status || 'Pending';
           details.uniqueData.order_number = currentEstimate.order_number || details.uniqueData?.order_number;
           details.uniqueData.order_date = currentEstimate.order_date || details.uniqueData?.order_date;
+          details.uniqueData.packet_barcode = currentEstimate.packet_barcode || details.uniqueData?.packet_barcode;
+          details.uniqueData.packet_wt = currentEstimate.packet_wt || details.uniqueData?.packet_wt;
+          details.uniqueData.pack_images = currentEstimate.pack_images || details.uniqueData?.pack_images;
         }
       }
       
@@ -238,11 +256,21 @@ const EstimateTable = () => {
     setRepairDetails(null);
   }, []);
 
+  const handleImageClick = useCallback((imageUrl) => {
+    setSelectedImage(imageUrl);
+    setShowImageModal(true);
+  }, []);
+
+  const handleCloseImageModal = useCallback(() => {
+    setShowImageModal(false);
+    setSelectedImage(null);
+  }, []);
+
   const handleCreate = useCallback(() => {
     navigate('/estimates');
   }, [navigate]);
 
-  // Define columns separately to avoid dependency issues
+  // Define columns with Packet Barcode
   const columns = useMemo(() => [
     {
       Header: 'Sr. No.',
@@ -266,6 +294,20 @@ const EstimateTable = () => {
     {
       Header: 'Estimate Number',
       accessor: 'estimate_number',
+    },
+    {
+      Header: 'Packet Barcode',
+      accessor: 'packet_barcode',
+      Cell: ({ value }) => {
+        return value ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <FaBarcode style={{ color: '#a36e29' }} />
+            <span style={{ fontWeight: '500' }}>{value}</span>
+          </div>
+        ) : (
+          <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>
+        );
+      },
     },
     {
       Header: 'Order Number',
@@ -303,10 +345,8 @@ const EstimateTable = () => {
       Header: 'Status',
       accessor: 'estimate_status',
       Cell: ({ value }) => {
-        // Get current status with fallback
         const currentStatus = value || 'Pending';
         
-        // Define status colors and styles
         const getStatusStyle = (status) => {
           switch(status) {
             case 'Pending':
@@ -401,10 +441,8 @@ const EstimateTable = () => {
     },
   ], [handleEdit, handleDelete, handleViewDetails]);
 
-  // Memoize table data
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
 
-  // React Table instance
   const {
     getTableProps,
     getTableBodyProps,
@@ -568,6 +606,92 @@ const EstimateTable = () => {
                       <td>{repairDetails.uniqueData?.estimate_number}</td>
                     </tr>
                     <tr>
+                      <td>Packet Barcode</td>
+                      <td>
+                        {repairDetails.uniqueData?.packet_barcode ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FaBarcode style={{ color: '#a36e29' }} />
+                            <strong>{repairDetails.uniqueData.packet_barcode}</strong>
+                            {repairDetails.uniqueData?.packet_wt && (
+                              <Badge bg="info" style={{ marginLeft: '10px' }}>
+                                Weight: {repairDetails.uniqueData.packet_wt}g
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
+                            N/A
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Packet Images</td>
+                      <td>
+
+{repairDetails.uniqueData?.pack_images ? (
+  <div className="packet-images-container">
+    {parsePackImages(repairDetails.uniqueData.pack_images).map((image, index) => (
+      <OverlayTrigger
+        key={index}
+        placement="top"
+        overlay={<Tooltip id={`tooltip-${index}`}>Click to view full image</Tooltip>}
+      >
+        <div 
+          className="packet-image-thumbnail"
+          onClick={() => handleImageClick(image)}
+          style={{
+            display: 'inline-block',
+            margin: '5px',
+            cursor: 'pointer',
+            border: '2px solid #ddd',
+            borderRadius: '5px',
+            padding: '3px',
+            transition: 'border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease',
+            willChange: 'transform, box-shadow',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <img 
+            src={`${baseURL}/pack-images/${image}`}
+            alt={`Packet ${index + 1}`}
+            style={{
+              width: '100px',
+              height: '100px',
+              objectFit: 'cover',
+              borderRadius: '3px',
+              display: 'block',
+              transform: 'translateZ(0)',
+              WebkitTransform: 'translateZ(0)'
+            }}
+            loading="lazy"
+            onError={(e) => {
+              e.target.src = '/placeholder-image.png';
+              e.target.alt = 'Image not found';
+            }}
+          />
+          <div style={{ fontSize: '11px', textAlign: 'center', marginTop: '3px' }}>
+            <FaImage /> Image {index + 1}
+          </div>
+        </div>
+      </OverlayTrigger>
+    ))}
+  </div>
+) : (
+  <span className="text-muted" style={{ fontStyle: 'italic' }}>
+    No images available
+  </span>
+)}
+                      </td>
+                    </tr>
+                    <tr>
                       <td>Order Number</td>
                       <td>
                         {repairDetails.uniqueData?.order_number ? (
@@ -671,6 +795,47 @@ const EstimateTable = () => {
             </Button>
           </Modal.Footer>
         </Modal>
+
+        {/* Image Preview Modal */}
+        {/* Image Preview Modal - Fixed version */}
+<Modal 
+  show={showImageModal} 
+  onHide={handleCloseImageModal} 
+  size="lg" 
+  centered
+  className="image-preview-modal"
+>
+  <Modal.Header closeButton>
+    <Modal.Title>Packet Image Preview</Modal.Title>
+  </Modal.Header>
+  <Modal.Body className="text-center" style={{ padding: '20px' }}>
+    {selectedImage && (
+      <img 
+        src={`${baseURL}/pack-images/${selectedImage}`}
+        alt="Packet"
+        style={{
+          maxWidth: '100%',
+          maxHeight: '80vh',
+          objectFit: 'contain',
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden'
+        }}
+        loading="eager"
+        onError={(e) => {
+          e.target.src = '/placeholder-image.png';
+          e.target.alt = 'Image not found';
+        }}
+      />
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleCloseImageModal}>
+      Close
+    </Button>
+  </Modal.Footer>
+</Modal>
       </div>
       </div>
     </>
