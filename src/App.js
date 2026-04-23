@@ -54,6 +54,14 @@ import SalespersonReports from './Components/Modules/SalesPerson/Reports/Salespe
 // Import the Screenshot Protection Component
 import ScreenshotProtection from './Components/Pages/ScreenshotProtection/ScreenshotProtection';
 
+
+import LeaveManagement from './Components/Modules/SalesPerson/LeaveManagement/LeaveManagement';
+import AddLeaveRequest from './Components/Modules/SalesPerson/LeaveManagement/AddLeaveManagement';
+
+
+import LeavesApproval from './Components/Modules/Admin/LeaveApproval/LeaveApproval';
+
+
 function App() {
   const [count, setCount] = useState(0);
 
@@ -121,6 +129,12 @@ function App() {
           <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />
           <Route path='/customerreports' element={<CustomerReports />} />
           <Route path='/salespersonreports' element={<SalespersonReports />} />
+
+          <Route path="/leave-management" element={<LeaveManagement />} />
+          <Route path="/add-leave-request" element={<AddLeaveRequest />} />
+
+          <Route path="/leaves-approval" element={<LeavesApproval />} />
+
         </Routes>
       </ScreenshotProtection>
     </Router>

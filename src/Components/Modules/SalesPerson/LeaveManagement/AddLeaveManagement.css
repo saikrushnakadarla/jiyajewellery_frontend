@@ -1,0 +1,150 @@
+.leave-request-container {
+    max-width: 100% !important;
+    width: 100%;
+    margin: auto;
+    padding: 20px;
+    margin-top: 12px;
+    padding-top: 50px;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.leave-request-form-section {
+    padding: 40px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: rgba(163, 110, 41, 0.08);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.form-title {
+    color: #a36e29;
+    margin-bottom: 30px;
+    font-size: 24px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.required-star {
+    color: #dc3545;
+    margin-left: 2px;
+}
+
+.leave-type-options {
+    padding: 10px 0;
+}
+
+.leave-type-options .form-check {
+    margin-right: 30px;
+}
+
+.leave-type-options .form-check-input:checked {
+    background-color: #a36e29;
+    border-color: #a36e29;
+}
+
+.file-upload-wrapper {
+    position: relative;
+}
+
+.file-name-display {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.cancel-btn {
+    min-width: 100px;
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    font-size: 14px !important;
+    padding: 8px 20px !important;
+}
+
+.cancel-btn:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+
+.save-btn {
+    min-width: 100px;
+    background-color: #a36e29 !important;
+    border-color: #a36e29 !important;
+    font-size: 14px !important;
+    padding: 8px 20px !important;
+}
+
+.save-btn:hover {
+    background-color: #8d5e24 !important;
+    border-color: #8d5e24 !important;
+}
+
+.save-btn:disabled {
+    background-color: #a36e29 !important;
+    border-color: #a36e29 !important;
+    opacity: 0.7;
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: #a36e29;
+    box-shadow: 0 0 0 0.2rem rgba(163, 110, 41, 0.25);
+}
+
+/* Full width styles */
+.main-container {
+    padding: 20px;
+    max-width: 100%;
+}
+
+.container {
+    max-width: 100% !important;
+    padding: 0 30px;
+}
+
+/* Make form inputs wider */
+.form-control,
+.form-select {
+    width: 100%;
+    padding: 10px 15px;
+    font-size: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .leave-request-container {
+        margin-top: 20px;
+        padding-top: 20px;
+    }
+    
+    .leave-request-form-section {
+        padding: 20px;
+    }
+    
+    .form-title {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .cancel-btn,
+    .save-btn {
+        min-width: 80px;
+        padding: 6px 16px !important;
+    }
+    
+    .container {
+        padding: 0 15px;
+    }
+}
+
+@media (min-width: 1400px) {
+    .leave-request-form-section {
+        max-width: 1400px;
+    }
+}

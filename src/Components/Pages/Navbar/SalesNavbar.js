@@ -133,6 +133,14 @@ const handleLogout = () => {
         </div> */}
 
 
+            <Link
+              to="/leave-management"
+              onClick={handleItemClick}
+              className={isActive('/leave-management')}
+            >
+              LEAVE MANAGEMENT
+            </Link>
+
         <Link
             to="/salesperson-transactions"
             onClick={handleItemClick}

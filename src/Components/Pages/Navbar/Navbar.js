@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { FaSignOutAlt } from "react-icons/fa";
-import logo from '../images/jiya_logo.png'; // Uncomment when you have the logo
+import logo from '../images/jiya_logo.png';
 import './Navbar.css';
 import Swal from 'sweetalert2';
 
@@ -62,11 +62,8 @@ function Navbar() {
 
   return (
     <header className="navbar-header">
-      {/* Logo on the left side */}
       <div className="navbar-brand">
-        {/* Uncomment the line below when you have the logo file */}
         <img src={logo} alt="Logo" className="navbar-logo" />
-        {/* <div className="navbar-logo-placeholder">Company Logo</div> */}
       </div>
 
       <div
@@ -78,7 +75,6 @@ function Navbar() {
         <div className="navbar-bar"></div>
       </div>
 
-      {/* Centered nav links */}
       <nav className={`navbar-links ${isOpen ? 'open' : ''}`}>
         <div>
           <span>
@@ -117,14 +113,17 @@ function Navbar() {
               <Link to="/salespersontable" onClick={handleItemClick} className={isActive('/salespersontable')}>
                 Salesperson 
               </Link>
-              {/* New Salesperson Attendance link */}
               <Link to="/salesperson-attendance" onClick={handleItemClick} className={isActive('/salesperson-attendance')}>
                 Salesperson Attendance 
+              </Link>
+              {/* NEW - Leaves Approval added above Purity */}
+              <Link to="/leaves-approval" onClick={handleItemClick} className={isActive('/leaves-approval')}>
+                Leaves Approval
               </Link>
               <Link to="/purity" onClick={handleItemClick} className={isActive('/purity')}>
                 Purity 
               </Link>
-               <Link to="/rates" onClick={handleItemClick} className={isActive('/ratesmaster')}>
+              <Link to="/rates" onClick={handleItemClick} className={isActive('/ratesmaster')}>
                 Rates 
               </Link>
               <Link to="/designmaster" onClick={handleItemClick} className={isActive('/designmaster')}>
@@ -133,16 +132,15 @@ function Navbar() {
               <Link to="/metaltype" onClick={handleItemClick} className={isActive('/metaltype')}>
                 Metaltype 
               </Link>
-               <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
+              <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
                 Category 
               </Link>
-               <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
+              <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
                 Products 
               </Link>
               <Link to="/company-info" onClick={handleItemClick} className={isActive('/company-info')}>
                 Company Info
               </Link>
-              {/* New Loan Amount link added below Company Info */}
               <Link to="/loan-amount" onClick={handleItemClick} className={isActive('/loan-amount')}>
                 Loan Amount
               </Link>
@@ -150,53 +148,23 @@ function Navbar() {
           )}
         </div>
 
-
-        {/* <div
-          className="navbar-dropdown"
-          onMouseEnter={toggletransactionDropdown}
-          onMouseLeave={toggletransactionDropdown}
-        >
-          <span className="navbar-dropdown-title">
-            TRANSACTIONS{' '}
-            <FontAwesomeIcon
-              icon={transactionsDropdownOpen ? faChevronUp : faChevronDown}
-              className="dropdown-arrow-icon"
-            />
+        <div>
+          <span>
+            <Link
+              to="/transactions"
+              onClick={handleItemClick}
+              className={isActive('/transactions')}
+              style={{
+                color: window.location.pathname === '/transactions' ? '#a36e29' : 'black',
+                backgroundColor: 'transparent',
+                textDecoration: 'none',
+              }}
+            >
+              TRANSACTIONS
+            </Link>
           </span>
-          {transactionsDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/estimation" onClick={handleItemClick} className={isActive('/estimation')}>
-                Estimation
-              </Link>
-            
-              <Link to="/admin-visit-logs" onClick={handleItemClick} className={isActive('/visit-logs')}>
-                Visit Logs
-              </Link>
-            </div>
-          )}
-        </div> */}
+        </div>
 
-
-<div>
-  <span>
-    <Link
-      to="/transactions"
-      onClick={handleItemClick}
-      className={isActive('/transactions')}
-      style={{
-        color: window.location.pathname === '/transactions' ? '#a36e29' : 'black',
-        backgroundColor: 'transparent',
-        textDecoration: 'none',
-      }}
-    >
-      TRANSACTIONS
-    </Link>
-  </span>
-</div>
-
-
-
-        {/* REPORTS section with dropdown removed and new path added */}
         <div>
           <span>
             <Link
