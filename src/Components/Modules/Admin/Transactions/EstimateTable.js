@@ -1,22 +1,25 @@
+// Admin/src/components/Admin/Transactions/EstimateTable.js
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaEye, FaBarcode, FaImage } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table, Form, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { FaEdit, FaTrash, FaEye, FaBarcode, FaImage, FaFilePdf } from 'react-icons/fa';
+import { Button, Row, Col, Modal, Table, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import Navbar from '../../../Pages/Navbar/Navbar';
+import InvoicePreviewModal from './InvoicePDFPreview';
 import './EstimateTable.css';
 
+// ============================================================
 // Global Search Filter Component
+// ============================================================
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  const applyDateFilter = () => {
-    handleDateFilter(fromDate, toDate);
-  };
+  const applyDateFilter = () => handleDateFilter(fromDate, toDate);
 
   return (
     <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
@@ -41,13 +44,14 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
         className="form-control"
         style={{ maxWidth: '150px' }}
       />
-      <button onClick={applyDateFilter} className="btn btn-primary">
-        OK
-      </button>
+      <button onClick={applyDateFilter} className="btn btn-primary">OK</button>
     </div>
   );
 }
 
+// ============================================================
+// Main EstimateTable Component
+// ============================================================
 const EstimateTable = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
@@ -58,31 +62,49 @@ const EstimateTable = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
 
+  // ---------- Invoice Modal State ----------
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedEstimateNumber, setSelectedEstimateNumber] = useState(null);
+
+  // ============================================================
+  // FIX: Use sessionStorage so it resets every browser session.
+  // Admin must click "Generate PDF" each session to see "View".
+  // This prevents stale localStorage from auto-showing "View".
+  // ============================================================
+  const [generatedEstimates, setGeneratedEstimates] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('generatedInvoices');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Sync generatedEstimates → sessionStorage on every change
+  useEffect(() => {
+    sessionStorage.setItem('generatedInvoices', JSON.stringify(generatedEstimates));
+  }, [generatedEstimates]);
+
+  // ============================================================
+  // Fetch Data
+  // ============================================================
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${baseURL}/get-unique-estimates`);
-      
       const allEstimatesData = response.data || [];
-      
-      // Ensure all estimates have an estimate_status field
+
       const estimatesWithStatus = allEstimatesData.map(estimate => ({
         ...estimate,
-        estimate_status: estimate.estimate_status || estimate.status || 'Pending'
+        estimate_status: estimate.estimate_status || estimate.status || 'Pending',
       }));
-      
-      console.log('Fetched estimates with status:', estimatesWithStatus);
-      
+
       setData(estimatesWithStatus);
       setFilteredData(estimatesWithStatus);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching estimate details:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load estimates',
-      });
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load estimates' });
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -91,14 +113,15 @@ const EstimateTable = () => {
     fetchData();
   }, [fetchData]);
 
-  // Handle date filter
+  // ============================================================
+  // Date Filter Handler
+  // ============================================================
   const handleDateFilter = useCallback((fromDate, toDate) => {
     if (fromDate || toDate) {
       const filtered = data.filter((item) => {
         const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
         const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
         const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
-
         return (!from || itemDate >= from) && (!to || itemDate <= to);
       });
       setFilteredData(filtered);
@@ -116,13 +139,13 @@ const EstimateTable = () => {
     return `${day}/${month}/${year}`;
   }, []);
 
-  // Parse pack images safely
+  // ============================================================
+  // Parse Pack Images Safely
+  // ============================================================
   const parsePackImages = useCallback((packImages) => {
     if (!packImages) return [];
     try {
-      if (typeof packImages === 'string') {
-        return JSON.parse(packImages);
-      }
+      if (typeof packImages === 'string') return JSON.parse(packImages);
       return Array.isArray(packImages) ? packImages : [];
     } catch (error) {
       console.error('Error parsing pack images:', error);
@@ -130,6 +153,9 @@ const EstimateTable = () => {
     }
   }, []);
 
+  // ============================================================
+  // Handle Edit
+  // ============================================================
   const handleEdit = useCallback(async (estimate_number, mobile) => {
     const result = await Swal.fire({
       title: 'Are you sure?',
@@ -169,11 +195,7 @@ const EstimateTable = () => {
         }
 
         navigate('/estimates', {
-          state: {
-            estimate_number,
-            mobile,
-            entries: details,
-          },
+          state: { estimate_number, mobile, entries: details },
         });
       } catch (error) {
         console.error('Error fetching estimate details:', error);
@@ -182,15 +204,18 @@ const EstimateTable = () => {
     }
   }, [navigate]);
 
+  // ============================================================
+  // Handle Delete
+  // ============================================================
   const handleDelete = useCallback(async (estimateNumber) => {
     const result = await Swal.fire({
       title: 'Are you sure?',
-      text: `Do you really want to delete estimate ${estimateNumber}`,
+      text: `Do you really want to delete estimate ${estimateNumber}?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: 'Yes, delete it!',
     });
 
     if (result.isConfirmed) {
@@ -199,16 +224,20 @@ const EstimateTable = () => {
           method: 'DELETE',
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to delete estimate');
-        }
-        
-        // Refresh data after delete
+        if (!response.ok) throw new Error('Failed to delete estimate');
+
         const refreshResponse = await axios.get(`${baseURL}/get-unique-estimates`);
         const refreshedData = refreshResponse.data || [];
         setData(refreshedData);
         setFilteredData(refreshedData);
-        
+
+        // Also remove from session tracking
+        setGeneratedEstimates(prev => {
+          const updated = { ...prev };
+          delete updated[estimateNumber];
+          return updated;
+        });
+
         Swal.fire('Deleted!', 'The estimate has been deleted.', 'success');
       } catch (error) {
         console.error('Error deleting estimate:', error.message);
@@ -217,32 +246,27 @@ const EstimateTable = () => {
     }
   }, []);
 
+  // ============================================================
+  // Handle View Details
+  // ============================================================
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
       const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
       const details = response.data;
-      
-      // Fetch the latest estimate status from database
+
       const estimateResponse = await axios.get(`${baseURL}/get-unique-estimates`);
       const allEstimates = estimateResponse.data || [];
-      
-      // Find the specific estimate with this estimate_number
-      const currentEstimate = allEstimates.find(
-        est => est.estimate_number === estimate_number
-      );
-      
-      // Update the repairDetails with the current status and order info
-      if (currentEstimate) {
-        if (details.uniqueData) {
-          details.uniqueData.estimate_status = currentEstimate.estimate_status || currentEstimate.status || 'Pending';
-          details.uniqueData.order_number = currentEstimate.order_number || details.uniqueData?.order_number;
-          details.uniqueData.order_date = currentEstimate.order_date || details.uniqueData?.order_date;
-          details.uniqueData.packet_barcode = currentEstimate.packet_barcode || details.uniqueData?.packet_barcode;
-          details.uniqueData.packet_wt = currentEstimate.packet_wt || details.uniqueData?.packet_wt;
-          details.uniqueData.pack_images = currentEstimate.pack_images || details.uniqueData?.pack_images;
-        }
+      const currentEstimate = allEstimates.find(est => est.estimate_number === estimate_number);
+
+      if (currentEstimate && details.uniqueData) {
+        details.uniqueData.estimate_status = currentEstimate.estimate_status || currentEstimate.status || 'Pending';
+        details.uniqueData.order_number   = currentEstimate.order_number   ?? details.uniqueData.order_number;
+        details.uniqueData.order_date     = currentEstimate.order_date     ?? details.uniqueData.order_date;
+        details.uniqueData.packet_barcode = currentEstimate.packet_barcode ?? details.uniqueData.packet_barcode;
+        details.uniqueData.packet_wt      = currentEstimate.packet_wt      ?? details.uniqueData.packet_wt;
+        details.uniqueData.pack_images    = currentEstimate.pack_images    ?? details.uniqueData.pack_images;
       }
-      
+
       setRepairDetails(details);
       setShowModal(true);
     } catch (error) {
@@ -251,196 +275,240 @@ const EstimateTable = () => {
     }
   }, []);
 
-  const handleCloseModal = useCallback(() => {
-    setShowModal(false);
-    setRepairDetails(null);
+  const handleCloseModal      = useCallback(() => { setShowModal(false); setRepairDetails(null); }, []);
+  const handleImageClick      = useCallback((imageUrl) => { setSelectedImage(imageUrl); setShowImageModal(true); }, []);
+  const handleCloseImageModal = useCallback(() => { setShowImageModal(false); setSelectedImage(null); }, []);
+  const handleCreate          = useCallback(() => { navigate('/estimates'); }, [navigate]);
+
+  // ============================================================
+  // Handle Generate PDF
+  // FIX: Only after admin clicks this button does "View" appear.
+  // Uses sessionStorage so it resets on new browser session.
+  // ============================================================
+  const handleGeneratePDF = useCallback(async (estimate_number) => {
+    try {
+      await axios.post(`${baseURL}/generate-order-number/${estimate_number}`);
+      await fetchData(); // Refresh to get updated order_number and pdf_generated from DB
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      // Mark as generated in this session regardless of API result
+      setGeneratedEstimates(prev => ({ ...prev, [estimate_number]: true }));
+      Swal.fire({
+        icon: 'success',
+        title: 'PDF Generated',
+        text: 'Invoice has been generated. Click "View" to preview.',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    }
+  }, [fetchData]);
+
+  // ============================================================
+  // Handle View PDF — Opens InvoicePreviewModal
+  // ============================================================
+  const handleViewPDF = useCallback((estimate_number) => {
+    setSelectedEstimateNumber(estimate_number);
+    setShowInvoiceModal(true);
   }, []);
 
-  const handleImageClick = useCallback((imageUrl) => {
-    setSelectedImage(imageUrl);
-    setShowImageModal(true);
-  }, []);
-
-  const handleCloseImageModal = useCallback(() => {
-    setShowImageModal(false);
-    setSelectedImage(null);
-  }, []);
-
-  const handleCreate = useCallback(() => {
-    navigate('/estimates');
-  }, [navigate]);
-
-  // Define columns with Packet Barcode
+  // ============================================================
+  // Columns Definition
+  // ============================================================
   const columns = useMemo(() => [
     {
       Header: 'Sr. No.',
+      id: 'srNo',
       Cell: ({ row }) => row.index + 1,
-      width: 80,
+      width: 60,
       disableSortBy: true,
     },
     {
       Header: 'Date',
       accessor: 'date',
+      width: 100,
       Cell: ({ value }) => {
         if (!value) return 'N/A';
-        const date = new Date(value);
-        return date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
+        return new Date(value).toLocaleDateString('en-GB', {
+          day: '2-digit', month: 'short', year: 'numeric',
         });
       },
     },
     {
-      Header: 'Estimate Number',
+      Header: 'Estimate No',
       accessor: 'estimate_number',
+      width: 110,
     },
     {
       Header: 'Packet Barcode',
       accessor: 'packet_barcode',
-      Cell: ({ value }) => {
-        return value ? (
+      width: 140,
+      Cell: ({ value }) =>
+        value ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <FaBarcode style={{ color: '#a36e29' }} />
             <span style={{ fontWeight: '500' }}>{value}</span>
           </div>
         ) : (
           <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>
-        );
-      },
+        ),
     },
     {
-      Header: 'Order Number',
+      Header: 'Order No',
       accessor: 'order_number',
+      width: 110,
       Cell: ({ value, row }) => {
-        const estimateStatus = row.original.estimate_status;
-        
-        if (estimateStatus === 'Accepted' || estimateStatus === 'Ordered') {
-          return value ? (
-            <strong style={{ color: '#17a2b8' }}>{value}</strong>
-          ) : (
-            <span className="text-muted" style={{ fontStyle: 'italic' }}>
-              N/A
-            </span>
-          );
-        }
-        
-        return (
-          <span className="text-muted" style={{ fontStyle: 'italic' }}>
-            N/A
-          </span>
+        const status = row.original.estimate_status;
+        const isOrderedStatus = status === 'Accepted' || status === 'Ordered';
+        return isOrderedStatus && value ? (
+          <strong style={{ color: '#17a2b8' }}>{value}</strong>
+        ) : (
+          <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>
         );
       },
     },
     {
       Header: 'Customer Name',
       accessor: 'customer_name',
+      width: 150,
     },
     {
       Header: 'Total Amount',
       accessor: 'net_amount',
-      Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
+      width: 120,
+      Cell: ({ value }) => `₹ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: 'Status',
       accessor: 'estimate_status',
+      width: 120,
+      disableSortBy: true,
       Cell: ({ value }) => {
-        const currentStatus = value || 'Pending';
-        
-        const getStatusStyle = (status) => {
-          switch(status) {
-            case 'Pending':
-              return {
-                backgroundColor: '#ffc107',
-                color: '#212529',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                display: 'inline-block',
-                minWidth: '90px',
-                textAlign: 'center'
-              };
-            case 'Accepted':
-            case 'Ordered':
-              return {
-                backgroundColor: '#28a745',
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                display: 'inline-block',
-                minWidth: '90px',
-                textAlign: 'center'
-              };
-            case 'Rejected':
-              return {
-                backgroundColor: '#dc3545',
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                display: 'inline-block',
-                minWidth: '90px',
-                textAlign: 'center'
-              };
-            default:
-              return {
-                backgroundColor: '#6c757d',
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                display: 'inline-block',
-                minWidth: '90px',
-                textAlign: 'center'
-              };
-          }
+        const status = value || 'Pending';
+        const styleMap = {
+          Pending:  { backgroundColor: '#ffc107', color: '#212529' },
+          Accepted: { backgroundColor: '#28a745', color: 'white' },
+          Ordered:  { backgroundColor: '#28a745', color: 'white' },
+          Rejected: { backgroundColor: '#dc3545', color: 'white' },
         };
-
+        const style = styleMap[status] || { backgroundColor: '#6c757d', color: 'white' };
         return (
-          <div style={{ minWidth: '120px' }}>
-            <span style={getStatusStyle(currentStatus)}>
-              {currentStatus}
-            </span>
-          </div>
+          <span style={{
+            ...style,
+            padding: '4px 12px',
+            borderRadius: '20px',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            display: 'inline-block',
+            minWidth: '90px',
+            textAlign: 'center',
+          }}>
+            {status}
+          </span>
         );
       },
-      width: 150,
+    },
+    // ============================================================
+    // Invoice Column
+    // FIX: "View" only shows if admin clicked "Generate PDF"
+    //      in THIS browser session (sessionStorage).
+    //      order_number from DB is intentionally NOT used here.
+    // ============================================================
+    {
+      Header: 'Invoice',
+      id: 'invoice',
+      width: 140,
       disableSortBy: true,
+      Cell: ({ row }) => {
+        const estimateNumber = row.original.estimate_number;
+        const status = row.original.estimate_status;
+
+        // Step 1: Only show for Accepted / Ordered estimates
+        const isOrderedStatus = status === 'Accepted' || status === 'Ordered';
+        if (!isOrderedStatus) {
+          return (
+            <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '12px' }}>
+              Not Available
+            </span>
+          );
+        }
+
+        // Step 2: Check sessionStorage ONLY — never auto-detect from order_number
+        const isGenerated = !!generatedEstimates[estimateNumber];
+
+        // Step 3: Show "View" only if admin clicked Generate PDF this session
+        if (isGenerated) {
+          return (
+            <Button
+              size="sm"
+              variant="outline-success"
+              onClick={() => handleViewPDF(estimateNumber)}
+              title="View Invoice PDF"
+              style={{
+                padding: '4px 12px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <FaEye /> View
+            </Button>
+          );
+        }
+
+        // Step 4: Default — show "Generate PDF" button
+        return (
+          <Button
+            size="sm"
+            variant="outline-primary"
+            onClick={() => handleGeneratePDF(estimateNumber)}
+            title="Generate PDF Invoice"
+            style={{
+              padding: '4px 12px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <FaFilePdf /> Generate PDF
+          </Button>
+        );
+      },
     },
     {
       Header: 'Actions',
       id: 'actions',
-      Cell: ({ row }) => {
-        return (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <FaEye
-              style={{ cursor: 'pointer', color: 'green' }}
-              onClick={() => handleViewDetails(row.original.estimate_number)}
-              title="View Details"
-            />
-            <FaEdit
-              style={{ cursor: 'pointer', color: 'blue' }}
-              onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
-              title="Edit"
-            />
-            <FaTrash
-              style={{ cursor: 'pointer', color: 'red' }}
-              onClick={() => handleDelete(row.original.estimate_number)}
-              title="Delete"
-            />
-          </div>
-        );
-      },
       width: 120,
       disableSortBy: true,
+      Cell: ({ row }) => (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <FaEye
+            style={{ cursor: 'pointer', color: 'green', fontSize: '16px' }}
+            onClick={() => handleViewDetails(row.original.estimate_number)}
+            title="View Details"
+          />
+          <FaEdit
+            style={{ cursor: 'pointer', color: 'blue', fontSize: '16px' }}
+            onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
+            title="Edit"
+          />
+          <FaTrash
+            style={{ cursor: 'pointer', color: 'red', fontSize: '16px' }}
+            onClick={() => handleDelete(row.original.estimate_number)}
+            title="Delete"
+          />
+        </div>
+      ),
     },
-  ], [handleEdit, handleDelete, handleViewDetails]);
+  ], [handleEdit, handleDelete, handleViewDetails, handleGeneratePDF, handleViewPDF, generatedEstimates]);
 
+  // ============================================================
+  // Table Data & React-Table Instance
+  // ============================================================
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
 
   const {
@@ -458,16 +526,15 @@ const EstimateTable = () => {
     setGlobalFilter,
     state: { pageIndex, pageSize, globalFilter },
   } = useTable(
-    {
-      columns,
-      data: tableData,
-      initialState: { pageIndex: 0, pageSize: 10 },
-    },
+    { columns, data: tableData, initialState: { pageIndex: 0, pageSize: 10 } },
     useGlobalFilter,
     useSortBy,
     usePagination
   );
 
+  // ============================================================
+  // Loading State
+  // ============================================================
   if (loading) {
     return (
       <>
@@ -481,363 +548,301 @@ const EstimateTable = () => {
     );
   }
 
+  // ============================================================
+  // Render
+  // ============================================================
   return (
     <>
-     <div className="watermark-container">
-      <Navbar />
-      <div className="main-container">
-        <div className="estimates-table-container">
-          {/* Header with Title and Create Button */}
-          <Row className="mb-3">
-            <Col className="d-flex justify-content-between align-items-center">
-              <h3>Estimates</h3>
-              <Button
-                className="create_but"
-                onClick={handleCreate}
-                style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
-              >
-                + Create
-              </Button>
-            </Col>
-          </Row>
+      <div className="watermark-container">
+        <Navbar />
+        <div className="main-container">
+          <div className="estimates-table-container">
 
-          {/* Global Search Filter */}
-          <GlobalFilter 
-            globalFilter={globalFilter} 
-            setGlobalFilter={setGlobalFilter} 
-            handleDateFilter={handleDateFilter} 
-          />
+            {/* Header */}
+            <Row className="mb-3">
+              <Col className="d-flex justify-content-between align-items-center">
+                <h3>Estimates</h3>
+                <Button
+                  className="create_but"
+                  onClick={handleCreate}
+                  style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
+                >
+                  + Create
+                </Button>
+              </Col>
+            </Row>
 
-          {/* Table */}
-          <div className="dataTable_wrapper container-fluid">
-            <div className="table-responsive">
-              <table {...getTableProps()} className="table table-striped">
-                <thead>
-                  {headerGroups.map((headerGroup) => (
-                    <tr {...headerGroup.getHeaderGroupProps()} className="dataTable_headerRow">
-                      {headerGroup.headers.map((column) => (
-                        <th
-                          {...column.getHeaderProps(column.getSortByToggleProps())}
-                          className="dataTable_headerCell"
-                        >
-                          {column.render('Header')}
-                          <span>
-                            {column.isSorted ? (column.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody {...getTableBodyProps()} className="dataTable_body">
-                  {page.map((row) => {
-                    prepareRow(row);
-                    return (
-                      <tr {...row.getRowProps()} className="dataTable_row">
-                        {row.cells.map((cell) => (
-                          <td {...cell.getCellProps()} className="dataTable_cell">
-                            {cell.render('Cell')}
-                          </td>
+            {/* Search / Date Filter */}
+            <GlobalFilter
+              globalFilter={globalFilter}
+              setGlobalFilter={setGlobalFilter}
+              handleDateFilter={handleDateFilter}
+            />
+
+            {/* Table */}
+            <div className="dataTable_wrapper container-fluid">
+              <div className="table-responsive">
+                <table {...getTableProps()} className="table table-striped">
+                  <thead>
+                    {headerGroups.map((headerGroup) => (
+                      <tr {...headerGroup.getHeaderGroupProps()} className="dataTable_headerRow">
+                        {headerGroup.headers.map((column) => (
+                          <th
+                            {...column.getHeaderProps(column.getSortByToggleProps())}
+                            className="dataTable_headerCell"
+                          >
+                            {column.render('Header')}
+                            <span>
+                              {column.isSorted ? (column.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
+                            </span>
+                          </th>
                         ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </thead>
+                  <tbody {...getTableBodyProps()} className="dataTable_body">
+                    {page.map((row) => {
+                      prepareRow(row);
+                      return (
+                        <tr {...row.getRowProps()} className="dataTable_row">
+                          {row.cells.map((cell) => (
+                            <td {...cell.getCellProps()} className="dataTable_cell">
+                              {cell.render('Cell')}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Pagination Controls */}
-            <div className="d-flex align-items-center justify-content-between mt-3">
-              <div className="dataTable_pageInfo">
-                Page{' '}
-                <strong>
-                  {pageIndex + 1} of {pageOptions.length}
-                </strong>
-              </div>
-              <div className="pagebuttons">
-                <button
-                  className="btn btn-primary me-2 btn1"
-                  onClick={() => previousPage()}
-                  disabled={!canPreviousPage}
-                >
-                  Prev
-                </button>
-                <button
-                  className="btn btn-primary btn1"
-                  onClick={() => nextPage()}
-                  disabled={!canNextPage}
-                >
-                  Next
-                </button>
-              </div>
-              <div>
+              {/* Pagination */}
+              <div className="d-flex align-items-center justify-content-between mt-3">
+                <div className="dataTable_pageInfo">
+                  Page <strong>{pageIndex + 1} of {pageOptions.length}</strong>
+                </div>
+                <div className="pagebuttons">
+                  <button
+                    className="btn btn-primary me-2 btn1"
+                    onClick={previousPage}
+                    disabled={!canPreviousPage}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    className="btn btn-primary btn1"
+                    onClick={nextPage}
+                    disabled={!canNextPage}
+                  >
+                    Next
+                  </button>
+                </div>
                 <select
                   className="form-select form-select-sm"
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
+                  style={{ width: 'auto' }}
                 >
                   {[5, 10, 20].map((size) => (
-                    <option key={size} value={size}>
-                      Show {size}
-                    </option>
+                    <option key={size} value={size}>Show {size}</option>
                   ))}
                 </select>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Modal for View Details */}
-        <Modal show={showModal} onHide={handleCloseModal} size="xl" className="m-auto">
-          <Modal.Header closeButton>
-            <Modal.Title>Estimate Details</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {repairDetails && (
-              <>
-                <Table bordered>
-                  <tbody>
-                    <tr>
-                      <td>Date</td>
-                      <td>{formatDate(repairDetails.uniqueData?.date)}</td>
-                    </tr>
-                    <tr>
-                      <td>Estimate Number</td>
-                      <td>{repairDetails.uniqueData?.estimate_number}</td>
-                    </tr>
-                    <tr>
-                      <td>Packet Barcode</td>
-                      <td>
-                        {repairDetails.uniqueData?.packet_barcode ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <FaBarcode style={{ color: '#a36e29' }} />
-                            <strong>{repairDetails.uniqueData.packet_barcode}</strong>
-                            {repairDetails.uniqueData?.packet_wt && (
-                              <Badge bg="info" style={{ marginLeft: '10px' }}>
-                                Weight: {repairDetails.uniqueData.packet_wt}g
-                              </Badge>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
-                            N/A
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Packet Images</td>
-                      <td>
-
-{repairDetails.uniqueData?.pack_images ? (
-  <div className="packet-images-container">
-    {parsePackImages(repairDetails.uniqueData.pack_images).map((image, index) => (
-      <OverlayTrigger
-        key={index}
-        placement="top"
-        overlay={<Tooltip id={`tooltip-${index}`}>Click to view full image</Tooltip>}
-      >
-        <div 
-          className="packet-image-thumbnail"
-          onClick={() => handleImageClick(image)}
-          style={{
-            display: 'inline-block',
-            margin: '5px',
-            cursor: 'pointer',
-            border: '2px solid #ddd',
-            borderRadius: '5px',
-            padding: '3px',
-            transition: 'border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease',
-            willChange: 'transform, box-shadow',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          <img 
-            src={`${baseURL}/pack-images/${image}`}
-            alt={`Packet ${index + 1}`}
-            style={{
-              width: '100px',
-              height: '100px',
-              objectFit: 'cover',
-              borderRadius: '3px',
-              display: 'block',
-              transform: 'translateZ(0)',
-              WebkitTransform: 'translateZ(0)'
-            }}
-            loading="lazy"
-            onError={(e) => {
-              e.target.src = '/placeholder-image.png';
-              e.target.alt = 'Image not found';
-            }}
-          />
-          <div style={{ fontSize: '11px', textAlign: 'center', marginTop: '3px' }}>
-            <FaImage /> Image {index + 1}
-          </div>
-        </div>
-      </OverlayTrigger>
-    ))}
-  </div>
-) : (
-  <span className="text-muted" style={{ fontStyle: 'italic' }}>
-    No images available
-  </span>
-)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Order Number</td>
-                      <td>
-                        {repairDetails.uniqueData?.order_number ? (
-                          <strong>{repairDetails.uniqueData.order_number}</strong>
-                        ) : (
-                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
-                            N/A
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Order Date</td>
-                      <td>
-                        {repairDetails.uniqueData?.order_date ? (
-                          formatDate(repairDetails.uniqueData.order_date)
-                        ) : (
-                          <span className="text-muted" style={{ fontStyle: 'italic' }}>
-                            N/A
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Status</td>
-                      <td>
-                        <span 
-                          className="badge px-3 py-2"
-                          style={{
-                            backgroundColor: 
-                              repairDetails.uniqueData?.estimate_status === 'Accepted' || repairDetails.uniqueData?.estimate_status === 'Ordered' ? '#28a745' :
-                              repairDetails.uniqueData?.estimate_status === 'Rejected' ? '#dc3545' : '#ffc107',
-                            color: 
-                              repairDetails.uniqueData?.estimate_status === 'Pending' ? '#212529' : 'white',
-                            fontSize: '0.9em'
-                          }}
-                        >
-                          {repairDetails.uniqueData?.estimate_status || 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Total Amount</td>
-                      <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
-                    </tr>
-                  </tbody>
-                </Table>
-
-                <h5 className="mt-4 mb-3">Products</h5>
-
-                <div className="table-responsive">
+          {/* ── View Details Modal ── */}
+          <Modal show={showModal} onHide={handleCloseModal} size="xl" className="m-auto">
+            <Modal.Header closeButton>
+              <Modal.Title>Estimate Details</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              {repairDetails && (
+                <>
                   <Table bordered>
-                    <thead style={{ whiteSpace: 'nowrap' }}>
+                    <tbody>
+                      <tr><td>Date</td><td>{formatDate(repairDetails.uniqueData?.date)}</td></tr>
+                      <tr><td>Estimate Number</td><td>{repairDetails.uniqueData?.estimate_number}</td></tr>
                       <tr>
-                        <th>BarCode</th>
-                        <th>Product Name</th>
-                        <th>Metal Type</th>
-                        <th>Purity</th>
-                        <th>Gross Wt</th>
-                        <th>Stone Wt</th>
-                        <th>W.Wt</th>
-                        <th>Total Wt</th>
-                        <th>MC</th>
-                        <th>Rate</th>
-                        <th>Tax Amt</th>
-                        <th>Total Price</th>
-                      </tr>
-                    </thead>
-                    <tbody style={{ whiteSpace: 'nowrap' }}>
-                      {repairDetails.repeatedData?.map((product, index) => (
-                        <tr key={index}>
-                          <td>{product.code}</td>
-                          <td>{product.product_name}</td>
-                          <td>{product.metal_type}</td>
-                          <td>{product.purity}</td>
-                          <td>{product.gross_weight}</td>
-                          <td>{product.stone_weight}</td>
-                          <td>{product.wastage_weight}</td>
-                          <td>{product.total_weight_av}</td>
-                          <td>{product.making_charges}</td>
-                          <td>{product.rate}</td>
-                          <td>{product.tax_amt}</td>
-                          <td>{product.total_price}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ fontWeight: "bold" }}>
-                        <td colSpan="11" className="text-end">
-                          Total Amount
+                        <td>Packet Barcode</td>
+                        <td>
+                          {repairDetails.uniqueData?.packet_barcode ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <FaBarcode style={{ color: '#a36e29' }} />
+                              <strong>{repairDetails.uniqueData.packet_barcode}</strong>
+                              {repairDetails.uniqueData?.packet_wt && (
+                                <Badge bg="info" style={{ marginLeft: '10px' }}>
+                                  Weight: {repairDetails.uniqueData.packet_wt}g
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>
+                          )}
                         </td>
+                      </tr>
+                      <tr>
+                        <td>Packet Images</td>
+                        <td>
+                          {repairDetails.uniqueData?.pack_images ? (
+                            <div className="packet-images-container">
+                              {parsePackImages(repairDetails.uniqueData.pack_images).map((image, index) => (
+                                <OverlayTrigger
+                                  key={index}
+                                  placement="top"
+                                  overlay={<Tooltip id={`tooltip-${index}`}>Click to view full image</Tooltip>}
+                                >
+                                  <div
+                                    className="packet-image-thumbnail"
+                                    onClick={() => handleImageClick(image)}
+                                    style={{
+                                      display: 'inline-block', margin: '5px', cursor: 'pointer',
+                                      border: '2px solid #ddd', borderRadius: '5px', padding: '3px',
+                                    }}
+                                  >
+                                    <img
+                                      src={`${baseURL}/pack-images/${image}`}
+                                      alt={`Packet ${index + 1}`}
+                                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '3px' }}
+                                      loading="lazy"
+                                      onError={(e) => { e.target.src = '/placeholder-image.png'; }}
+                                    />
+                                    <div style={{ fontSize: '11px', textAlign: 'center', marginTop: '3px' }}>
+                                      <FaImage /> Image {index + 1}
+                                    </div>
+                                  </div>
+                                </OverlayTrigger>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted" style={{ fontStyle: 'italic' }}>No images available</span>
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Order Number</td>
+                        <td>
+                          {repairDetails.uniqueData?.order_number
+                            ? <strong>{repairDetails.uniqueData.order_number}</strong>
+                            : <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Order Date</td>
+                        <td>
+                          {repairDetails.uniqueData?.order_date
+                            ? formatDate(repairDetails.uniqueData.order_date)
+                            : <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Status</td>
+                        <td>
+                          <span
+                            className="badge px-3 py-2"
+                            style={{
+                              backgroundColor:
+                                ['Accepted', 'Ordered'].includes(repairDetails.uniqueData?.estimate_status)
+                                  ? '#28a745'
+                                  : repairDetails.uniqueData?.estimate_status === 'Rejected'
+                                  ? '#dc3545'
+                                  : '#ffc107',
+                              color: repairDetails.uniqueData?.estimate_status === 'Pending' ? '#212529' : 'white',
+                              fontSize: '0.9em',
+                            }}
+                          >
+                            {repairDetails.uniqueData?.estimate_status || 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Total Amount</td>
                         <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
                       </tr>
                     </tbody>
                   </Table>
-                </div>
-              </>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal>
 
-        {/* Image Preview Modal */}
-        {/* Image Preview Modal - Fixed version */}
-<Modal 
-  show={showImageModal} 
-  onHide={handleCloseImageModal} 
-  size="lg" 
-  centered
-  className="image-preview-modal"
->
-  <Modal.Header closeButton>
-    <Modal.Title>Packet Image Preview</Modal.Title>
-  </Modal.Header>
-  <Modal.Body className="text-center" style={{ padding: '20px' }}>
-    {selectedImage && (
-      <img 
-        src={`${baseURL}/pack-images/${selectedImage}`}
-        alt="Packet"
-        style={{
-          maxWidth: '100%',
-          maxHeight: '80vh',
-          objectFit: 'contain',
-          transform: 'translateZ(0)',
-          WebkitTransform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden'
-        }}
-        loading="eager"
-        onError={(e) => {
-          e.target.src = '/placeholder-image.png';
-          e.target.alt = 'Image not found';
-        }}
+                  <h5 className="mt-4 mb-3">Products</h5>
+                  <div className="table-responsive">
+                    <Table bordered>
+                      <thead style={{ whiteSpace: 'nowrap' }}>
+                        <tr>
+                          <th>BarCode</th>
+                          <th>Product Name</th>
+                          <th>Metal Type</th>
+                          <th>Purity</th>
+                          <th>Gross Wt</th>
+                          <th>Stone Wt</th>
+                          <th>W.Wt</th>
+                          <th>Total Wt</th>
+                          <th>MC</th>
+                          <th>Rate</th>
+                          <th>Tax Amt</th>
+                          <th>Total Price</th>
+                        </tr>
+                      </thead>
+                      <tbody style={{ whiteSpace: 'nowrap' }}>
+                        {repairDetails.repeatedData?.map((product, index) => (
+                          <tr key={index}>
+                            <td>{product.code}</td>
+                            <td>{product.product_name}</td>
+                            <td>{product.metal_type}</td>
+                            <td>{product.purity}</td>
+                            <td>{product.gross_weight}</td>
+                            <td>{product.stone_weight}</td>
+                            <td>{product.wastage_weight}</td>
+                            <td>{product.total_weight_av}</td>
+                            <td>{product.making_charges}</td>
+                            <td>{product.rate}</td>
+                            <td>{product.tax_amt}</td>
+                            <td>{product.total_price}</td>
+                          </tr>
+                        ))}
+                        <tr style={{ fontWeight: 'bold' }}>
+                          <td colSpan="11" className="text-end">Total Amount</td>
+                          <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
+                        </tr>
+                      </tbody>
+                    </Table>
+                  </div>
+                </>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={handleCloseModal}>Close</Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* ── Image Preview Modal ── */}
+          <Modal show={showImageModal} onHide={handleCloseImageModal} size="lg" centered className="image-preview-modal">
+            <Modal.Header closeButton>
+              <Modal.Title>Packet Image Preview</Modal.Title>
+            </Modal.Header>
+            <Modal.Body className="text-center" style={{ padding: '20px' }}>
+              {selectedImage && (
+                <img
+                  src={`${baseURL}/pack-images/${selectedImage}`}
+                  alt="Packet"
+                  style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+                  onError={(e) => { e.target.src = '/placeholder-image.png'; }}
+                />
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={handleCloseImageModal}>Close</Button>
+            </Modal.Footer>
+          </Modal>
+        </div>
+      </div>
+
+      {/* ── Invoice Preview Modal ── */}
+      <InvoicePreviewModal
+        show={showInvoiceModal}
+        onHide={() => setShowInvoiceModal(false)}
+        estimateNumber={selectedEstimateNumber}
+        isAdmin={true}
       />
-    )}
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={handleCloseImageModal}>
-      Close
-    </Button>
-  </Modal.Footer>
-</Modal>
-      </div>
-      </div>
     </>
   );
 };

@@ -61,6 +61,9 @@ import AddLeaveRequest from './Components/Modules/SalesPerson/LeaveManagement/Ad
 
 import LeavesApproval from './Components/Modules/Admin/LeaveApproval/LeaveApproval';
 
+    
+import CustomerInvoice from './Components/Modules/Customer/Transactions/CustomerInvoicePDF';
+
 
 function App() {
   const [count, setCount] = useState(0);
@@ -134,6 +137,10 @@ function App() {
           <Route path="/add-leave-request" element={<AddLeaveRequest />} />
 
           <Route path="/leaves-approval" element={<LeavesApproval />} />
+
+          <Route path="/customer-invoice/:estimateNumber" element={<CustomerInvoice />} />
+
+          
 
         </Routes>
       </ScreenshotProtection>
