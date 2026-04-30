@@ -429,11 +429,11 @@ const EstimateTable = () => {
       Header: 'Customer Name',
       accessor: 'customer_name',
     },
-    {
-      Header: 'Total Amount',
-      accessor: 'net_amount',
-      Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
-    },
+    // {
+    //   Header: 'Total Amount',
+    //   accessor: 'net_amount',
+    //   Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
+    // },
     {
       Header: 'Status',
       accessor: 'estimate_status',

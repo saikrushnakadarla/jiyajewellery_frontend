@@ -445,7 +445,7 @@ const InvoicePDF = ({
                     <View style={[styles.colMetal, { justifyContent: "center", borderTopWidth: 0, borderBottomWidth: 0.5 }]}>
                       <Text style={[styles.tableCell, { fontSize: 7, color: "#666" }]}></Text>
                     </View>
-                    <View style={[styles.colParticulars, { justifyContent: "center", borderTopWidth: 0, borderBottomWidth: 0.5 }]}>
+                    {/* <View style={[styles.colParticulars, { justifyContent: "center", borderTopWidth: 0, borderBottomWidth: 0.5 }]}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                         <Text style={[styles.tableCell, { fontSize: 7, color: "#666", textAlign: "left" }]}>
                           MC: {formatNumber(mcValue)}
@@ -454,7 +454,7 @@ const InvoicePDF = ({
                           Stn Rs. {formatNumber(stonePrice)}
                         </Text>
                       </View>
-                    </View>
+                    </View> */}
                     <View style={[styles.colNtWt, { justifyContent: "center", borderTopWidth: 0, borderBottomWidth: 0.5 }]}>
                       <Text style={[styles.tableCell, { fontSize: 7, color: "#666" }]}></Text>
                     </View>
