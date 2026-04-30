@@ -942,3 +942,19 @@
   color: #999;
   opacity: 0.7;
 }
+
+
+.barcode-field-wrapper {
+  position: relative;
+}
+
+.barcode-field-wrapper .scanner-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}

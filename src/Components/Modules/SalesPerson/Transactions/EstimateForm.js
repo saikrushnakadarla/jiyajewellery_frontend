@@ -1178,7 +1178,7 @@ const handleAddEntry = async () => {
   return (
     <>
       <Navbar />
-      <div className="main-container" style={{ marginTop: '60px' }}>
+      <div className="main-container" style={{ marginTop: '120px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
             <h2>Estimate</h2>
@@ -1221,35 +1221,29 @@ const handleAddEntry = async () => {
                 />
               </Col>
 
-              <Col xs={12} md={4}>
-                <div className="barcode-field-wrapper">
-                  <InputField
-                    label="Barcode"
-                    name="barcode"
-                    value={formData.barcode || ""}
-                    type="select"
-                    onChange={handleInputChange}
-                    options={[
-                      { value: "", label: "Select Barcode", disabled: true },
-                      ...getFilteredBarcodeOptions(),
-                      ...tagsData.map(tag => ({
-                        value: tag.PCode_BarCode,
-                        label: tag.PCode_BarCode
-                      }))
-                    ]}
-                  />
-                  
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={startScanner}
-                    className="scanner-btn"
-                    title="Scan Barcode/QR Code"
-                  >
-                    <FaQrcode /> Scan
-                  </Button>
-                </div>
-              </Col>
+             <Col xs={12} md={4}>
+  <div className="barcode-field-wrapper">
+    <InputField
+      label="Barcode"
+      name="barcode"
+      value={formData.barcode || ""}
+      type="text"
+      onChange={handleInputChange}
+      readOnly
+      placeholder="Scan barcode to auto-fill"
+    />
+    
+    <Button
+      variant="outline-primary"
+      size="sm"
+      onClick={startScanner}
+      className="scanner-btn"
+      title="Scan Barcode/QR Code"
+    >
+      <FaQrcode /> Scan
+    </Button>
+  </div>
+</Col>
 
               <Col xs={12} md={2} className="mb-3">
                 <Button
@@ -1303,7 +1297,7 @@ const handleAddEntry = async () => {
                     </div>
                   </Col>
                   
-                  <Col xs={12} md={3}>
+                  {/* <Col xs={12} md={3}>
                     <div style={{ marginBottom: '15px' }}>
                       <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
                         Packet Weight (Optional)
@@ -1324,7 +1318,7 @@ const handleAddEntry = async () => {
                         placeholder="Enter weight"
                       />
                     </div>
-                  </Col>
+                  </Col> */}
                   
                   <Col xs={12} md={5}>
                     <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
@@ -1332,14 +1326,14 @@ const handleAddEntry = async () => {
                     </label>
                     <div className="packet-images-container">
                       <div className="image-upload-buttons">
-                        <Button
+                        {/* <Button
                           variant="outline-primary"
                           size="sm"
                           onClick={triggerFileUpload}
                           className="me-2"
                         >
                           <FaUpload /> Upload
-                        </Button>
+                        </Button> */}
                         <Button
                           variant="outline-success"
                           size="sm"

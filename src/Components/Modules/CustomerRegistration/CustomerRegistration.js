@@ -7,6 +7,204 @@ import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import baseURL from "../ApiUrl/NodeBaseURL";
 
+// Static data for Indian states, cities, and districts
+const indiaStateCityDistrictData = {
+  "Andhra Pradesh": {
+    cities: {
+      "Visakhapatnam": ["Visakhapatnam", "Anakapalli", "Bheemunipatnam"],
+      "Vijayawada": ["Vijayawada", "Nuzvid", "Jaggayyapeta"],
+      "Guntur": ["Guntur", "Tenali", "Bapatla"],
+      "Nellore": ["Nellore", "Kavali", "Gudur"],
+      "Kurnool": ["Kurnool", "Nandyal", "Adoni"],
+      "Tirupati": ["Tirupati", "Srikalahasti", "Madanapalle"],
+      "Rajahmundry": ["Rajahmundry", "Kakinada", "Amalapuram"],
+      "Anantapur": ["Anantapur", "Dharmavaram", "Tadipatri"]
+    }
+  },
+  "Telangana": {
+    cities: {
+      "Hyderabad": ["Hyderabad", "Secunderabad", "Charminar"],
+      "Warangal": ["Warangal", "Hanamkonda", "Jangaon"],
+      "Karimnagar": ["Karimnagar", "Jagtial", "Siricilla"],
+      "Nizamabad": ["Nizamabad", "Bodhan", "Armoor"],
+      "Khammam": ["Khammam", "Kothagudem", "Palwancha"],
+      "Nalgonda": ["Nalgonda", "Miryalaguda", "Suryapet"],
+      "Mahabubnagar": ["Mahabubnagar", "Wanaparthy", "Nagarkurnool"],
+      "Adilabad": ["Adilabad", "Mancherial", "Nirmal"],
+      "Medak": ["Medak", "Siddipet", "Sangareddy"],
+      "Rajanna Sircilla": ["Rajanna Sircilla", "Vemulawada", "Yellareddypet"]
+    }
+  },
+  "Karnataka": {
+    cities: {
+      "Bangalore": ["Bangalore Urban", "Bangalore Rural", "Ramanagara"],
+      "Mysore": ["Mysore", "Nanjangud", "Tirumakudal Narsipur"],
+      "Mangalore": ["Mangalore", "Bantwal", "Puttur"],
+      "Hubli": ["Hubli", "Dharwad", "Kalghatgi"],
+      "Belgaum": ["Belgaum", "Chikodi", "Bailhongal"],
+      "Gulbarga": ["Gulbarga", "Sedam", "Chincholi"],
+      "Davanagere": ["Davanagere", "Harihar", "Jagalur"],
+      "Bellary": ["Bellary", "Hospet", "Sandur"],
+      "Shimoga": ["Shimoga", "Bhadravati", "Sagar"],
+      "Tumkur": ["Tumkur", "Tiptur", "Madhugiri"]
+    }
+  },
+  "Tamil Nadu": {
+    cities: {
+      "Chennai": ["Chennai", "Tambaram", "Avadi"],
+      "Coimbatore": ["Coimbatore", "Pollachi", "Valparai"],
+      "Madurai": ["Madurai", "Usilampatti", "Vadipatti"],
+      "Tiruchirappalli": ["Tiruchirappalli", "Lalgudi", "Manapparai"],
+      "Salem": ["Salem", "Mettur", "Omalur"],
+      "Tirunelveli": ["Tirunelveli", "Palayamkottai", "Tenkasi"],
+      "Vellore": ["Vellore", "Ranipet", "Tirupattur"],
+      "Thoothukudi": ["Thoothukudi", "Tiruchendur", "Kovilpatti"]
+    }
+  },
+  "Maharashtra": {
+    cities: {
+      "Mumbai": ["Mumbai City", "Mumbai Suburban", "Thane"],
+      "Pune": ["Pune", "Pimpri-Chinchwad", "Baramati"],
+      "Nagpur": ["Nagpur", "Umred", "Ramtek"],
+      "Nashik": ["Nashik", "Malegaon", "Manmad"],
+      "Aurangabad": ["Aurangabad", "Jalna", "Paithan"],
+      "Solapur": ["Solapur", "Pandharpur", "Akkalkot"],
+      "Kolhapur": ["Kolhapur", "Ichalkaranji", "Jaysingpur"],
+      "Amravati": ["Amravati", "Achalpur", "Warud"]
+    }
+  },
+  "Gujarat": {
+    cities: {
+      "Ahmedabad": ["Ahmedabad", "Gandhinagar", "Sanand"],
+      "Surat": ["Surat", "Navsari", "Bardoli"],
+      "Vadodara": ["Vadodara", "Anand", "Padra"],
+      "Rajkot": ["Rajkot", "Morbi", "Gondal"],
+      "Bhavnagar": ["Bhavnagar", "Palitana", "Mahuva"],
+      "Jamnagar": ["Jamnagar", "Dwarka", "Khambhalia"],
+      "Junagadh": ["Junagadh", "Veraval", "Keshod"],
+      "Gandhinagar": ["Gandhinagar", "Mansa", "Dehgam"]
+    }
+  },
+  "Rajasthan": {
+    cities: {
+      "Jaipur": ["Jaipur", "Amber", "Bassi"],
+      "Jodhpur": ["Jodhpur", "Osian", "Bilara"],
+      "Udaipur": ["Udaipur", "Nathdwara", "Salumbar"],
+      "Kota": ["Kota", "Bundi", "Baran"],
+      "Bikaner": ["Bikaner", "Nokha", "Lunkaransar"],
+      "Ajmer": ["Ajmer", "Kishangarh", "Beawar"],
+      "Bhilwara": ["Bhilwara", "Asind", "Mandal"],
+      "Alwar": ["Alwar", "Tijara", "Rajgarh"]
+    }
+  },
+  "Kerala": {
+    cities: {
+      "Thiruvananthapuram": ["Thiruvananthapuram", "Neyyattinkara", "Varkala"],
+      "Kochi": ["Ernakulam", "Aluva", "Paravur"],
+      "Kozhikode": ["Kozhikode", "Vadakara", "Koyilandy"],
+      "Thrissur": ["Thrissur", "Chalakudy", "Kodungallur"],
+      "Kollam": ["Kollam", "Karunagappally", "Punalur"],
+      "Palakkad": ["Palakkad", "Ottappalam", "Mannarkkad"],
+      "Alappuzha": ["Alappuzha", "Cherthala", "Kayamkulam"],
+      "Kannur": ["Kannur", "Thalassery", "Payyannur"]
+    }
+  },
+  "West Bengal": {
+    cities: {
+      "Kolkata": ["Kolkata", "Bidhannagar", "Howrah"],
+      "Darjeeling": ["Darjeeling", "Siliguri", "Kurseong"],
+      "Durgapur": ["Durgapur", "Asansol", "Raniganj"],
+      "Haldia": ["Haldia", "Tamluk", "Contai"],
+      "Malda": ["Malda", "English Bazar", "Kaliachak"],
+      "Baharampur": ["Baharampur", "Jangipur", "Lalbag"],
+      "Bardhaman": ["Bardhaman", "Kalna", "Katwa"],
+      "Balurghat": ["Balurghat", "Gangarampur", "Buniadpur"]
+    }
+  },
+  "Punjab": {
+    cities: {
+      "Amritsar": ["Amritsar", "Ajnala", "Baba Bakala"],
+      "Ludhiana": ["Ludhiana", "Jagraon", "Khanna"],
+      "Jalandhar": ["Jalandhar", "Phagwara", "Nakodar"],
+      "Patiala": ["Patiala", "Rajpura", "Nabha"],
+      "Bathinda": ["Bathinda", "Mansa", "Talwandi Sabo"],
+      "Mohali": ["Mohali", "Kharar", "Dera Bassi"],
+      "Pathankot": ["Pathankot", "Gurdaspur", "Batala"],
+      "Hoshiarpur": ["Hoshiarpur", "Dasuya", "Mukerian"]
+    }
+  },
+  "Haryana": {
+    cities: {
+      "Gurugram": ["Gurugram", "Manesar", "Sohna"],
+      "Faridabad": ["Faridabad", "Ballabgarh", "Palwal"],
+      "Chandigarh": ["Chandigarh", "Panchkula", "Mohali"],
+      "Ambala": ["Ambala", "Jagadhri", "Naraingarh"],
+      "Panipat": ["Panipat", "Samalkha", "Israna"],
+      "Karnal": ["Karnal", "Assandh", "Indri"],
+      "Hisar": ["Hisar", "Hansi", "Narnaund"],
+      "Rohtak": ["Rohtak", "Meham", "Kalanaur"]
+    }
+  },
+  "Uttar Pradesh": {
+    cities: {
+      "Lucknow": ["Lucknow", "Bakshi Ka Talab", "Malihabad"],
+      "Kanpur": ["Kanpur", "Bithoor", "Ghatampur"],
+      "Agra": ["Agra", "Fatehpur Sikri", "Kiraoli"],
+      "Varanasi": ["Varanasi", "Ramnagar", "Mughalsarai"],
+      "Prayagraj": ["Prayagraj", "Naini", "Soraon"],
+      "Meerut": ["Meerut", "Mawana", "Sardhana"],
+      "Bareilly": ["Bareilly", "Aonla", "Baheri"],
+      "Gorakhpur": ["Gorakhpur", "Bansgaon", "Chauri Chaura"]
+    }
+  },
+  "Madhya Pradesh": {
+    cities: {
+      "Bhopal": ["Bhopal", "Berasia", "Huzur"],
+      "Indore": ["Indore", "Mhow", "Depalpur"],
+      "Jabalpur": ["Jabalpur", "Sihora", "Patan"],
+      "Gwalior": ["Gwalior", "Bhitarwar", "Dabra"],
+      "Ujjain": ["Ujjain", "Nagda", "Tarana"],
+      "Sagar": ["Sagar", "Banda", "Khurai"],
+      "Rewa": ["Rewa", "Mauganj", "Teonthar"],
+      "Satna": ["Satna", "Maihar", "Nagod"]
+    }
+  },
+  "Bihar": {
+    cities: {
+      "Patna": ["Patna", "Danapur", "Patna Rural"],
+      "Gaya": ["Gaya", "Bodh Gaya", "Sherghati"],
+      "Bhagalpur": ["Bhagalpur", "Nathnagar", "Sultanganj"],
+      "Muzaffarpur": ["Muzaffarpur", "Kanti", "Motipur"],
+      "Purnia": ["Purnia", "Banmankhi", "Baisi"],
+      "Darbhanga": ["Darbhanga", "Benipur", "Biraul"],
+      "Chapra": ["Chapra", "Sonepur", "Dighwara"],
+      "Hajipur": ["Hajipur", "Mahnar", "Bidupur"]
+    }
+  },
+  "Odisha": {
+    cities: {
+      "Bhubaneswar": ["Khordha", "Balianta", "Balipatna"],
+      "Cuttack": ["Cuttack", "Banki", "Athagad"],
+      "Rourkela": ["Rourkela", "Rajgangpur", "Birmitrapur"],
+      "Berhampur": ["Berhampur", "Gopalpur", "Chhatrapur"],
+      "Sambalpur": ["Sambalpur", "Burla", "Hirakud"],
+      "Puri": ["Puri", "Konark", "Brahmagiri"],
+      "Balasore": ["Balasore", "Jaleswar", "Soro"],
+      "Bhadrak": ["Bhadrak", "Chandbali", "Dhamnagar"]
+    }
+  }
+};
+
+// Helper function to capitalize first letter of each word
+const capitalizeWords = (str) => {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 function CustomerRegistration() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +213,10 @@ function CustomerRegistration() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
+
+  // New state for cascading dropdowns
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableDistricts, setAvailableDistricts] = useState([]);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -27,6 +229,7 @@ function CustomerRegistration() {
     country: "",
     state: "",
     city: "",
+    district: "",
     password: "",
     confirmPassword: "",
     company_name: "",
@@ -103,13 +306,43 @@ function CustomerRegistration() {
 
   // Auto-get location when component mounts
   useEffect(() => {
-    // Automatically try to get location when component loads
     getCurrentLocation();
   }, []);
 
+  // Update cities when state changes
+  useEffect(() => {
+    if (formData.state && indiaStateCityDistrictData[formData.state]) {
+      const cities = Object.keys(indiaStateCityDistrictData[formData.state].cities);
+      setAvailableCities(cities);
+      setFormData(prev => ({ ...prev, city: "", district: "" }));
+      setAvailableDistricts([]);
+    } else {
+      setAvailableCities([]);
+      setAvailableDistricts([]);
+    }
+  }, [formData.state]);
+
+  // Update districts when city changes
+  useEffect(() => {
+    if (formData.state && formData.city && 
+        indiaStateCityDistrictData[formData.state]?.cities[formData.city]) {
+      const districts = indiaStateCityDistrictData[formData.state].cities[formData.city];
+      setAvailableDistricts(districts);
+      setFormData(prev => ({ ...prev, district: "" }));
+    } else {
+      setAvailableDistricts([]);
+    }
+  }, [formData.city, formData.state]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Auto-capitalize first letter of each word for full_name and company_name
+    if (name === 'full_name' || name === 'company_name') {
+      setFormData((prev) => ({ ...prev, [name]: capitalizeWords(value) }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   // Function to store customer in accounts database
@@ -125,6 +358,7 @@ function CustomerRegistration() {
         address1: "",
         address2: "",
         city: customerData.city || "",
+        district: customerData.district || "",
         pincode: customerData.pincode || "",
         state: customerData.state || "",
         state_code: "",
@@ -200,6 +434,7 @@ function CustomerRegistration() {
       country: formData.country,
       state: formData.state,
       city: formData.city,
+      district: formData.district,
       password: formData.password,
       confirm_password: formData.confirmPassword,
       company_name: formData.company_name,
@@ -230,6 +465,7 @@ function CustomerRegistration() {
           email: formData.email,
           phone: formData.phone,
           city: formData.city,
+          district: formData.district,
           pincode: formData.pincode,
           state: formData.state,
           dob: formData.dob,
@@ -279,6 +515,9 @@ function CustomerRegistration() {
     navigate("/");
   };
 
+  // Get all states for dropdown
+  const allStates = Object.keys(indiaStateCityDistrictData);
+
   return (
     <div className="customerregistration-main-container">
       <div className="customerregistration-form-container">
@@ -286,7 +525,7 @@ function CustomerRegistration() {
         {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
 
         <form className="customerregistration-form" onSubmit={handleSubmit}>
-          {/* Full Name */}
+          {/* Full Name - Auto-capitalized */}
           <InputField
             label="Full Name"
             placeholder="Enter full name"
@@ -417,10 +656,10 @@ function CustomerRegistration() {
             value={formData.state}
             onChange={handleChange}
             required
-            options={[
-              { value: "Telangana", label: "Telangana" },
-              { value: "Andhra Pradesh", label: "Andhra Pradesh" },
-            ]}
+            options={allStates.map(state => ({
+              value: state,
+              label: state
+            }))}
           />
 
           {/* City */}
@@ -432,10 +671,25 @@ function CustomerRegistration() {
             value={formData.city}
             onChange={handleChange}
             required
-            options={[
-              { value: "Rajanna Sircilla", label: "Rajanna Sircilla" },
-              { value: "Karimnagar", label: "Karimnagar" },
-            ]}
+            options={availableCities.map(city => ({
+              value: city,
+              label: city
+            }))}
+          />
+
+          {/* District */}
+          <InputField
+            label="District"
+            type="select"
+            placeholder="Select district"
+            name="district"
+            value={formData.district}
+            onChange={handleChange}
+            required
+            options={availableDistricts.map(district => ({
+              value: district,
+              label: district
+            }))}
           />
 
           {/* Pincode */}
@@ -444,6 +698,54 @@ function CustomerRegistration() {
             placeholder="Enter Pincode"
             name="pincode"
             value={formData.pincode}
+            onChange={handleChange}
+            required
+          />
+
+          {/* Password */}
+          <div className="customerregistration-password-container">
+            <InputField
+              label="Password"
+              placeholder="Enter your password"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+            <span
+              className="customerregistration-eye-icon"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
+          </div>
+
+          {/* Confirm Password */}
+          <div className="customerregistration-password-container">
+            <InputField
+              label="Confirm Password"
+              placeholder="Enter your confirm password"
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+            />
+            <span
+              className="customerregistration-eye-icon"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
+          </div>
+
+          {/* Company Name - Auto-capitalized */}
+          <InputField
+            label="Company Name"
+            name="company_name"
+            placeholder="Enter Company Name"
+            value={formData.company_name}
             onChange={handleChange}
             required
           />
@@ -486,54 +788,6 @@ function CustomerRegistration() {
               )}
             </div>
           </div>
-
-          {/* Password */}
-          <div className="customerregistration-password-container">
-            <InputField
-              label="Password"
-              placeholder="Enter your password"
-              type={showPassword ? "text" : "password"}
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-            <span
-              className="customerregistration-eye-icon"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <FaEyeSlash /> : <FaEye />}
-            </span>
-          </div>
-
-          {/* Confirm Password */}
-          <div className="customerregistration-password-container">
-            <InputField
-              label="Confirm Password"
-              placeholder="Enter your confirm password"
-              type={showConfirmPassword ? "text" : "password"}
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-            />
-            <span
-              className="customerregistration-eye-icon"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-            </span>
-          </div>
-
-          {/* Company Name */}
-          <InputField
-            label="Company Name"
-            name="company_name"
-            placeholder="Enter Company Name"
-            value={formData.company_name}
-            onChange={handleChange}
-            required
-          />
 
           {/* Buttons */}
           <div className="customerregistration-button-container">
