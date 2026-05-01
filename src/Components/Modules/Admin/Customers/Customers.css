@@ -1,9 +1,10 @@
 /* Watermark Styles - Same as AllAttendance component */
-.watermark-container {
+/* .watermark-container {
   position: relative;
   min-height: 100vh;
   background: white;
-}
+} */
+/* 
 
 .watermark-container::before {
   content: '';
@@ -16,10 +17,10 @@
   background-repeat: repeat;
   background-position: center;
   background-size: 200px;
-  opacity: 0.09;  /* Same opacity as AllAttendance component */
+  opacity: 0.09;  
   pointer-events: none;
   z-index: 1;
-}
+} */
 
 /* Ensure content appears above watermark */
 .main-container {

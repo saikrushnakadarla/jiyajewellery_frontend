@@ -192,7 +192,7 @@ function Designmasterform() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="designmaster-container">
         <div className="designmaster-card">

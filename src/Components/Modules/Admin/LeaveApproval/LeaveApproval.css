@@ -714,13 +714,13 @@ body.modal-open {
 }
 
 /* Watermark */
-.watermark-container {
+/* .watermark-container {
   position: relative;
   min-height: 100vh;
   background: white;
-}
+} */
 
-.watermark-container::before {
+/* .watermark-container::before {
   content: '';
   position: fixed;
   top: 0;
@@ -734,7 +734,7 @@ body.modal-open {
   opacity: 0.08;
   pointer-events: none;
   z-index: 1;
-}
+} */
 
 /* Animations */
 @keyframes fadeIn {

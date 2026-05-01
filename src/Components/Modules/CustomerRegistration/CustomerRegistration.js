@@ -7,10 +7,10 @@ import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import baseURL from "../ApiUrl/NodeBaseURL";
 
-// Static data for Indian states, cities, and districts
-const indiaStateCityDistrictData = {
+// Static data for Indian states, districts, and cities
+const indiaStateDistrictCityData = {
   "Andhra Pradesh": {
-    cities: {
+    districts: {
       "Visakhapatnam": ["Visakhapatnam", "Anakapalli", "Bheemunipatnam"],
       "Vijayawada": ["Vijayawada", "Nuzvid", "Jaggayyapeta"],
       "Guntur": ["Guntur", "Tenali", "Bapatla"],
@@ -22,7 +22,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Telangana": {
-    cities: {
+    districts: {
       "Hyderabad": ["Hyderabad", "Secunderabad", "Charminar"],
       "Warangal": ["Warangal", "Hanamkonda", "Jangaon"],
       "Karimnagar": ["Karimnagar", "Jagtial", "Siricilla"],
@@ -36,7 +36,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Karnataka": {
-    cities: {
+    districts: {
       "Bangalore": ["Bangalore Urban", "Bangalore Rural", "Ramanagara"],
       "Mysore": ["Mysore", "Nanjangud", "Tirumakudal Narsipur"],
       "Mangalore": ["Mangalore", "Bantwal", "Puttur"],
@@ -50,7 +50,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Tamil Nadu": {
-    cities: {
+    districts: {
       "Chennai": ["Chennai", "Tambaram", "Avadi"],
       "Coimbatore": ["Coimbatore", "Pollachi", "Valparai"],
       "Madurai": ["Madurai", "Usilampatti", "Vadipatti"],
@@ -62,7 +62,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Maharashtra": {
-    cities: {
+    districts: {
       "Mumbai": ["Mumbai City", "Mumbai Suburban", "Thane"],
       "Pune": ["Pune", "Pimpri-Chinchwad", "Baramati"],
       "Nagpur": ["Nagpur", "Umred", "Ramtek"],
@@ -74,7 +74,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Gujarat": {
-    cities: {
+    districts: {
       "Ahmedabad": ["Ahmedabad", "Gandhinagar", "Sanand"],
       "Surat": ["Surat", "Navsari", "Bardoli"],
       "Vadodara": ["Vadodara", "Anand", "Padra"],
@@ -86,7 +86,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Rajasthan": {
-    cities: {
+    districts: {
       "Jaipur": ["Jaipur", "Amber", "Bassi"],
       "Jodhpur": ["Jodhpur", "Osian", "Bilara"],
       "Udaipur": ["Udaipur", "Nathdwara", "Salumbar"],
@@ -98,7 +98,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Kerala": {
-    cities: {
+    districts: {
       "Thiruvananthapuram": ["Thiruvananthapuram", "Neyyattinkara", "Varkala"],
       "Kochi": ["Ernakulam", "Aluva", "Paravur"],
       "Kozhikode": ["Kozhikode", "Vadakara", "Koyilandy"],
@@ -110,7 +110,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "West Bengal": {
-    cities: {
+    districts: {
       "Kolkata": ["Kolkata", "Bidhannagar", "Howrah"],
       "Darjeeling": ["Darjeeling", "Siliguri", "Kurseong"],
       "Durgapur": ["Durgapur", "Asansol", "Raniganj"],
@@ -122,7 +122,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Punjab": {
-    cities: {
+    districts: {
       "Amritsar": ["Amritsar", "Ajnala", "Baba Bakala"],
       "Ludhiana": ["Ludhiana", "Jagraon", "Khanna"],
       "Jalandhar": ["Jalandhar", "Phagwara", "Nakodar"],
@@ -134,7 +134,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Haryana": {
-    cities: {
+    districts: {
       "Gurugram": ["Gurugram", "Manesar", "Sohna"],
       "Faridabad": ["Faridabad", "Ballabgarh", "Palwal"],
       "Chandigarh": ["Chandigarh", "Panchkula", "Mohali"],
@@ -146,7 +146,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Uttar Pradesh": {
-    cities: {
+    districts: {
       "Lucknow": ["Lucknow", "Bakshi Ka Talab", "Malihabad"],
       "Kanpur": ["Kanpur", "Bithoor", "Ghatampur"],
       "Agra": ["Agra", "Fatehpur Sikri", "Kiraoli"],
@@ -158,7 +158,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Madhya Pradesh": {
-    cities: {
+    districts: {
       "Bhopal": ["Bhopal", "Berasia", "Huzur"],
       "Indore": ["Indore", "Mhow", "Depalpur"],
       "Jabalpur": ["Jabalpur", "Sihora", "Patan"],
@@ -170,7 +170,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Bihar": {
-    cities: {
+    districts: {
       "Patna": ["Patna", "Danapur", "Patna Rural"],
       "Gaya": ["Gaya", "Bodh Gaya", "Sherghati"],
       "Bhagalpur": ["Bhagalpur", "Nathnagar", "Sultanganj"],
@@ -182,7 +182,7 @@ const indiaStateCityDistrictData = {
     }
   },
   "Odisha": {
-    cities: {
+    districts: {
       "Bhubaneswar": ["Khordha", "Balianta", "Balipatna"],
       "Cuttack": ["Cuttack", "Banki", "Athagad"],
       "Rourkela": ["Rourkela", "Rajgangpur", "Birmitrapur"],
@@ -215,8 +215,8 @@ function CustomerRegistration() {
   const [locationError, setLocationError] = useState("");
 
   // New state for cascading dropdowns
-  const [availableCities, setAvailableCities] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -228,8 +228,8 @@ function CustomerRegistration() {
     anniversary: "",
     country: "",
     state: "",
-    city: "",
     district: "",
+    city: "",
     password: "",
     confirmPassword: "",
     company_name: "",
@@ -309,30 +309,30 @@ function CustomerRegistration() {
     getCurrentLocation();
   }, []);
 
-  // Update cities when state changes
+  // Update districts when state changes
   useEffect(() => {
-    if (formData.state && indiaStateCityDistrictData[formData.state]) {
-      const cities = Object.keys(indiaStateCityDistrictData[formData.state].cities);
-      setAvailableCities(cities);
-      setFormData(prev => ({ ...prev, city: "", district: "" }));
-      setAvailableDistricts([]);
-    } else {
+    if (formData.state && indiaStateDistrictCityData[formData.state]) {
+      const districts = Object.keys(indiaStateDistrictCityData[formData.state].districts);
+      setAvailableDistricts(districts);
+      setFormData(prev => ({ ...prev, district: "", city: "" }));
       setAvailableCities([]);
+    } else {
       setAvailableDistricts([]);
+      setAvailableCities([]);
     }
   }, [formData.state]);
 
-  // Update districts when city changes
+  // Update cities when district changes
   useEffect(() => {
-    if (formData.state && formData.city && 
-        indiaStateCityDistrictData[formData.state]?.cities[formData.city]) {
-      const districts = indiaStateCityDistrictData[formData.state].cities[formData.city];
-      setAvailableDistricts(districts);
-      setFormData(prev => ({ ...prev, district: "" }));
+    if (formData.state && formData.district && 
+        indiaStateDistrictCityData[formData.state]?.districts[formData.district]) {
+      const cities = indiaStateDistrictCityData[formData.state].districts[formData.district];
+      setAvailableCities(cities);
+      setFormData(prev => ({ ...prev, city: "" }));
     } else {
-      setAvailableDistricts([]);
+      setAvailableCities([]);
     }
-  }, [formData.city, formData.state]);
+  }, [formData.district, formData.state]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -433,8 +433,8 @@ function CustomerRegistration() {
       date_of_anniversary: formData.anniversary,
       country: formData.country,
       state: formData.state,
-      city: formData.city,
       district: formData.district,
+      city: formData.city,
       password: formData.password,
       confirm_password: formData.confirmPassword,
       company_name: formData.company_name,
@@ -516,7 +516,7 @@ function CustomerRegistration() {
   };
 
   // Get all states for dropdown
-  const allStates = Object.keys(indiaStateCityDistrictData);
+  const allStates = Object.keys(indiaStateDistrictCityData);
 
   return (
     <div className="customerregistration-main-container">
@@ -662,22 +662,7 @@ function CustomerRegistration() {
             }))}
           />
 
-          {/* City */}
-          <InputField
-            label="City"
-            type="select"
-            placeholder="Select city"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            required
-            options={availableCities.map(city => ({
-              value: city,
-              label: city
-            }))}
-          />
-
-          {/* District */}
+          {/* District - Now appears before City */}
           <InputField
             label="District"
             type="select"
@@ -689,6 +674,21 @@ function CustomerRegistration() {
             options={availableDistricts.map(district => ({
               value: district,
               label: district
+            }))}
+          />
+
+          {/* City - Now appears after District, and cities load based on selected district */}
+          <InputField
+            label="City"
+            type="select"
+            placeholder="Select city"
+            name="city"
+            value={formData.city}
+            onChange={handleChange}
+            required
+            options={availableCities.map(city => ({
+              value: city,
+              label: city
             }))}
           />
 

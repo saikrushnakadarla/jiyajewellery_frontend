@@ -15,7 +15,7 @@ const Transactions = () => {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="transactions-main-container">
         {/* <div className="transactions-header">

@@ -275,7 +275,7 @@ function CategoryProducts() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="main-container">
         <div className="category-products-table-container">

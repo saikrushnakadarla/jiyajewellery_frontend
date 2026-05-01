@@ -216,7 +216,7 @@ function Metaltype() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="main-container">
         <div className="metaltype-table-container">

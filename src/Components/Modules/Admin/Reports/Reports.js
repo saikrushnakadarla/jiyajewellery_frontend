@@ -725,7 +725,7 @@ const Reports = () => {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="reports-main-container">
         <div className="reports-content-container">

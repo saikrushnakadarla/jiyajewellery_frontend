@@ -1,0 +1,34 @@
+.watermark-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.watermark-pattern {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 200px,
+    rgba(0, 0, 0, 0.02) 200px,
+    rgba(0, 0, 0, 0.02) 400px
+  );
+  transform: rotate(-30deg);
+}
+
+.watermark-logo {
+  position: relative;
+  z-index: 1;
+  opacity: 0.05;
+  width: 300px;
+}

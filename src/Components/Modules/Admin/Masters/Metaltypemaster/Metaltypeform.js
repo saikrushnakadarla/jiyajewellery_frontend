@@ -140,7 +140,7 @@ function Metaltypeform() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="metaltype-container">
         <div className="metaltype-card">

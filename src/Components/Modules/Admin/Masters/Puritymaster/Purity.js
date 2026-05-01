@@ -256,7 +256,7 @@ function Purity() {
 
   return (
     <>
-      <div className="watermark-container">
+      <div>
       <Navbar />
       <div className="main-container">
         <div className="purity-table-container">

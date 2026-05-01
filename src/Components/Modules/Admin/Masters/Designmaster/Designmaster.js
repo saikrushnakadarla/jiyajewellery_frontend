@@ -213,7 +213,7 @@ function Designmaster() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="main-container">
         <div className="designmaster-table-container">

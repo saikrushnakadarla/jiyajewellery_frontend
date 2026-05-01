@@ -64,6 +64,8 @@ import LeavesApproval from './Components/Modules/Admin/LeaveApproval/LeaveApprov
     
 import CustomerInvoice from './Components/Modules/Customer/Transactions/CustomerInvoicePDF';
 
+import WaterMark from './Components/Pages/WaterMark/WaterMark'
+
 
 function App() {
   const [count, setCount] = useState(0);
@@ -71,6 +73,11 @@ function App() {
   return (
     <Router>
       <ScreenshotProtection>
+
+         {/* Add Watermark here - appears on ALL pages automatically */}
+        <WaterMark />
+
+
         <Routes>
           <Route path="/customerregistration" element={<CustomerRegistration />} />
           <Route path="/" element={<Login />} />
@@ -140,7 +147,7 @@ function App() {
 
           <Route path="/customer-invoice/:estimateNumber" element={<CustomerInvoice />} />
 
-          
+          <Route path="/watermark" element={<WaterMark />} />
 
         </Routes>
       </ScreenshotProtection>

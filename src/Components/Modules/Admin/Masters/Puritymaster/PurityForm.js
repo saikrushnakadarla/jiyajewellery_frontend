@@ -175,7 +175,7 @@ function PurityForm() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="purity-container">
         <div className="purity-card">

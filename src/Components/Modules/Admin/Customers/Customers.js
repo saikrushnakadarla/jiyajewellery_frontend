@@ -6,7 +6,7 @@ import Navbar from '../../../Pages/Navbar/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import baseURL from '../../ApiUrl/NodeBaseURL';
 import './Customers.css';
-import watermarkimage from '../../../../Components/Pages/images/jiya_logo.png';
+// import watermarkimage from '../../../../Components/Pages/images/jiya_logo.png';
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -122,10 +122,11 @@ const Customers = () => {
       name: customer.full_name,
       phone: customer.phone || 'N/A',
       email: customer.email_id,
-      address: `${customer.city || ''}, ${customer.state || ''}, ${customer.country || ''}`,
+      address: `${customer.city || ''}, ${customer.district || ''}, ${customer.state || ''}, ${customer.country || ''}`,
       status: customer.status,
       // Add individual location fields for filtering
       state: customer.state || 'N/A',
+      district: customer.district || 'N/A',
       city: customer.city || 'N/A',
       date: customer.created_at || new Date().toISOString() // Add date field for date filter
     }));
@@ -149,6 +150,10 @@ const Customers = () => {
       {
         Header: 'City',
         accessor: 'city',
+      },
+      {
+        Header: 'District',
+        accessor: 'district',
       },
       {
         Header: 'State',
@@ -215,7 +220,7 @@ const Customers = () => {
 
   if (loading) {
     return (
-      <div className="watermark-container">
+      <div>
         <Navbar />
         <div className="main-container" style={{ marginTop: '70px' }}>
           <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
@@ -230,7 +235,7 @@ const Customers = () => {
 
   if (error) {
     return (
-      <div className="watermark-container">
+      <div>
         <Navbar />
         <div className="main-container" style={{ marginTop: '70px' }}>
           <Alert variant="danger">
@@ -242,7 +247,7 @@ const Customers = () => {
   }
 
   return (
-    <div className="watermark-container">
+    <div>
       <Navbar/>
       <div className="main-container">
         <div className="customers-table-container" style={{marginTop:'90px'}}>
@@ -256,6 +261,7 @@ const Customers = () => {
             showLocationFilters={true}
             locationFilterFields={{
               state: 'state',
+              district: 'district',
               city: 'city'
             }}
           />

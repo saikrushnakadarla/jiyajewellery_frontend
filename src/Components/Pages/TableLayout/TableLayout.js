@@ -10,7 +10,7 @@ function GlobalFilter({
   showLocationFilters = false,
   locationFilters = {},
   setLocationFilters = () => {},
-  locationOptions = { states: [], cities: [] }
+  locationOptions = { states: [], districts: [], cities: [] }
 }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -28,7 +28,7 @@ function GlobalFilter({
 
   return (
     <div className="dataTable_search mb-3">
-      <div className="d-flex align-items-center gap-2 flex-nowrap">
+      <div className="d-flex align-items-center gap-2 flex-wrap">
         <input
           value={globalFilter || ''}
           onChange={(e) => setGlobalFilter(e.target.value)}
@@ -66,6 +66,18 @@ function GlobalFilter({
                 <option key={index} value={state}>{state}</option>
               ))}
             </select>
+
+            <select
+              value={locationFilters.district || ''}
+              onChange={(e) => handleLocationChange('district', e.target.value)}
+              className="form-select"
+              style={{ width: '140px' }}
+            >
+              <option value="">All Districts</option>
+              {locationOptions.districts.map((district, index) => (
+                <option key={index} value={district}>{district}</option>
+              ))}
+            </select>
             
             <select
               value={locationFilters.city || ''}
@@ -94,22 +106,24 @@ export default function DataTable({
   columns, 
   data, 
   showLocationFilters = false,
-  locationFilterFields = { state: 'state', city: 'city' }
+  locationFilterFields = { state: 'state', district: 'district', city: 'city' }
 }) {
   const [filteredData, setFilteredData] = useState(data);
   const [locationFilters, setLocationFilters] = useState({
     state: '',
+    district: '',
     city: ''
   });
 
   // Extract unique location options from data
   const locationOptions = React.useMemo(() => {
-    if (!showLocationFilters) return { states: [], cities: [] };
+    if (!showLocationFilters) return { states: [], districts: [], cities: [] };
     
     const states = [...new Set(data.map(item => item[locationFilterFields.state]).filter(Boolean))];
+    const districts = [...new Set(data.map(item => item[locationFilterFields.district]).filter(Boolean))];
     const cities = [...new Set(data.map(item => item[locationFilterFields.city]).filter(Boolean))];
     
-    return { states, cities };
+    return { states, districts, cities };
   }, [data, showLocationFilters, locationFilterFields]);
 
   // Apply all filters (global search, date, location)
@@ -125,10 +139,12 @@ export default function DataTable({
       filtered = filtered.filter(item => {
         const stateMatch = !locationFilters.state || 
           item[locationFilterFields.state] === locationFilters.state;
+        const districtMatch = !locationFilters.district || 
+          item[locationFilterFields.district] === locationFilters.district;
         const cityMatch = !locationFilters.city || 
           item[locationFilterFields.city] === locationFilters.city;
         
-        return stateMatch && cityMatch;
+        return stateMatch && districtMatch && cityMatch;
       });
     }
     
@@ -253,7 +269,7 @@ export default function DataTable({
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
           >
-            {[5, 10, 20].map((size) => (
+            {[5, 10, 20, 25, 50].map((size) => (
               <option key={size} value={size}>
                 Show {size}
               </option>

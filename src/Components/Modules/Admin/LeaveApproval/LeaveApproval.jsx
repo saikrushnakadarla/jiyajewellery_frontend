@@ -335,7 +335,7 @@ function LeavesApproval() {
 
   return (
     <>
-      <div className="watermark-container">
+      <div>
         <AdminNavbar />
         <div className="leaves-approval-container">
           <div className="page-header">

@@ -1081,9 +1081,9 @@ const EstimateForm = () => {
 
   return (
     <>
-      <div className="watermark-container">
+      <div >
       <Navbar />
-      <div className="main-container" style={{ marginTop: '60px' }}>
+      <div className="main-container" style={{ marginTop: '120px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
             <h2>Estimate</h2>

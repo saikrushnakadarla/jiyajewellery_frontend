@@ -175,13 +175,13 @@
 }
 
 /* Watermark Styles */
-.watermark-container {
+/* .watermark-container {
     position: relative;
     min-height: 100vh;
     background: white;
-}
+} */
 
-.watermark-container::before {
+/* .watermark-container::before {
     content: '';
     position: fixed;
     top: 0;
@@ -195,7 +195,7 @@
     opacity: 0.11;
     pointer-events: none;
     z-index: 1;
-}
+} */
 
 /* Ensure content appears above watermark */
 .main-container {

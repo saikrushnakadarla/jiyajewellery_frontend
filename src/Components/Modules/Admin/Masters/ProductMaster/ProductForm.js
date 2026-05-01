@@ -1166,7 +1166,7 @@ function ProductForm() {
 
   return (
     <>
-    <div className="watermark-container">
+    <div>
       <Navbar />
       <div className="product-form-container">
         <div className="product-form-card">
