@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../../Pages/TableLayout/InputField";
 import Swal from 'sweetalert2';
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaCamera, FaUpload, FaTrash } from "react-icons/fa";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import FaceCapture from "../FaceCapture/FaceCapture";
 import baseURL from "../../ApiUrl/NodeBaseURL";
@@ -213,6 +213,14 @@ function SalespersonRegister() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [faceData, setFaceData] = useState(null);
+  
+  // Image upload states - Mandatory for salesman
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // State for cascading dropdowns - now districts first, then cities
   const [availableDistricts, setAvailableDistricts] = useState([]);
@@ -262,6 +270,16 @@ function SalespersonRegister() {
     }
   }, [formData.district, formData.state]);
 
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -279,10 +297,116 @@ function SalespersonRegister() {
     Swal.fire({
       icon: 'success',
       title: 'Face Captured!',
-      text: 'Your face has been successfully registered.',
+      text: 'Your face has been successfully registered for face login.',
       timer: 1500,
       showConfirmButton: false
     });
+  };
+
+  // Handle file selection for mandatory image upload
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'error',
+          title: 'File Too Large',
+          text: 'Please select an image under 5MB.',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+      
+      if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid File Type',
+          text: 'Please select a valid image file (JPEG, PNG, GIF, WebP).',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image removal
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Start camera capture
+  const startCamera = async () => {
+    setIsCapturing(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setIsCapturing(false);
+      Swal.fire({
+        icon: 'error',
+        title: 'Camera Error',
+        text: 'Unable to access camera. Please check permissions.',
+        confirmButtonColor: '#3085d6',
+      });
+    }
+  };
+
+  // Stop camera
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCapturing(false);
+  };
+
+  // Capture photo from camera for mandatory image
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `captured-profile-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setSelectedImage(file);
+        setImagePreview(URL.createObjectURL(blob));
+        stopCamera();
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Photo Captured!',
+          text: 'Your profile photo has been captured successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      }, 'image/jpeg', 0.9);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -314,6 +438,18 @@ function SalespersonRegister() {
       return;
     }
 
+    // Validate mandatory image upload/capture
+    if (!selectedImage) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Profile Photo Required',
+        text: 'Please upload or capture a profile photo. This is mandatory for salesman registration.',
+        confirmButtonColor: '#3085d6',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     // Prepare data for API
     const apiData = new FormData();
     apiData.append('full_name', formData.full_name);
@@ -334,7 +470,7 @@ function SalespersonRegister() {
     apiData.append('pincode', formData.pincode);
     apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
     
-    // Convert base64 image to file
+    // Append face photo from face capture (base64 to file)
     const base64Image = faceData.image;
     const byteString = atob(base64Image.split(',')[1]);
     const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
@@ -344,8 +480,11 @@ function SalespersonRegister() {
       ia[i] = byteString.charCodeAt(i);
     }
     const blob = new Blob([ab], { type: mimeString });
-    const file = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
-    apiData.append('face_photo', file);
+    const faceFile = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
+    apiData.append('face_photo', faceFile);
+    
+    // Append mandatory profile photo
+    apiData.append('profile_photo', selectedImage);
 
     try {
       const response = await fetch(`${baseURL}/api/users`, {
@@ -360,7 +499,7 @@ function SalespersonRegister() {
         Swal.fire({
           icon: 'success',
           title: 'Registration Successful!',
-          text: 'Your account has been created successfully.',
+          text: 'Your salesman account has been created successfully.',
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
@@ -404,6 +543,7 @@ function SalespersonRegister() {
           <h2>Salesman Registration</h2>
           {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
           
+          {/* Face Registration for Face Login */}
           <button
             type="button"
             onClick={() => setShowFaceCapture(true)}
@@ -419,10 +559,10 @@ function SalespersonRegister() {
               width: '100%'
             }}
           >
-            {faceData ? '✓ Face Registered' : '📸 Register Face for Login'}
+            {faceData ? '✓ Face Registered for Login' : '📸 Register Face for Login'}
           </button>
           
-          <form className="customerregistration-form" onSubmit={handleSubmit}>
+          <form className="customerregistration-form" onSubmit={handleSubmit} encType="multipart/form-data">
             {/* Full Name - Auto-capitalized */}
             <InputField
               label="Full Name"
@@ -560,7 +700,7 @@ function SalespersonRegister() {
               }))}
             />
 
-            {/* District - Now appears before City */}
+            {/* District */}
             <InputField
               label="District"
               type="select"
@@ -575,7 +715,7 @@ function SalespersonRegister() {
               }))}
             />
 
-            {/* City - Now appears after District, and cities load based on selected district */}
+            {/* City */}
             <InputField
               label="City"
               type="select"
@@ -647,6 +787,94 @@ function SalespersonRegister() {
               onChange={handleChange}
               required
             />
+
+            {/* Mandatory Profile Photo Upload/Capture Section */}
+            <div className="customerregistration-image-section">
+              <label className="input-label">
+                Profile Photo <span className="required-star" style={{ color: 'red', marginLeft: '4px' }}>*</span>
+                <span style={{ color: '#666', fontWeight: 'normal', fontSize: '12px' }}> (Mandatory)</span>
+              </label>
+              <div className="customerregistration-image-container">
+                {/* Hidden canvas for camera capture */}
+                <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+                
+                {/* Camera View */}
+                {isCapturing && (
+                  <div className="customerregistration-camera-container">
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline
+                      className="customerregistration-camera-video"
+                    ></video>
+                    <div className="customerregistration-camera-controls">
+                      <button
+                        type="button"
+                        className="customerregistration-capture-btn"
+                        onClick={capturePhoto}
+                      >
+                        <FaCamera /> Capture Photo
+                      </button>
+                      <button
+                        type="button"
+                        className="customerregistration-cancel-camera-btn"
+                        onClick={stopCamera}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Image Preview */}
+                {imagePreview && !isCapturing && (
+                  <div className="customerregistration-image-preview">
+                    <img src={imagePreview} alt="Preview" className="customerregistration-preview-img" />
+                    <button
+                      type="button"
+                      className="customerregistration-remove-image-btn"
+                      onClick={handleRemoveImage}
+                      title="Remove Image"
+                    >
+                      <FaTrash /> Remove
+                    </button>
+                  </div>
+                )}
+
+                {/* Upload and Capture Buttons */}
+                {!isCapturing && (
+                  <div className="customerregistration-image-buttons">
+                    <button
+                      type="button"
+                      className="customerregistration-upload-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <FaUpload /> Upload Photo
+                    </button>
+                    <button
+                      type="button"
+                      className="customerregistration-capture-btn"
+                      onClick={startCamera}
+                    >
+                      <FaCamera /> Take Photo
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                )}
+                
+                {!selectedImage && !isCapturing && (
+                  <div style={{ color: '#ff6b6b', fontSize: '12px', marginTop: '5px' }}>
+                    * Please upload or capture a profile photo
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Buttons */}
             <div className="customerregistration-button-container">

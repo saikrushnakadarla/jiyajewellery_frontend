@@ -285,3 +285,114 @@
 .fa-spin {
   animation: spin 1s linear infinite;
 }
+
+
+/* Image Upload Section Styles */
+.customerregistration-image-section {
+  margin-bottom: 20px;
+}
+
+.customerregistration-image-container {
+  margin-top: 10px;
+}
+
+.customerregistration-image-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.customerregistration-upload-btn,
+.customerregistration-capture-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 2px dashed #007bff;
+  background-color: #f8f9ff;
+  color: #007bff;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.customerregistration-upload-btn:hover,
+.customerregistration-capture-btn:hover {
+  background-color: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+/* Camera Container */
+.customerregistration-camera-container {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.customerregistration-camera-video {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+}
+
+.customerregistration-camera-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.customerregistration-cancel-camera-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.customerregistration-cancel-camera-btn:hover {
+  background-color: #5a6268;
+}
+
+/* Image Preview */
+.customerregistration-image-preview {
+  position: relative;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.customerregistration-preview-img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  object-fit: cover;
+}
+
+.customerregistration-remove-image-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background-color: rgba(220, 53, 69, 0.9);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.3s ease;
+}
+
+.customerregistration-remove-image-btn:hover {
+  background-color: #c82333;
+}

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../Pages/TableLayout/InputField";
 import "./CustomerRegistration.css";
 import Swal from 'sweetalert2';
-import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaSpinner, FaCamera, FaUpload, FaTrash } from "react-icons/fa";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import baseURL from "../ApiUrl/NodeBaseURL";
 
@@ -213,6 +213,14 @@ function CustomerRegistration() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
+  
+  // Image upload states
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // New state for cascading dropdowns
   const [availableDistricts, setAvailableDistricts] = useState([]);
@@ -334,6 +342,16 @@ function CustomerRegistration() {
     }
   }, [formData.district, formData.state]);
 
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -342,6 +360,104 @@ function CustomerRegistration() {
       setFormData((prev) => ({ ...prev, [name]: capitalizeWords(value) }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'error',
+          title: 'File Too Large',
+          text: 'Please select an image under 5MB.',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+      
+      if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid File Type',
+          text: 'Please select a valid image file (JPEG, PNG, GIF, WebP).',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image removal
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Start camera capture
+  const startCamera = async () => {
+    setIsCapturing(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setIsCapturing(false);
+      Swal.fire({
+        icon: 'error',
+        title: 'Camera Error',
+        text: 'Unable to access camera. Please check permissions.',
+        confirmButtonColor: '#3085d6',
+      });
+    }
+  };
+
+  // Stop camera
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCapturing(false);
+  };
+
+  // Capture photo from camera
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `captured-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setSelectedImage(file);
+        setImagePreview(URL.createObjectURL(blob));
+        stopCamera();
+      }, 'image/jpeg', 0.9);
     }
   };
 
@@ -422,37 +538,38 @@ function CustomerRegistration() {
       return;
     }
 
-    // Prepare data for API
-    const apiData = {
-      full_name: formData.full_name,
-      email_id: formData.email,
-      phone: formData.phone,
-      date_of_birth: formData.dob,
-      gender: formData.gender,
-      designation: formData.designation,
-      date_of_anniversary: formData.anniversary,
-      country: formData.country,
-      state: formData.state,
-      district: formData.district,
-      city: formData.city,
-      password: formData.password,
-      confirm_password: formData.confirmPassword,
-      company_name: formData.company_name,
-      role: formData.role,
-      pincode: formData.pincode,
-      latitude: formData.latitude || null,
-      longitude: formData.longitude || null,
-      status: 'pending'
-    };
+    // Prepare FormData for API
+    const formDataToSend = new FormData();
+    formDataToSend.append('full_name', formData.full_name);
+    formDataToSend.append('email_id', formData.email);
+    formDataToSend.append('phone', formData.phone);
+    formDataToSend.append('date_of_birth', formData.dob);
+    formDataToSend.append('gender', formData.gender);
+    formDataToSend.append('designation', formData.designation);
+    formDataToSend.append('date_of_anniversary', formData.anniversary);
+    formDataToSend.append('country', formData.country);
+    formDataToSend.append('state', formData.state);
+    formDataToSend.append('district', formData.district);
+    formDataToSend.append('city', formData.city);
+    formDataToSend.append('password', formData.password);
+    formDataToSend.append('confirm_password', formData.confirmPassword);
+    formDataToSend.append('company_name', formData.company_name);
+    formDataToSend.append('role', formData.role);
+    formDataToSend.append('pincode', formData.pincode);
+    formDataToSend.append('latitude', formData.latitude || '');
+    formDataToSend.append('longitude', formData.longitude || '');
+    formDataToSend.append('status', 'pending');
+    
+    // Only append image if selected
+    if (selectedImage) {
+      formDataToSend.append('face_photo', selectedImage);
+    }
 
     try {
       // First API call - Store in user database
       const response = await fetch(`${baseURL}/api/users`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiData),
+        body: formDataToSend, // Don't set Content-Type header, browser will set it with boundary
       });
 
       if (response.ok) {
@@ -524,7 +641,7 @@ function CustomerRegistration() {
         <h2>Customer Registration</h2>
         {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
 
-        <form className="customerregistration-form" onSubmit={handleSubmit}>
+        <form className="customerregistration-form" onSubmit={handleSubmit} encType="multipart/form-data">
           {/* Full Name - Auto-capitalized */}
           <InputField
             label="Full Name"
@@ -784,6 +901,85 @@ function CustomerRegistration() {
                   <div className="location-success">
                     ✓ Location captured successfully
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Image Upload Section - Optional */}
+          <div className="customerregistration-image-section">
+            <label className="input-label">Profile Photo <span style={{ color: '#666', fontWeight: 'normal' }}>(Optional)</span></label>
+            <div className="customerregistration-image-container">
+              {/* Hidden canvas for camera capture */}
+              <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+              
+              {/* Camera View */}
+              {isCapturing && (
+                <div className="customerregistration-camera-container">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline
+                    className="customerregistration-camera-video"
+                  ></video>
+                  <div className="customerregistration-camera-controls">
+                    <button
+                      type="button"
+                      className="customerregistration-capture-btn"
+                      onClick={capturePhoto}
+                    >
+                      <FaCamera /> Capture Photo
+                    </button>
+                    <button
+                      type="button"
+                      className="customerregistration-cancel-camera-btn"
+                      onClick={stopCamera}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Image Preview */}
+              {imagePreview && !isCapturing && (
+                <div className="customerregistration-image-preview">
+                  <img src={imagePreview} alt="Preview" className="customerregistration-preview-img" />
+                  <button
+                    type="button"
+                    className="customerregistration-remove-image-btn"
+                    onClick={handleRemoveImage}
+                    title="Remove Image"
+                  >
+                    <FaTrash /> Remove
+                  </button>
+                </div>
+              )}
+
+              {/* Upload and Capture Buttons */}
+              {!isCapturing && (
+                <div className="customerregistration-image-buttons">
+                  <button
+                    type="button"
+                    className="customerregistration-upload-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FaUpload /> Upload Photo
+                  </button>
+                  <button
+                    type="button"
+                    className="customerregistration-capture-btn"
+                    onClick={startCamera}
+                  >
+                    <FaCamera /> Take Photo
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
                 </div>
               )}
             </div>
