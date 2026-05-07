@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Navbar from "../../../Pages/Navbar/Navbar";
 import "./Dashboard.css";
 import {
@@ -17,8 +19,11 @@ import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import { FiUsers, FiUserCheck, FiPackage, FiFileText } from 'react-icons/fi';
 import { HiOutlineTrendingUp } from 'react-icons/hi';
-import { Button } from 'react-bootstrap';
+import { IoNotificationsOutline, IoNotifications } from 'react-icons/io5';
+import { MdOutlineMarkEmailUnread } from 'react-icons/md';
+import { Button, Dropdown, Badge } from 'react-bootstrap';
 import baseURL from "../../ApiUrl/NodeBaseURL";
+import useAdminNotifications from "../../../CustomHooks/AdminNotifications";
 
 ChartJS.register(
   CategoryScale,
@@ -51,6 +56,9 @@ function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Use the notifications hook
+  const { notifications, isConnected, clearNotifications } = useAdminNotifications();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -208,6 +216,28 @@ function Dashboard() {
     return `₹${parseFloat(amount || 0).toFixed(2)}`;
   };
 
+  const getNotificationIcon = (type) => {
+    switch(type) {
+      case 'NEW_ESTIMATE':
+        return '📋';
+      case 'STATUS_CHANGE':
+        return '🔄';
+      default:
+        return '📢';
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch(type) {
+      case 'NEW_ESTIMATE':
+        return '#3b82f6';
+      case 'STATUS_CHANGE':
+        return '#f59e0b';
+      default:
+        return '#64748b';
+    }
+  };
+
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -339,282 +369,385 @@ function Dashboard() {
 
   return (
     <>
-    <div>
-      <Navbar/>
-      <div className="container-fluid dashboard-container">
-        {/* Top Cards Row */}
-        <div className="cards-grid">
-          {/* Customers Card */}
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/customers")}
-          >
-            <div className="stat-card-content">
-              <div className="stat-left">
-                <span className="stat-label">Customers</span>
-                <span className="stat-value">{customersCount}</span>
-                <span className="stat-trend">
-                  <HiOutlineTrendingUp className="trend-icon" />
-                  Total customers
+      <ToastContainer 
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      <div>
+        <Navbar/>
+        <div className="container-fluid dashboard-container">
+          {/* Enhanced Notification Header */}
+          <div className="notification-header-enhanced">
+            <div className="notification-status">
+              <div className={`live-indicator ${isConnected ? 'active' : 'inactive'}`}>
+                <span className="pulse-dot"></span>
+                <span className="status-text">
+                  {isConnected ? 'Live Updates Active' : 'Reconnecting...'}
                 </span>
               </div>
-              <div className="stat-icon">
-                <FiUsers />
+            </div>
+            
+            <Dropdown align="end">
+              <Dropdown.Toggle variant="light" className="notification-bell-toggle" id="dropdown-basic">
+                <div className="bell-icon-wrapper">
+                  {notifications.length > 0 ? (
+                    <IoNotifications className="bell-icon has-notifications" />
+                  ) : (
+                    <IoNotificationsOutline className="bell-icon" />
+                  )}
+                  {notifications.length > 0 && (
+                    <Badge pill className="notification-count-badge">
+                      {notifications.length > 99 ? '99+' : notifications.length}
+                    </Badge>
+                  )}
+                </div>
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu className="notification-dropdown-menu">
+                <div className="notification-dropdown-header">
+                  <div className="header-title">
+                    <MdOutlineMarkEmailUnread className="header-icon" />
+                    <span>Notifications</span>
+                  </div>
+                  {notifications.length > 0 && (
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      onClick={clearNotifications}
+                      className="clear-all-btn"
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+                <Dropdown.Divider />
+                <div className="notification-list">
+                  {notifications.length === 0 ? (
+                    <div className="empty-notifications">
+                      <div className="empty-icon">🔔</div>
+                      <p>No new notifications</p>
+                      <span>You're all caught up!</span>
+                    </div>
+                  ) : (
+                    notifications.map((notif, index) => (
+                      <Dropdown.Item 
+                        key={index} 
+                        onClick={() => navigate(`/estimation/${notif.estimate_number}`)}
+                        className="notification-item"
+                      >
+                        <div className="notification-item-icon" style={{ backgroundColor: getNotificationColor(notif.type) + '20' }}>
+                          <span>{getNotificationIcon(notif.type)}</span>
+                        </div>
+                        <div className="notification-item-content">
+                          <div className="notification-message">{notif.message}</div>
+                          <div className="notification-time">
+                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </Dropdown.Item>
+                    ))
+                  )}
+                </div>
+                {notifications.length > 0 && (
+                  <>
+                    <Dropdown.Divider />
+                    <div className="notification-dropdown-footer">
+                      <Button 
+                        variant="link" 
+                        size="sm" 
+                        onClick={() => navigate('/estimation')}
+                        className="view-all-btn"
+                      >
+                        View all estimates
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
+
+          {/* Top Cards Row */}
+          <div className="cards-grid">
+            {/* Customers Card */}
+            <div 
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/customers")}
+            >
+              <div className="stat-card-content">
+                <div className="stat-left">
+                  <span className="stat-label">Customers</span>
+                  <span className="stat-value">{customersCount}</span>
+                  <span className="stat-trend">
+                    <HiOutlineTrendingUp className="trend-icon" />
+                    Total customers
+                  </span>
+                </div>
+                <div className="stat-icon">
+                  <FiUsers />
+                </div>
+              </div>
+            </div>
+
+            {/* Sales Persons Card */}
+            <div 
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/salespersontable")}
+            >
+              <div className="stat-card-content">
+                <div className="stat-left">
+                  <span className="stat-label">Sales Persons</span>
+                  <span className="stat-value">{salespersonsCount}</span>
+                  <span className="stat-trend">
+                    <HiOutlineTrendingUp className="trend-icon" />
+                    Active sales team
+                  </span>
+                </div>
+                <div className="stat-icon">
+                  <FiUserCheck />
+                </div>
+              </div>
+            </div>
+
+            {/* Products Card */}
+            <div 
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/productmaster")}
+            >
+              <div className="stat-card-content">
+                <div className="stat-left">
+                  <span className="stat-label">Products</span>
+                  <span className="stat-value">{productsCount}</span>
+                  <span className="stat-trend">
+                    <HiOutlineTrendingUp className="trend-icon" />
+                    Total products
+                  </span>
+                </div>
+                <div className="stat-icon">
+                  <FiPackage />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Estimates Card */}
+            <div 
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/estimation")}
+            >
+              <div className="stat-card-content">
+                <div className="stat-left">
+                  <span className="stat-label">Total Estimates</span>
+                  <span className="stat-value">{estimatesCount.total}</span>
+                  <span className="stat-trend">
+                    <HiOutlineTrendingUp className="trend-icon" />
+                    All time estimates
+                  </span>
+                </div>
+                <div className="stat-icon">
+                  <FiFileText />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Sales Persons Card */}
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/salespersontable")}
-          >
-            <div className="stat-card-content">
-              <div className="stat-left">
-                <span className="stat-label">Sales Persons</span>
-                <span className="stat-value">{salespersonsCount}</span>
-                <span className="stat-trend">
-                  <HiOutlineTrendingUp className="trend-icon" />
-                  Active sales team
-                </span>
+          {/* Estimates Breakdown Section */}
+          <div className="breakdown-section">
+            <h3 className="section-title">Estimates Breakdown</h3>
+            <div className="breakdown-grid">
+              <div className="breakdown-card pending">
+                <div className="breakdown-content">
+                  <span className="breakdown-label">Pending</span>
+                  <span className="breakdown-value">{estimatesCount.pending}</span>
+                  <span className="breakdown-percentage">
+                    {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                  </span>
+                </div>
               </div>
-              <div className="stat-icon">
-                <FiUserCheck />
+
+              <div className="breakdown-card accepted">
+                <div className="breakdown-content">
+                  <span className="breakdown-label">Accepted</span>
+                  <span className="breakdown-value">{estimatesCount.accepted}</span>
+                  <span className="breakdown-percentage">
+                    {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                  </span>
+                </div>
+              </div>
+
+              <div className="breakdown-card orders">
+                <div className="breakdown-content">
+                  <span className="breakdown-label">Orders</span>
+                  <span className="breakdown-value">{estimatesCount.ordered}</span>
+                  <span className="breakdown-percentage">
+                    {estimatesCount.total > 0 ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                  </span>
+                </div>
+              </div>
+
+              <div className="breakdown-card rejected">
+                <div className="breakdown-content">
+                  <span className="breakdown-label">Rejected</span>
+                  <span className="breakdown-value">{estimatesCount.rejected}</span>
+                  <span className="breakdown-percentage">
+                    {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Products Card */}
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/productmaster")}
-          >
-            <div className="stat-card-content">
-              <div className="stat-left">
-                <span className="stat-label">Products</span>
-                <span className="stat-value">{productsCount}</span>
-                <span className="stat-trend">
-                  <HiOutlineTrendingUp className="trend-icon" />
-                  Total products
-                </span>
+          {/* Monthly Overview and Custom Pie Chart Row */}
+          <div className="charts-row">
+            <div className="chart-container large">
+              <div className="chart-header">
+                <h3>Monthly Overview</h3>
+                <span className="chart-subtitle">Estimates vs Orders (Last 6 months)</span>
               </div>
-              <div className="stat-icon">
-                <FiPackage />
+              <div className="chart-wrapper">
+                {monthlyData.estimates.length > 0 ? (
+                  <Bar data={estimatesVsOrdersData} options={barOptions} />
+                ) : (
+                  <div className="no-data-message">No monthly data available</div>
+                )}
               </div>
             </div>
-          </div>
-
-          {/* Total Estimates Card */}
-          <div 
-            className="stat-card clickable"
-            onClick={() => handleCardClick("/estimation")}
-          >
-            <div className="stat-card-content">
-              <div className="stat-left">
-                <span className="stat-label">Total Estimates</span>
-                <span className="stat-value">{estimatesCount.total}</span>
-                <span className="stat-trend">
-                  <HiOutlineTrendingUp className="trend-icon" />
-                  All time estimates
-                </span>
-              </div>
-              <div className="stat-icon">
-                <FiFileText />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Estimates Breakdown Section */}
-        <div className="breakdown-section">
-          <h3 className="section-title">Estimates Breakdown</h3>
-          <div className="breakdown-grid">
-            <div className="breakdown-card pending">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Pending</span>
-                <span className="breakdown-value">{estimatesCount.pending}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card accepted">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Accepted</span>
-                <span className="breakdown-value">{estimatesCount.accepted}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.accepted / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card orders">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Orders</span>
-                <span className="breakdown-value">{estimatesCount.ordered}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card rejected">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Rejected</span>
-                <span className="breakdown-value">{estimatesCount.rejected}</span>
-                <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly Overview and Custom Pie Chart Row */}
-        <div className="charts-row">
-          <div className="chart-container large">
-            <div className="chart-header">
-              <h3>Monthly Overview</h3>
-              <span className="chart-subtitle">Estimates vs Orders (Last 6 months)</span>
-            </div>
-            <div className="chart-wrapper">
-              {monthlyData.estimates.length > 0 ? (
-                <Bar data={estimatesVsOrdersData} options={barOptions} />
+            
+            <div className="chart-wrapper custom-chart-wrapper">
+              {estimatesCount.total > 0 ? (
+                <EstimateStatusChart 
+                  pending={estimatesCount.pending}
+                  accepted={estimatesCount.accepted}
+                  ordered={estimatesCount.ordered}
+                  rejected={estimatesCount.rejected}
+                  total={estimatesCount.total}
+                />
               ) : (
-                <div className="no-data-message">No monthly data available</div>
+                <div className="no-data-message">No estimate data available</div>
               )}
             </div>
           </div>
-          
-          <div className="chart-wrapper custom-chart-wrapper">
-            {estimatesCount.total > 0 ? (
-              <EstimateStatusChart 
-                pending={estimatesCount.pending}
-                accepted={estimatesCount.accepted}
-                ordered={estimatesCount.ordered}
-                rejected={estimatesCount.rejected}
-                total={estimatesCount.total}
-              />
-            ) : (
-              <div className="no-data-message">No estimate data available</div>
-            )}
-          </div>
-        </div>
 
-        {/* Recent Estimates Section */}
-        <div className="recent-section">
-          <div className="section-header">
-            <h3>Recent Estimates</h3>
-            <Button 
-              variant="outline-primary" 
-              size="sm"
-              onClick={() => navigate('/estimation')}
-            >
-              View All
-            </Button>
-          </div>
-          <div className="table-container">
-            {recentEstimates.length > 0 ? (
-              <table className="recent-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Estimate #</th>
-                    <th>Customer</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentEstimates.map((estimate, index) => (
-                    <tr 
-                      key={index} 
-                      onClick={() => handleViewEstimate(estimate.estimate_number)}
-                      className="clickable-row"
-                    >
-                      <td>{formatDate(estimate.date || estimate.created_at)}</td>
-                      <td className="estimate-number">
-                        {estimate.estimate_number}
-                      </td>
-                      <td>{estimate.customer_name || 'N/A'}</td>
-                      <td className="amount">
-                        {formatCurrency(estimate.net_amount || estimate.total_amount)}
-                      </td>
-                      <td>
-                        <span className={getStatusBadgeClass(estimate.estimate_status || estimate.status)}>
-                          {estimate.estimate_status || estimate.status || 'Pending'}
-                        </span>
-                      </td>
+          {/* Recent Estimates Section */}
+          <div className="recent-section">
+            <div className="section-header">
+              <h3>Recent Estimates</h3>
+              <Button 
+                variant="outline-primary" 
+                size="sm"
+                onClick={() => navigate('/estimation')}
+              >
+                View All
+              </Button>
+            </div>
+            <div className="table-container">
+              {recentEstimates.length > 0 ? (
+                <table className="recent-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Estimate #</th>
+                      <th>Customer</th>
+                      <th>Amount</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="no-data">
-                <i className="bi bi-file-text"></i>
-                <p>No estimates found</p>
-              </div>
-            )}
+                  </thead>
+                  <tbody>
+                    {recentEstimates.map((estimate, index) => (
+                      <tr 
+                        key={index} 
+                        onClick={() => handleViewEstimate(estimate.estimate_number)}
+                        className="clickable-row"
+                      >
+                        <td>{formatDate(estimate.date || estimate.created_at)}</td>
+                        <td className="estimate-number">
+                          {estimate.estimate_number}
+                        </td>
+                        <td>{estimate.customer_name || 'N/A'}</td>
+                        <td className="amount">
+                          {formatCurrency(estimate.net_amount || estimate.total_amount)}
+                        </td>
+                        <td>
+                          <span className={getStatusBadgeClass(estimate.estimate_status || estimate.status)}>
+                            {estimate.estimate_status || estimate.status || 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="no-data">
+                  <i className="bi bi-file-text"></i>
+                  <p>No estimates found</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Recent Customers Section */}
-        <div className="recent-section">
-          <div className="section-header">
-            <h3>Recent Customers</h3>
-            <Button 
-              variant="outline-primary" 
-              size="sm"
-              onClick={() => navigate('/customers')}
-            >
-              View All
-            </Button>
-          </div>
-          <div className="table-container">
-            {recentCustomers.length > 0 ? (
-              <table className="recent-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Company</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentCustomers.map((customer) => (
-                    <tr 
-                      key={customer.id}
-                      onClick={() => navigate(`/customers/${customer.id}`)}
-                      className="clickable-row"
-                    >
-                      <td className="customer-name">{customer.full_name}</td>
-                      <td>{customer.email_id}</td>
-                      <td>{customer.phone || 'N/A'}</td>
-                      <td>{customer.company_name || 'N/A'}</td>
-                      <td>
-                        <span className={`status-badge ${
-                          customer.status === 'approved' ? 'accepted' : 
-                          customer.status === 'pending' ? 'pending' : 'rejected'
-                        }`}>
-                          {customer.status?.toUpperCase() || 'PENDING'}
-                        </span>
-                      </td>
+          {/* Recent Customers Section */}
+          <div className="recent-section">
+            <div className="section-header">
+              <h3>Recent Customers</h3>
+              <Button 
+                variant="outline-primary" 
+                size="sm"
+                onClick={() => navigate('/customers')}
+              >
+                View All
+              </Button>
+            </div>
+            <div className="table-container">
+              {recentCustomers.length > 0 ? (
+                <table className="recent-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Company</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="no-data">
-                <i className="bi bi-people"></i>
-                <p>No customers found</p>
-              </div>
-            )}
+                  </thead>
+                  <tbody>
+                    {recentCustomers.map((customer) => (
+                      <tr 
+                        key={customer.id}
+                        onClick={() => navigate(`/customers/${customer.id}`)}
+                        className="clickable-row"
+                      >
+                        <td className="customer-name">{customer.full_name}</td>
+                        <td>{customer.email_id}</td>
+                        <td>{customer.phone || 'N/A'}</td>
+                        <td>{customer.company_name || 'N/A'}</td>
+                        <td>
+                          <span className={`status-badge ${
+                            customer.status === 'approved' ? 'accepted' : 
+                            customer.status === 'pending' ? 'pending' : 'rejected'
+                          }`}>
+                            {customer.status?.toUpperCase() || 'PENDING'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="no-data">
+                  <i className="bi bi-people"></i>
+                  <p>No customers found</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </>
   );

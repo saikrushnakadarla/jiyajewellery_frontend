@@ -1,0 +1,272 @@
+.vls-main-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px 0;
+}
+
+.vls-container {
+  max-width: 1400px;
+}
+
+/* Header Card */
+.vls-header-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 15px;
+  padding: 30px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  margin-top: 70px;
+}
+
+.vls-header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.vls-header-icon-wrapper {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vls-header-icon {
+  font-size: 32px;
+}
+
+.vls-header-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.vls-header-subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 5px 0 0;
+}
+
+/* Form Card */
+.vls-form-card {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.vls-form-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.vls-form-header h4 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.vls-form-icon {
+  color: #667eea;
+  font-size: 20px;
+}
+
+.vls-label {
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.vls-input,
+.vls-select {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 15px;
+  transition: all 0.3s ease;
+}
+
+.vls-input:focus,
+.vls-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.vls-submit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.vls-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Info Alert */
+.vls-info-alert {
+  border-radius: 10px;
+  border-left: 5px solid #17a2b8;
+  background: linear-gradient(135deg, #d1ecf1 0%, #e8f4f8 100%);
+  font-size: 14px;
+}
+
+/* Table Card */
+.vls-table-card {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.vls-table-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.vls-table-header h4 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.vls-table-responsive {
+  overflow-x: auto;
+}
+
+.vls-table {
+  margin-bottom: 0;
+}
+
+.vls-table-head {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.vls-table-head th {
+  color: white;
+  font-weight: 600;
+  border: none;
+  padding: 12px 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vls-table td {
+  vertical-align: middle;
+  padding: 12px 10px;
+  font-size: 14px;
+}
+
+.vls-table tbody tr:hover {
+  background-color: #f8f9ff;
+}
+
+/* Action Buttons */
+.vls-action-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+/* Modal Styling */
+.vls-modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.vls-modal-header .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+/* Detail Cards */
+.vls-detail-card {
+  background: #f8f9ff;
+  border-radius: 10px;
+  padding: 15px;
+  border: 1px solid #e0e7ff;
+}
+
+.vls-detail-card-title {
+  color: #667eea;
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.vls-detail-item {
+  margin-bottom: 10px;
+}
+
+.vls-detail-label {
+  font-weight: 600;
+  color: #666;
+  font-size: 13px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.vls-detail-value {
+  font-size: 14px;
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .vls-header-card {
+    padding: 20px;
+  }
+  
+  .vls-header-title {
+    font-size: 22px;
+  }
+  
+  .vls-form-card {
+    padding: 15px;
+  }
+  
+  .vls-table-card {
+    padding: 15px;
+  }
+  
+  .vls-table-head th {
+    font-size: 11px;
+  }
+  
+  .vls-table td {
+    font-size: 12px;
+  }
+}
+
+
+/* Add these to your existing VisitLogsSchedule.css */
+
+.vls-editing-row {
+  background-color: #f8f9ff !important;
+  border-left: 4px solid #667eea;
+}
+
+.vls-cancel-btn {
+  border-radius: 8px;
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+
+.vls-cancel-btn:hover {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}

@@ -67,6 +67,9 @@ import CustomerInvoice from './Components/Modules/Customer/Transactions/Customer
 import WaterMark from './Components/Pages/WaterMark/WaterMark'
 
 
+import VisitLogsSchedule from "./Components/Modules/Admin/VisitLogsSchedule/VisitLogsSchedule";
+
+
 function App() {
   const [count, setCount] = useState(0);
 
@@ -148,6 +151,9 @@ function App() {
           <Route path="/customer-invoice/:estimateNumber" element={<CustomerInvoice />} />
 
           <Route path="/watermark" element={<WaterMark />} />
+
+
+          <Route path='/visit-logs-schedule' element={<VisitLogsSchedule />} />
 
         </Routes>
       </ScreenshotProtection>

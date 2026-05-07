@@ -144,6 +144,9 @@ function Navbar() {
               <Link to="/loan-amount" onClick={handleItemClick} className={isActive('/loan-amount')}>
                 Loan Amount
               </Link>
+              <Link to="/visit-logs-schedule" onClick={handleItemClick} className={isActive('/visit-logs-schedule')}>
+                Visit Logs Schedule
+              </Link>
             </div>
           )}
         </div>
