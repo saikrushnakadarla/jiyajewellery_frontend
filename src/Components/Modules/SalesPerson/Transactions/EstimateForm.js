@@ -4,7 +4,7 @@ import InputField from "../../../Pages/TableLayout/InputField";
 import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash, FaQrcode, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaQrcode, FaCamera, FaUpload, FaTimes, FaBoxOpen, FaSearch } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
@@ -38,6 +38,11 @@ const EstimateForm = () => {
   // Packet level state (shared across all entries for this customer)
   const [packetBarcode, setPacketBarcode] = useState("");
   const [packetWt, setPacketWt] = useState("");
+  const [packetDetails, setPacketDetails] = useState(null); // Store packet details from admin
+  const [showPacketSelector, setShowPacketSelector] = useState(false);
+  const [availablePackets, setAvailablePackets] = useState([]);
+  const [packetSearchTerm, setPacketSearchTerm] = useState("");
+  const [loadingPackets, setLoadingPackets] = useState(false);
 
   // Store the saved estimate number for updates
   const [savedEstimateNumber, setSavedEstimateNumber] = useState("");
@@ -98,36 +103,70 @@ const EstimateForm = () => {
     }
   };
 
-  const handleQRScanSuccess = (decodedText) => {
+  // Handle QR scan success - Fetch packet details from admin
+  const handleQRScanSuccess = async (decodedText) => {
     try {
       stopScanner();
-
+      
+      // First, try to fetch packet details from admin QR packets table
+      console.log("Scanning QR code:", decodedText);
+      
+      // Show loading indicator
+      alert("Fetching packet details...");
+      
+      // Fetch packet details from backend
+      const response = await axios.get(`${baseURL}/api/get-packet-details/${encodeURIComponent(decodedText)}`);
+      
+      if (response.data.success && response.data.data) {
+        const packet = response.data.data;
+        
+        // Update packet details
+        setPacketDetails(packet);
+        setPacketBarcode(packet.prefix);
+        setPacketWt(packet.packet_wt || "");
+        
+        alert(`Packet found!\nPrefix: ${packet.prefix}\nDate: ${packet.packet_date}\nWeight: ${packet.packet_wt || 'N/A'} g`);
+      } else {
+        // If not found, try to extract barcode as product code
+        const barcode = extractBarcodeFromQR(decodedText);
+        
+        if (barcode) {
+          setFormData(prev => ({
+            ...prev,
+            barcode: barcode
+          }));
+          
+          handleBarcodeChange(barcode);
+          
+          alert(`Scanned product barcode: ${barcode}`);
+        } else {
+          alert('Could not find packet or product for this QR code');
+        }
+      }
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      
+      // Try to extract as product barcode
       const barcode = extractBarcodeFromQR(decodedText);
-
       if (barcode) {
         setFormData(prev => ({
           ...prev,
           barcode: barcode
         }));
-
         handleBarcodeChange(barcode);
-        
-        alert(`Scanned: ${barcode}`);
+        alert(`Scanned product barcode: ${barcode}`);
       } else {
-        alert('Could not extract barcode from QR code');
+        alert('Error processing QR code. Please try again.');
       }
-    } catch (error) {
-      console.error('Error processing QR code:', error);
-      alert('Error processing QR code');
     }
   };
 
   const extractBarcodeFromQR = (qrData) => {
     try {
       const parsedData = JSON.parse(qrData);
-      return parsedData.barcode || parsedData.PCode || parsedData.code || parsedData.BarCode;
+      return parsedData.barcode || parsedData.PCode || parsedData.code || parsedData.BarCode || parsedData.prefix;
     } catch {
-      const barcodeMatch = qrData.match(/(barcode|Barcode|PCode|code)[:\s]*([^\s,]+)/i);
+      const barcodeMatch = qrData.match(/(barcode|Barcode|PCode|code|prefix)[:\s]*([^\s,]+)/i);
       return barcodeMatch ? barcodeMatch[2] : qrData;
     }
   };
@@ -147,6 +186,35 @@ const EstimateForm = () => {
 
   const startScanner = () => {
     setShowScanner(true);
+  };
+
+  // Fetch available packets from admin
+  const fetchAvailablePackets = async () => {
+    try {
+      setLoadingPackets(true);
+      const response = await axios.get(`${baseURL}/api/all-packets`);
+      if (response.data.success) {
+        setAvailablePackets(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching packets:', error);
+      alert('Failed to fetch packet list');
+    } finally {
+      setLoadingPackets(false);
+    }
+  };
+
+  const handleOpenPacketSelector = () => {
+    fetchAvailablePackets();
+    setShowPacketSelector(true);
+  };
+
+  const handleSelectPacket = (packet) => {
+    setPacketDetails(packet);
+    setPacketBarcode(packet.prefix);
+    setPacketWt(packet.packet_wt || "");
+    setShowPacketSelector(false);
+    alert(`Selected packet: ${packet.prefix} (${packet.packet_date})`);
   };
 
   // Camera functions
@@ -704,7 +772,7 @@ const EstimateForm = () => {
   const resetFormData = () => {
     const resetData = {
       ...initialFormData,
-      estimate_number: formData.estimate_number, // Keep estimate number
+      estimate_number: formData.estimate_number,
       salesperson_id: salespersonId,
       source_by: sourceBy
     };
@@ -732,9 +800,12 @@ const EstimateForm = () => {
           updatedData.customer_id = "";
         }
         setUsedBarcodes(new Set());
-        // Reset saved state when customer changes
         setIsEstimateSaved(false);
         setSavedEstimateNumber("");
+        // Reset packet details when customer changes
+        setPacketDetails(null);
+        setPacketBarcode("");
+        setPacketWt("");
       }
 
       if (name === "product_name" && value !== prevData.product_name) {
@@ -913,118 +984,112 @@ const EstimateForm = () => {
     fetchInitialPacketBarcode();
   }, []);
 
-  // Handle Add Entry - Only store in estimates table, no PDF download
-  // Handle Add Entry - Only store in estimates table, no PDF download
-const handleAddEntry = async () => {
-  if (!formData.barcode) {
-    alert("Please select a product via barcode first");
-    return;
-  }
-
-  if (!formData.customer_name || !formData.customer_id) {
-    alert("Please select a customer");
-    return;
-  }
-
-  const barcodeKey = `${formData.customer_id}_${formData.barcode}`;
-  if (!isEditing && usedBarcodes.has(barcodeKey)) {
-    alert("This product has already been added for this customer!");
-    return;
-  }
-
-  const entryToAdd = {
-    ...formData,
-    qty: isEditing ? formData.qty : 1,
-    salesperson_id: formData.salesperson_id || salespersonId,
-    source_by: formData.source_by || sourceBy
-  };
-
-  let updatedEntries;
-  if (isEditing) {
-    updatedEntries = entries.map((entry, index) =>
-      index === editIndex ? entryToAdd : entry
-    );
-    setIsEditing(false);
-    setEditIndex(null);
-  } else {
-    updatedEntries = [...entries, entryToAdd];
-    setUsedBarcodes(prev => new Set(prev).add(barcodeKey));
-  }
-
-  setEntries(updatedEntries);
-  setTotalQuantity(calculateTotalQuantity(updatedEntries));
-
-  // Calculate totals for all entries
-  const totalAmount = updatedEntries.reduce((sum, item) => {
-    const stonePrice = parseFloat(item.stone_price) || 0;
-    const makingCharges = parseFloat(item.making_charges) || 0;
-    const rateAmt = parseFloat(item.rate_amt) || 0;
-    const hmCharges = parseFloat(item.hm_charges) || 0;
-    return sum + stonePrice + makingCharges + rateAmt + hmCharges;
-  }, 0);
-
-  const discountAmt = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
-  const taxableAmount = totalAmount - discountAmt;
-  const taxAmount = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
-  const netAmount = taxableAmount + taxAmount;
-
-  // Ensure packet barcode is set
-  let currentPacketBarcode = packetBarcode;
-  if (!currentPacketBarcode || currentPacketBarcode.trim() === '') {
-    currentPacketBarcode = await generatePacketBarcode();
-    setPacketBarcode(currentPacketBarcode);
-  }
-
-  try {
-    // Save the CURRENT entry ONLY (not all entries)
-    // The backend will handle INSERT for each new entry
-    const requestData = {
-      ...entryToAdd,
-      customer_id: entryToAdd.customer_id,
-      customer_name: entryToAdd.customer_name,
-      salesperson_id: entryToAdd.salesperson_id || salespersonId,
-      source_by: entryToAdd.source_by || sourceBy,
-      total_amount: totalAmount.toFixed(2),
-      taxable_amount: taxableAmount.toFixed(2),
-      tax_amount: taxAmount.toFixed(2),
-      net_amount: netAmount.toFixed(2),
-      packet_barcode: currentPacketBarcode,
-      packet_wt: packetWt || null,
-      pack_images: [], // Images will be uploaded on print
-      force_insert: true // Flag to force INSERT instead of UPDATE
-    };
-
-    const response = await axios.post(`${baseURL}/add/estimate`, requestData);
-    
-    // Store the estimate number for future updates
-    if (response.data.estimate_number) {
-      setSavedEstimateNumber(response.data.estimate_number);
-      setIsEstimateSaved(true);
+  // Handle Add Entry
+  const handleAddEntry = async () => {
+    if (!formData.barcode) {
+      alert("Please select a product via barcode first");
+      return;
     }
 
-    alert(`Entry saved successfully!\nEstimate Number: ${formData.estimate_number}\nPacket Barcode: ${currentPacketBarcode}`);
+    if (!formData.customer_name || !formData.customer_id) {
+      alert("Please select a customer");
+      return;
+    }
 
-    // Reset form for next entry
-    setFormData(prev => ({
-      ...initialFormData,
-      estimate_number: prev.estimate_number,
-      customer_name: prev.customer_name,
-      customer_id: prev.customer_id,
-      date: today,
-      salesperson_id: salespersonId,
-      source_by: sourceBy,
-      images: [],
-      qty: 1
-    }));
-    setCurrentProductImages([]);
-    
-  } catch (error) {
-    console.error("Error saving entry:", error);
-    alert("Failed to save entry. Please try again.");
-  }
-};
+    const barcodeKey = `${formData.customer_id}_${formData.barcode}`;
+    if (!isEditing && usedBarcodes.has(barcodeKey)) {
+      alert("This product has already been added for this customer!");
+      return;
+    }
 
-  // Handle Print - Update existing estimate and download PDF
+    const entryToAdd = {
+      ...formData,
+      qty: isEditing ? formData.qty : 1,
+      salesperson_id: formData.salesperson_id || salespersonId,
+      source_by: formData.source_by || sourceBy
+    };
+
+    let updatedEntries;
+    if (isEditing) {
+      updatedEntries = entries.map((entry, index) =>
+        index === editIndex ? entryToAdd : entry
+      );
+      setIsEditing(false);
+      setEditIndex(null);
+    } else {
+      updatedEntries = [...entries, entryToAdd];
+      setUsedBarcodes(prev => new Set(prev).add(barcodeKey));
+    }
+
+    setEntries(updatedEntries);
+    setTotalQuantity(calculateTotalQuantity(updatedEntries));
+
+    // Calculate totals for all entries
+    const totalAmount = updatedEntries.reduce((sum, item) => {
+      const stonePrice = parseFloat(item.stone_price) || 0;
+      const makingCharges = parseFloat(item.making_charges) || 0;
+      const rateAmt = parseFloat(item.rate_amt) || 0;
+      const hmCharges = parseFloat(item.hm_charges) || 0;
+      return sum + stonePrice + makingCharges + rateAmt + hmCharges;
+    }, 0);
+
+    const discountAmt = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.disscount) || 0), 0);
+    const taxableAmount = totalAmount - discountAmt;
+    const taxAmount = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
+    const netAmount = taxableAmount + taxAmount;
+
+    let currentPacketBarcode = packetBarcode;
+    if (!currentPacketBarcode || currentPacketBarcode.trim() === '') {
+      currentPacketBarcode = await generatePacketBarcode();
+      setPacketBarcode(currentPacketBarcode);
+    }
+
+    try {
+      const requestData = {
+        ...entryToAdd,
+        customer_id: entryToAdd.customer_id,
+        customer_name: entryToAdd.customer_name,
+        salesperson_id: entryToAdd.salesperson_id || salespersonId,
+        source_by: entryToAdd.source_by || sourceBy,
+        total_amount: totalAmount.toFixed(2),
+        taxable_amount: taxableAmount.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        net_amount: netAmount.toFixed(2),
+        packet_barcode: currentPacketBarcode,
+        packet_wt: packetWt || null,
+        pack_images: [],
+        force_insert: true
+      };
+
+      const response = await axios.post(`${baseURL}/add/estimate`, requestData);
+      
+      if (response.data.estimate_number) {
+        setSavedEstimateNumber(response.data.estimate_number);
+        setIsEstimateSaved(true);
+      }
+
+      alert(`Entry saved successfully!\nEstimate Number: ${formData.estimate_number}\nPacket Barcode: ${currentPacketBarcode}`);
+
+      setFormData(prev => ({
+        ...initialFormData,
+        estimate_number: prev.estimate_number,
+        customer_name: prev.customer_name,
+        customer_id: prev.customer_id,
+        date: today,
+        salesperson_id: salespersonId,
+        source_by: sourceBy,
+        images: [],
+        qty: 1
+      }));
+      setCurrentProductImages([]);
+      
+    } catch (error) {
+      console.error("Error saving entry:", error);
+      alert("Failed to save entry. Please try again.");
+    }
+  };
+
+  // Handle Print
   const handlePrint = async () => {
     try {
       if (entries.length === 0) {
@@ -1037,7 +1102,6 @@ const handleAddEntry = async () => {
         return;
       }
 
-      // Ensure packet barcode is set
       let finalPacketBarcode = packetBarcode;
       if (!finalPacketBarcode || finalPacketBarcode.trim() === '') {
         finalPacketBarcode = await generatePacketBarcode();
@@ -1050,7 +1114,6 @@ const handleAddEntry = async () => {
         packet_wt: packetWt || null
       }));
 
-      // Calculate totals
       const totalAmount = entriesWithPacketDetails.reduce((sum, item) => {
         const stonePrice = parseFloat(item.stone_price) || 0;
         const makingCharges = parseFloat(item.making_charges) || 0;
@@ -1064,7 +1127,6 @@ const handleAddEntry = async () => {
       const taxAmount = entriesWithPacketDetails.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Upload packet images
       let uploadedFilenames = [];
       
       const imageFiles = packetImages.filter(img => img.file).map(img => img.file);
@@ -1086,7 +1148,6 @@ const handleAddEntry = async () => {
         }
       }
 
-      // Update existing estimates with packet details and images
       const updatePromises = entriesWithPacketDetails.map(async (entry) => {
         const requestData = {
           ...entry,
@@ -1103,13 +1164,11 @@ const handleAddEntry = async () => {
           pack_images: uploadedFilenames
         };
 
-        // Use update endpoint
         return axios.post(`${baseURL}/update/estimate-with-packet`, requestData);
       });
 
       await Promise.all(updatePromises);
 
-      // Generate and download PDF
       const pdfDoc = pdf(
         <PDFContent
           entries={entriesWithPacketDetails}
@@ -1123,6 +1182,7 @@ const handleAddEntry = async () => {
           customerName={entries[0]?.customer_name || ""}
           packetBarcode={finalPacketBarcode}
           packetImages={uploadedFilenames}
+          packetDetails={packetDetails}
         />
       );
 
@@ -1131,18 +1191,17 @@ const handleAddEntry = async () => {
 
       alert(`Estimate printed successfully!\nPacket Barcode: ${finalPacketBarcode}`);
 
-      // Reset all states
       setEntries([]);
       setTotalQuantity(0);
       setDiscount(0);
       setUsedBarcodes(new Set());
       setPacketBarcode("");
       setPacketWt("");
+      setPacketDetails(null);
       setPacketImages([]);
       setIsEstimateSaved(false);
       setSavedEstimateNumber("");
       
-      // Fetch new estimate number
       const response = await axios.get(`${baseURL}/lastEstimateNumber`);
       setFormData({
         ...initialFormData,
@@ -1175,6 +1234,12 @@ const handleAddEntry = async () => {
     });
   };
 
+  // Filter packets for selector
+  const filteredPackets = availablePackets.filter(packet =>
+    packet.prefix?.toLowerCase().includes(packetSearchTerm.toLowerCase()) ||
+    packet.packet_date?.includes(packetSearchTerm)
+  );
+
   return (
     <>
       <Navbar />
@@ -1204,7 +1269,6 @@ const handleAddEntry = async () => {
               </Col>
             </Row>
 
-            {/* Customer Name, Barcode, Add Entry, and Total Quantity in same row */}
             <Row className="align-items-end">
               <Col xs={12} md={3}>
                 <InputField
@@ -1221,29 +1285,29 @@ const handleAddEntry = async () => {
                 />
               </Col>
 
-             <Col xs={12} md={4}>
-  <div className="barcode-field-wrapper">
-    <InputField
-      label="Barcode"
-      name="barcode"
-      value={formData.barcode || ""}
-      type="text"
-      onChange={handleInputChange}
-      readOnly
-      placeholder="Scan barcode to auto-fill"
-    />
-    
-    <Button
-      variant="outline-primary"
-      size="sm"
-      onClick={startScanner}
-      className="scanner-btn"
-      title="Scan Barcode/QR Code"
-    >
-      <FaQrcode /> Scan
-    </Button>
-  </div>
-</Col>
+              <Col xs={12} md={4}>
+                <div className="barcode-field-wrapper">
+                  <InputField
+                    label="Barcode"
+                    name="barcode"
+                    value={formData.barcode || ""}
+                    type="text"
+                    onChange={handleInputChange}
+                    readOnly
+                    placeholder="Scan barcode to auto-fill"
+                  />
+                  
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={startScanner}
+                    className="scanner-btn"
+                    title="Scan Barcode/QR Code"
+                  >
+                    <FaQrcode /> Scan
+                  </Button>
+                </div>
+              </Col>
 
               <Col xs={12} md={2} className="mb-3">
                 <Button
@@ -1269,38 +1333,53 @@ const handleAddEntry = async () => {
             </Row>
           </Row>
 
-          {/* Packet Details Section - Always Visible */}
+          {/* Packet Details Section - with packet selector */}
           <Row className="estimate-form-section2 mt-3">
             <Col xs={12}>
               <div className="packet-section">
-                <h5 style={{ color: '#a36e29', marginBottom: '15px', fontWeight: '600' }}>Packet Details</h5>
+                <h5 style={{ color: '#a36e29', marginBottom: '15px', fontWeight: '600' }}>
+                  <FaBoxOpen className="me-2" /> Packet Details
+                </h5>
                 <Row>
                   <Col xs={12} md={4}>
                     <div style={{ marginBottom: '15px' }}>
                       <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
-                        Packet Barcode <span style={{ color: 'red' }}>*</span>
+                        Packet Barcode/Prefix <span style={{ color: 'red' }}>*</span>
                       </label>
-                      <input
-                        type="text"
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          fontSize: '14px',
-                          border: '1px solid #ced4da',
-                          borderRadius: '4px',
-                          backgroundColor: 'white'
-                        }}
-                        value={packetBarcode}
-                        onChange={(e) => setPacketBarcode(e.target.value)}
-                        placeholder="Enter or auto-generated"
-                      />
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            fontSize: '14px',
+                            border: '1px solid #ced4da',
+                            borderRadius: '4px',
+                            backgroundColor: packetDetails ? '#e8f5e9' : 'white'
+                          }}
+                          value={packetBarcode}
+                          onChange={(e) => {
+                            setPacketBarcode(e.target.value);
+                            setPacketDetails(null);
+                          }}
+                          placeholder="Enter packet prefix or scan QR"
+                        />
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          onClick={handleOpenPacketSelector}
+                          title="Select from available packets"
+                        >
+                          <FaSearch /> Select
+                        </Button>
+                      </div>
                     </div>
                   </Col>
                   
-                  {/* <Col xs={12} md={3}>
+                  <Col xs={12} md={3}>
                     <div style={{ marginBottom: '15px' }}>
                       <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
-                        Packet Weight (Optional)
+                        Packet Weight (grams)
                       </label>
                       <input
                         type="number"
@@ -1310,72 +1389,95 @@ const handleAddEntry = async () => {
                           fontSize: '14px',
                           border: '1px solid #ced4da',
                           borderRadius: '4px',
-                          backgroundColor: 'white'
+                          backgroundColor: packetDetails ? '#e8f5e9' : 'white'
                         }}
                         value={packetWt}
-                        onChange={(e) => setPacketWt(e.target.value)}
+                        onChange={(e) => {
+                          setPacketWt(e.target.value);
+                          if (packetDetails) setPacketDetails(null);
+                        }}
                         step="0.001"
                         placeholder="Enter weight"
                       />
                     </div>
-                  </Col> */}
-                  
+                  </Col>
+
                   <Col xs={12} md={5}>
-                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
-                      Packet Images
-                    </label>
-                    <div className="packet-images-container">
-                      <div className="image-upload-buttons">
-                        {/* <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={triggerFileUpload}
-                          className="me-2"
-                        >
-                          <FaUpload /> Upload
-                        </Button> */}
-                        <Button
-                          variant="outline-success"
-                          size="sm"
-                          onClick={startCamera}
-                        >
-                          <FaCamera /> Capture
-                        </Button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleFileUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </div>
-                      
-                      {packetImages.length > 0 && (
-                        <div className="image-preview-container">
-                          {packetImages.map((img, index) => (
-                            <div key={index} className="image-preview-item">
-                              <img 
-                                src={img.preview} 
-                                alt={`Packet ${index + 1}`}
-                                onClick={() => {
-                                  setPreviewImage(img.preview);
-                                  setShowImagePreview(true);
-                                }}
-                              />
-                              <button 
-                                className="remove-image-btn"
-                                onClick={() => removeImage(index)}
-                              >
-                                <FaTimes />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
+                        Packet Date
+                      </label>
+                      <input
+                        type="text"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          backgroundColor: '#f5f5f5'
+                        }}
+                        value={packetDetails?.packet_date ? new Date(packetDetails.packet_date).toLocaleDateString() : ''}
+                        readOnly
+                        placeholder="Auto-filled from selected packet"
+                      />
                     </div>
                   </Col>
                 </Row>
+
+                {packetDetails && (
+                  <div className="mt-2 p-2 bg-success-light" style={{ backgroundColor: '#e8f5e9', borderRadius: '4px', fontSize: '12px' }}>
+                    <span className="text-success">✓ Using packet from Admin: {packetDetails.prefix} | Date: {new Date(packetDetails.packet_date).toLocaleDateString()} | Status: {packetDetails.status}</span>
+                  </div>
+                )}
+              </div>
+            </Col>
+          </Row>
+
+          {/* Packet Images Section */}
+          <Row className="mt-2">
+            <Col xs={12}>
+              <div className="packet-images-container">
+                <div className="image-upload-buttons">
+                  <Button
+                    variant="outline-success"
+                    size="sm"
+                    onClick={startCamera}
+                  >
+                    <FaCamera /> Capture Image
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+                
+                {packetImages.length > 0 && (
+                  <div className="image-preview-container mt-2">
+                    {packetImages.map((img, index) => (
+                      <div key={index} className="image-preview-item">
+                        <img 
+                          src={img.preview} 
+                          alt={`Packet ${index + 1}`}
+                          onClick={() => {
+                            setPreviewImage(img.preview);
+                            setShowImagePreview(true);
+                          }}
+                        />
+                        <button 
+                          className="remove-image-btn"
+                          onClick={() => removeImage(index)}
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Col>
           </Row>
@@ -1462,6 +1564,74 @@ const handleAddEntry = async () => {
             />
           )}
         </Modal.Body>
+      </Modal>
+
+      {/* Packet Selector Modal */}
+      <Modal show={showPacketSelector} onHide={() => setShowPacketSelector(false)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Select Packet from Admin</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search by prefix or date..."
+              value={packetSearchTerm}
+              onChange={(e) => setPacketSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          {loadingPackets ? (
+            <div className="text-center py-4">Loading packets...</div>
+          ) : filteredPackets.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table table-bordered table-hover">
+                <thead>
+                  <tr>
+                    <th>Prefix</th>
+                    <th>Date</th>
+                    <th>Weight (g)</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPackets.map((packet) => (
+                    <tr key={packet.id}>
+                      <td><strong>{packet.prefix}</strong></td>
+                      <td>{new Date(packet.packet_date).toLocaleDateString()}</td>
+                      <td>{packet.packet_wt || '-'}</td>
+                      <td>
+                        <span className={`badge bg-${packet.status === 'Active' ? 'success' : 'secondary'}`}>
+                          {packet.status}
+                        </span>
+                      </td>
+                      <td>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleSelectPacket(packet)}
+                        >
+                          Select
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted">
+              No packets available. Please add packets from Admin QR Code module.
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPacketSelector(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Product Images Modal */}

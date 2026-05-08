@@ -7,7 +7,8 @@ import Navbar from '../../../Pages/Navbar/SalesNavbar';
 import { 
   FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, 
   FaUserCheck, FaCalendarCheck, FaMapMarkerAlt, FaCrosshairs,
-  FaSpinner, FaExclamationTriangle
+  FaSpinner, FaExclamationTriangle, FaUser, FaPhone, FaBuilding,
+  FaCity, FaCalendarDay, FaInfoCircle
 } from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
@@ -15,9 +16,10 @@ import Swal from 'sweetalert2';
 const VisitLogsForm = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
+  const todayDate = new Date().toDateString();
 
   // Constants
-  const MAX_DISTANCE_METERS = 50; // Customer must be within 50 meters
+  const MAX_DISTANCE_METERS = 50;
 
   // Get user data from localStorage
   const getUserData = () => {
@@ -36,13 +38,14 @@ const VisitLogsForm = () => {
   const user = getUserData();
   const salespersonId = user?.id ? String(user.id) : '';
   const sourceBy = user?.role || '';
+  const loggedInSalesPersonName = user?.full_name || '';
 
   // State for customers
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerEmail, setCustomerEmail] = useState('');
 
-  // Location state (similar to attendance)
+  // Location state
   const [location, setLocation] = useState({
     latitude: null,
     longitude: null,
@@ -101,6 +104,12 @@ const VisitLogsForm = () => {
     unique_customers: 0
   });
 
+  // State for scheduled visits and user details
+  const [scheduledVisits, setScheduledVisits] = useState([]);
+  const [usersData, setUsersData] = useState([]);
+  const [todayScheduledVisits, setTodayScheduledVisits] = useState([]);
+  const [loadingScheduleData, setLoadingScheduleData] = useState(false);
+
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -132,9 +141,8 @@ const VisitLogsForm = () => {
     return `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
   };
 
-  // Get current location with high accuracy (similar to attendance)
+  // Get current location with high accuracy
   const getCurrentLocation = useCallback(() => {
-    // Clear any existing watcher
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -169,7 +177,6 @@ const VisitLogsForm = () => {
       }
 
       const { latitude, longitude, accuracy } = position.coords;
-      console.log(`Location captured: lat=${latitude}, lng=${longitude}, accuracy=${accuracy}m`);
 
       let withinRange = false;
       let distance = null;
@@ -181,7 +188,6 @@ const VisitLogsForm = () => {
           parseFloat(selectedCustomer.longitude)
         );
         withinRange = distance <= MAX_DISTANCE_METERS;
-        console.log(`Distance from customer: ${distance?.toFixed(2)}m, Within range: ${withinRange}`);
       }
 
       const address = await getAddressFromCoordinates(latitude, longitude);
@@ -200,7 +206,6 @@ const VisitLogsForm = () => {
 
     const timeoutId = setTimeout(() => {
       if (!resolved && bestPosition) {
-        console.log(`Max watch time reached, using best position`);
         finalize(bestPosition);
       } else if (!resolved) {
         resolved = true;
@@ -219,7 +224,6 @@ const VisitLogsForm = () => {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { accuracy } = position.coords;
-        console.log(`watchPosition update: accuracy=${accuracy}m`);
 
         if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
           bestPosition = position;
@@ -264,11 +268,49 @@ const VisitLogsForm = () => {
     );
   }, [selectedCustomer]);
 
+  // Fetch scheduled visits and users data
+  const fetchScheduledVisitsAndUsers = async () => {
+    try {
+      setLoadingScheduleData(true);
+      const [visitLogsScheduleRes, usersRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/visit-logs-schedule/'),
+        axios.get('http://localhost:5000/api/users/')
+      ]);
+
+      const visitLogsScheduleData = visitLogsScheduleRes.data;
+      const usersData = usersRes.data;
+
+      setScheduledVisits(visitLogsScheduleData);
+      setUsersData(usersData);
+
+      // Filter visits for logged-in salesperson AND today's date
+      const todayFiltered = visitLogsScheduleData.filter(visit => {
+        const visitDate = new Date(visit.scheduled_date).toDateString();
+        const isToday = visitDate === todayDate;
+        const isMatchingSalesPerson = visit.salesperson_name === loggedInSalesPersonName;
+        return isMatchingSalesPerson && isToday;
+      });
+
+      setTodayScheduledVisits(todayFiltered);
+    } catch (error) {
+      console.error('Error fetching scheduled visits or users:', error);
+    } finally {
+      setLoadingScheduleData(false);
+    }
+  };
+
+  // Get user details by name
+  const getUserDetailsByName = (fullName) => {
+    if (!fullName || !usersData.length) return null;
+    return usersData.find(user => user.full_name === fullName) || null;
+  };
+
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
     fetchVisitLogs();
     fetchStatistics();
+    fetchScheduledVisitsAndUsers();
     
     return () => {
       if (watchIdRef.current !== null) {
@@ -316,12 +358,11 @@ const VisitLogsForm = () => {
     return () => clearInterval(interval);
   }, [otpTimer, otpSent, otpVerified]);
 
-  // Fetch customers from API (now includes location data)
+  // Fetch customers from API
   const fetchCustomers = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${baseURL}/visit-logs/customers`);
-      console.log('Fetched customers:', response.data);
       setCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -354,10 +395,8 @@ const VisitLogsForm = () => {
   // Handle customer selection
   const handleCustomerChange = (e) => {
     const customerId = e.target.value;
-    console.log('Selected customer ID:', customerId);
     
     const customer = customers.find(c => c.id.toString() === customerId);
-    console.log('Found customer:', customer);
 
     if (customer) {
       setSelectedCustomer(customer);
@@ -368,7 +407,6 @@ const VisitLogsForm = () => {
       }));
       setCustomerEmail(customer.email || '');
       
-      // Reset location and get fresh location when customer changes
       setLocation({
         latitude: null,
         longitude: null,
@@ -380,7 +418,6 @@ const VisitLogsForm = () => {
         lastUpdated: null
       });
       
-      // Get fresh location for the new customer
       setTimeout(() => getCurrentLocation(), 100);
     } else {
       setSelectedCustomer(null);
@@ -392,7 +429,6 @@ const VisitLogsForm = () => {
       setCustomerEmail('');
     }
 
-    // Reset OTP state when customer changes
     setOtpSent(false);
     setOtpVerified(false);
     setGeneratedOtp('');
@@ -481,7 +517,6 @@ const VisitLogsForm = () => {
       return;
     }
 
-    // Validate location before sending OTP
     if (!validateLocation()) {
       return;
     }
@@ -536,7 +571,6 @@ const VisitLogsForm = () => {
 
   // Log visit (save to database)
   const handleLogVisit = async () => {
-    // Validate form
     if (!formData.customer_id) {
       alert('Please select a customer');
       return;
@@ -547,7 +581,6 @@ const VisitLogsForm = () => {
       return;
     }
 
-    // Validate location again before saving
     if (!validateLocation()) {
       return;
     }
@@ -568,7 +601,6 @@ const VisitLogsForm = () => {
       });
 
       if (response.data.success) {
-        // Set session flag
         sessionStorage.setItem('visitLogCompleted', 'true');
         
         Swal.fire({
@@ -614,9 +646,9 @@ const VisitLogsForm = () => {
           lastUpdated: null
         });
 
-        // Refresh logs and statistics
         fetchVisitLogs();
         fetchStatistics();
+        fetchScheduledVisitsAndUsers();
       }
     } catch (error) {
       console.error('Error logging visit:', error);
@@ -705,6 +737,36 @@ const VisitLogsForm = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Format time only
+  const formatTime = (dateString) => {
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Get today's date in readable format
+  const getTodayDateFormatted = () => {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   // Outcome options
@@ -825,7 +887,7 @@ const VisitLogsForm = () => {
                 <div className="vl-header-stats">
                   <div className="vl-header-stat-item">
                     <span className="vl-header-stat-label">Today's Date</span>
-                    <span className="vl-header-stat-value">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    <span className="vl-header-stat-value">{getTodayDateFormatted()}</span>
                   </div>
                   <div className="vl-header-stat-item">
                     <span className="vl-header-stat-label">Salesperson</span>
@@ -890,6 +952,198 @@ const VisitLogsForm = () => {
                   <h6>Unique Customers</h6>
                   <h3>{statistics.unique_customers}</h3>
                 </div>
+              </div>
+            </Col>
+          </Row>
+
+          {/* Today's Scheduled Visits Section */}
+          <Row className="vl-scheduled-visits-section mb-4">
+            <Col md={12}>
+              <div className="vl-scheduled-visits-card">
+                <div className="vl-scheduled-visits-header">
+                  <div className="vl-scheduled-visits-header-content">
+                    <div className="vl-scheduled-visits-title-wrapper">
+                      <FaCalendarDay className="vl-section-icon" />
+                      <div>
+                        <h4 className="vl-scheduled-visits-title">Today's Scheduled Visits</h4>
+                        <p className="vl-scheduled-visits-subtitle">
+                          {getTodayDateFormatted()} • {todayScheduledVisits.length} Visit{todayScheduledVisits.length !== 1 ? 's' : ''} Scheduled
+                        </p>
+                      </div>
+                    </div>
+                    <div className="vl-scheduled-visits-count-badge">
+                      <span className="vl-count-number">{todayScheduledVisits.length}</span>
+                      <span className="vl-count-label">Today's Visits</span>
+                    </div>
+                  </div>
+                </div>
+
+                {loadingScheduleData ? (
+                  <div className="vl-schedule-loading">
+                    <FaSpinner className="fa-spin" />
+                    <span>Loading today's schedule...</span>
+                  </div>
+                ) : todayScheduledVisits.length > 0 ? (
+                  <div className="vl-scheduled-visits-grid">
+                    {todayScheduledVisits.map((visit, index) => {
+                      const customerDetails = getUserDetailsByName(visit.customer_name);
+                      const salesPersonDetails = getUserDetailsByName(visit.salesperson_name);
+                      
+                      return (
+                        <div key={visit.id || index} className="vl-scheduled-visit-card">
+                          <div className="vl-scheduled-visit-card-header">
+                            <div className="vl-visit-time-badge">
+                              <FaClock />
+                              {formatTime(visit.scheduled_date)}
+                            </div>
+                            <div className={`vl-status-indicator vl-status-${visit.status}`}>
+                              <span className="vl-status-dot"></span>
+                              {visit.status}
+                            </div>
+                          </div>
+                          
+                          <div className="vl-scheduled-visit-body">
+                            <div className="vl-visit-detail-section">
+                              <h5 className="vl-detail-section-title">
+                                <FaUser className="vl-detail-section-icon" /> Customer Details
+                              </h5>
+                              <div className="vl-detail-grid">
+                                <div className="vl-detail-item-enhanced">
+                                  <FaUser className="vl-detail-item-icon" />
+                                  <div className="vl-detail-item-content">
+                                    <span className="vl-detail-label">Full Name</span>
+                                    <span className="vl-detail-value">{visit.customer_name}</span>
+                                  </div>
+                                </div>
+                                {customerDetails && (
+                                  <>
+                                    <div className="vl-detail-item-enhanced">
+                                      <FaEnvelope className="vl-detail-item-icon" />
+                                      <div className="vl-detail-item-content">
+                                        <span className="vl-detail-label">Email</span>
+                                        <span className="vl-detail-value">{customerDetails.email_id}</span>
+                                      </div>
+                                    </div>
+                                    {customerDetails.phone && (
+                                      <div className="vl-detail-item-enhanced">
+                                        <FaPhone className="vl-detail-item-icon" />
+                                        <div className="vl-detail-item-content">
+                                          <span className="vl-detail-label">Phone</span>
+                                          <span className="vl-detail-value">{customerDetails.phone}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {customerDetails.company_name && (
+                                      <div className="vl-detail-item-enhanced">
+                                        <FaBuilding className="vl-detail-item-icon" />
+                                        <div className="vl-detail-item-content">
+                                          <span className="vl-detail-label">Company</span>
+                                          <span className="vl-detail-value">{customerDetails.company_name}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="vl-detail-item-enhanced">
+                                      <FaCity className="vl-detail-item-icon" />
+                                      <div className="vl-detail-item-content">
+                                        <span className="vl-detail-label">Location</span>
+                                        <span className="vl-detail-value">
+                                          {[customerDetails.city, customerDetails.state, customerDetails.country]
+                                            .filter(Boolean)
+                                            .join(', ')}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="vl-visit-divider-enhanced"></div>
+
+                            <div className="vl-visit-detail-section">
+                              <h5 className="vl-detail-section-title">
+                                <FaUserCheck className="vl-detail-section-icon" /> Sales Person Details
+                              </h5>
+                              <div className="vl-detail-grid">
+                                <div className="vl-detail-item-enhanced">
+                                  <FaUser className="vl-detail-item-icon" />
+                                  <div className="vl-detail-item-content">
+                                    <span className="vl-detail-label">Full Name</span>
+                                    <span className="vl-detail-value">{visit.salesperson_name}</span>
+                                  </div>
+                                </div>
+                                {salesPersonDetails && (
+                                  <>
+                                    <div className="vl-detail-item-enhanced">
+                                      <FaEnvelope className="vl-detail-item-icon" />
+                                      <div className="vl-detail-item-content">
+                                        <span className="vl-detail-label">Email</span>
+                                        <span className="vl-detail-value">{salesPersonDetails.email_id}</span>
+                                      </div>
+                                    </div>
+                                    {salesPersonDetails.phone && (
+                                      <div className="vl-detail-item-enhanced">
+                                        <FaPhone className="vl-detail-item-icon" />
+                                        <div className="vl-detail-item-content">
+                                          <span className="vl-detail-label">Phone</span>
+                                          <span className="vl-detail-value">{salesPersonDetails.phone}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="vl-detail-item-enhanced">
+                                      <FaInfoCircle className="vl-detail-item-icon" />
+                                      <div className="vl-detail-item-content">
+                                        <span className="vl-detail-label">Designation</span>
+                                        <span className="vl-detail-value">{salesPersonDetails.designation}</span>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="vl-visit-divider-enhanced"></div>
+
+                            <div className="vl-visit-detail-section">
+                              <h5 className="vl-detail-section-title">
+                                <FaCalendarDay className="vl-detail-section-icon" /> Visit Schedule
+                              </h5>
+                              <div className="vl-detail-grid">
+                                <div className="vl-detail-item-enhanced">
+                                  <FaCalendarCheck className="vl-detail-item-icon" />
+                                  <div className="vl-detail-item-content">
+                                    <span className="vl-detail-label">Date & Time</span>
+                                    <span className="vl-detail-value">{formatDate(visit.scheduled_date)}</span>
+                                  </div>
+                                </div>
+                                <div className="vl-detail-item-enhanced">
+                                  <FaInfoCircle className="vl-detail-item-icon" />
+                                  <div className="vl-detail-item-content">
+                                    <span className="vl-detail-label">Status</span>
+                                    <span className={`vl-status-badge-enhanced vl-status-${visit.status}`}>
+                                      {visit.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="vl-no-visits-container">
+                    <div className="vl-no-visits-icon-wrapper">
+                      <FaCalendarDay className="vl-no-visits-icon" />
+                    </div>
+                    <h5 className="vl-no-visits-title">No Visits Scheduled for Today</h5>
+                    <p className="vl-no-visits-message">
+                      You don't have any customer visits scheduled for today. 
+                      Use the form below to log a new visit or check back later for updates.
+                    </p>
+                  </div>
+                )}
               </div>
             </Col>
           </Row>
@@ -1054,7 +1308,6 @@ const VisitLogsForm = () => {
                   )}
                 </Row>
 
-                {/* OTP Messages */}
                 {otpMessage && (
                   <Alert variant={otpVerified ? "success" : "info"} className="vl-otp-message">
                     {otpMessage}

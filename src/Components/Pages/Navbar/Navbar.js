@@ -135,6 +135,9 @@ function Navbar() {
               <Link to="/c-products" onClick={handleItemClick} className={isActive('/c-products')}>
                 Category 
               </Link>
+              <Link to="/qr-code-printing" onClick={handleItemClick} className={isActive('/qr-code-printing')}>
+                QR Code Printing
+              </Link>
               <Link to="/productmaster" onClick={handleItemClick} className={isActive('/productmaster')}>
                 Products 
               </Link>

@@ -69,6 +69,8 @@ import WaterMark from './Components/Pages/WaterMark/WaterMark'
 
 import VisitLogsSchedule from "./Components/Modules/Admin/VisitLogsSchedule/VisitLogsSchedule";
 
+import QRCodePrinting from './Components/Modules/Admin/QRCodePrinting/QRCodePrinitng';
+
 
 function App() {
   const [count, setCount] = useState(0);
@@ -154,6 +156,9 @@ function App() {
 
 
           <Route path='/visit-logs-schedule' element={<VisitLogsSchedule />} />
+
+
+          <Route path="/qr-code-printing" element={<QRCodePrinting />} />
 
         </Routes>
       </ScreenshotProtection>
