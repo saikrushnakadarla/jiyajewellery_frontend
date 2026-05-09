@@ -8,7 +8,7 @@ import {
   FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, 
   FaUserCheck, FaCalendarCheck, FaMapMarkerAlt, FaCrosshairs,
   FaSpinner, FaExclamationTriangle, FaUser, FaPhone, FaBuilding,
-  FaCity, FaCalendarDay, FaInfoCircle
+  FaCity, FaCalendarDay, FaInfoCircle, FaCalendarAlt, FaListAlt
 } from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
@@ -108,7 +108,9 @@ const VisitLogsForm = () => {
   const [scheduledVisits, setScheduledVisits] = useState([]);
   const [usersData, setUsersData] = useState([]);
   const [todayScheduledVisits, setTodayScheduledVisits] = useState([]);
+  const [allScheduledVisits, setAllScheduledVisits] = useState([]);
   const [loadingScheduleData, setLoadingScheduleData] = useState(false);
+  const [showAllSchedules, setShowAllSchedules] = useState(false);
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -273,8 +275,8 @@ const VisitLogsForm = () => {
     try {
       setLoadingScheduleData(true);
       const [visitLogsScheduleRes, usersRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/visit-logs-schedule/'),
-        axios.get('http://localhost:5000/api/users/')
+        axios.get(`${baseURL}/api/visit-logs-schedule/`),
+        axios.get(`${baseURL}/api/users/`)
       ]);
 
       const visitLogsScheduleData = visitLogsScheduleRes.data;
@@ -283,12 +285,20 @@ const VisitLogsForm = () => {
       setScheduledVisits(visitLogsScheduleData);
       setUsersData(usersData);
 
-      // Filter visits for logged-in salesperson AND today's date
-      const todayFiltered = visitLogsScheduleData.filter(visit => {
+      // Filter visits for logged-in salesperson
+      const myVisits = visitLogsScheduleData.filter(visit => {
+        const isMatchingSalesPerson = visit.salesperson_name === loggedInSalesPersonName;
+        return isMatchingSalesPerson;
+      });
+
+      // Set all scheduled visits for this salesperson
+      setAllScheduledVisits(myVisits);
+
+      // Filter today's visits
+      const todayFiltered = myVisits.filter(visit => {
         const visitDate = new Date(visit.scheduled_date).toDateString();
         const isToday = visitDate === todayDate;
-        const isMatchingSalesPerson = visit.salesperson_name === loggedInSalesPersonName;
-        return isMatchingSalesPerson && isToday;
+        return isToday;
       });
 
       setTodayScheduledVisits(todayFiltered);
@@ -759,6 +769,45 @@ const VisitLogsForm = () => {
     });
   };
 
+  // Format date for display (YYYY-MM-DD)
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Check if a date is today
+  const isToday = (dateString) => {
+    const date = new Date(dateString);
+    return date.toDateString() === new Date().toDateString();
+  };
+
+  // Check if a scheduled date is today
+  const isScheduledToday = (dateString) => {
+    const date = new Date(dateString);
+    return date.toDateString() === new Date().toDateString();
+  };
+
+  // Check if a scheduled date is past
+  const isPastDate = (dateString) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
+  // Check if a scheduled date is future
+  const isFutureDate = (dateString) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date > today;
+  };
+
   // Get today's date in readable format
   const getTodayDateFormatted = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -990,7 +1039,7 @@ const VisitLogsForm = () => {
                       const salesPersonDetails = getUserDetailsByName(visit.salesperson_name);
                       
                       return (
-                        <div key={visit.id || index} className="vl-scheduled-visit-card">
+                        <div key={visit.id || index} className="vl-scheduled-visit-card vl-today-schedule-card">
                           <div className="vl-scheduled-visit-card-header">
                             <div className="vl-visit-time-badge">
                               <FaClock />
@@ -1143,6 +1192,117 @@ const VisitLogsForm = () => {
                       Use the form below to log a new visit or check back later for updates.
                     </p>
                   </div>
+                )}
+              </div>
+            </Col>
+          </Row>
+
+          {/* All Scheduled Visits Section - NEW */}
+          <Row className="vl-all-schedules-section mb-4">
+            <Col md={12}>
+              <div className="vl-all-schedules-card">
+                <div className="vl-all-schedules-header">
+                  <div className="vl-all-schedules-header-content">
+                    <div className="vl-all-schedules-title-wrapper">
+                      <FaListAlt className="vl-section-icon" />
+                      <div>
+                        <h4 className="vl-all-schedules-title">All Scheduled Visits</h4>
+                        <p className="vl-all-schedules-subtitle">
+                          Complete schedule history for {user?.full_name || 'you'} • 
+                          <span className="vl-schedule-stats">
+                            <span className="vl-schedule-stat-total">{allScheduledVisits.length} Total</span>
+                            <span className="vl-schedule-stat-today">{todayScheduledVisits.length} Today</span>
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline-light"
+                      size="sm"
+                      onClick={() => setShowAllSchedules(!showAllSchedules)}
+                      className="vl-toggle-schedule-btn"
+                    >
+                      {showAllSchedules ? 'Hide Schedule' : 'View All Schedules'}
+                    </Button>
+                  </div>
+                </div>
+
+                {showAllSchedules && (
+                  <>
+                    {loadingScheduleData ? (
+                      <div className="vl-schedule-loading">
+                        <FaSpinner className="fa-spin" />
+                        <span>Loading all schedules...</span>
+                      </div>
+                    ) : allScheduledVisits.length > 0 ? (
+                      <div className="vl-all-schedules-table-container">
+                        <Table bordered hover responsive className="vl-schedule-table">
+                          <thead className="vl-schedule-table-head">
+                            <tr>
+                              <th>#</th>
+                              <th>Schedule Date & Time</th>
+                              <th>Customer Name</th>
+                              <th>Status</th>
+                              <th>Salesperson</th>
+                              <th>Created At</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allScheduledVisits.map((visit, index) => {
+                              const isTodaySchedule = isScheduledToday(visit.scheduled_date);
+                              const isPast = isPastDate(visit.scheduled_date);
+                              const isFuture = isFutureDate(visit.scheduled_date);
+                              
+                              let rowClass = '';
+                              if (isTodaySchedule) rowClass = 'vl-schedule-today-row';
+                              else if (isPast) rowClass = 'vl-schedule-past-row';
+                              else if (isFuture) rowClass = 'vl-schedule-future-row';
+                              
+                              let statusBadgeClass = '';
+                              if (visit.status === 'scheduled') statusBadgeClass = 'vl-status-scheduled-badge';
+                              else if (visit.status === 'completed') statusBadgeClass = 'vl-status-completed-badge';
+                              else if (visit.status === 'cancelled') statusBadgeClass = 'vl-status-cancelled-badge';
+                              
+                              return (
+                                <tr key={visit.id || index} className={rowClass}>
+                                  <td>{index + 1}</td>
+                                  <td>
+                                    <div className="vl-schedule-date-cell">
+                                      <FaCalendarAlt className="vl-schedule-date-icon" />
+                                      <div>
+                                        <div className="vl-schedule-date">{formatDate(visit.scheduled_date)}</div>
+                                        {isTodaySchedule && <span className="vl-schedule-today-label">Today</span>}
+                                        {isPast && <span className="vl-schedule-past-label">Past</span>}
+                                        {isFuture && <span className="vl-schedule-future-label">Upcoming</span>}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="vl-schedule-customer-name">{visit.customer_name}</td>
+                                  <td>
+                                    <span className={`vl-schedule-status-badge ${statusBadgeClass}`}>
+                                      {visit.status}
+                                    </span>
+                                  </td>
+                                  <td>{visit.salesperson_name}</td>
+                                  <td>{new Date(visit.created_at).toLocaleDateString()}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="vl-no-visits-container">
+                        <div className="vl-no-visits-icon-wrapper">
+                          <FaListAlt className="vl-no-visits-icon" />
+                        </div>
+                        <h5 className="vl-no-visits-title">No Scheduled Visits Found</h5>
+                        <p className="vl-no-visits-message">
+                          You don't have any scheduled visits in the system.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </Col>
@@ -1345,18 +1505,22 @@ const VisitLogsForm = () => {
                 onClick={() => setShowLogs(!showLogs)}
                 className="vl-toggle-logs-btn"
               >
-                {showLogs ? '📋 Hide Logs' : '📋 View Logs'}
+                {showLogs ? '📋 Hide Logs' : '📋 View All Logs'}
               </Button>
             </Col>
           </Row>
 
-          {/* Visit Logs Table */}
+          {/* Visit Logs Table - Shows ALL logs with today's highlighted */}
           {showLogs && (
             <Row className="vl-table-section mt-4">
               <Col className="vl-table-header">
                 <h4 className="vl-table-title">
-                  <span className="vl-table-icon">📋</span> Recent Visit Logs
+                  <span className="vl-table-icon">📋</span> All Visit Logs
                 </h4>
+                <p className="vl-table-subtitle">
+                  <FaCalendarAlt className="vl-table-subtitle-icon" />
+                  Showing all visit records • Today's logs are highlighted in <span className="vl-today-highlight-badge">orange</span>
+                </p>
               </Col>
               <Col md={12} className="vl-table-container">
                 <Table bordered hover responsive className="vl-table">
@@ -1380,10 +1544,16 @@ const VisitLogsForm = () => {
                     ) : visitLogs.length > 0 ? (
                       visitLogs.map((log, index) => {
                         const outcomeOption = outcomeOptions.find(o => o.value === log.outcome);
+                        const isTodayLog = isToday(log.visit_date);
                         return (
-                          <tr key={log.visit_id} className="vl-table-row">
-                            <td>{index + 1}</td>
-                            <td>{new Date(log.visit_date).toLocaleDateString()}</td>
+                          <tr key={log.visit_id} className={`vl-table-row ${isTodayLog ? 'vl-today-row' : ''}`}>
+                            <td className={isTodayLog ? 'vl-today-cell' : ''}>{index + 1}</td>
+                            <td className={isTodayLog ? 'vl-today-cell' : ''}>
+                              <div className="vl-date-cell">
+                                <span>{formatDisplayDate(log.visit_date)}</span>
+                                {isTodayLog && <span className="vl-today-badge">Today</span>}
+                              </div>
+                            </td>
                             <td className="vl-customer-name">{log.customer_name}</td>
                             <td>
                               <span className={`vl-badge vl-badge-${outcomeOption?.color || 'secondary'}`}>

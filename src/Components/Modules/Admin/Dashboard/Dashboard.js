@@ -198,8 +198,25 @@ function Dashboard() {
     navigate(path);
   };
 
-  const handleViewEstimate = (estimateNumber) => {
-    navigate(`/estimation/${estimateNumber}`);
+  // Updated handleViewEstimate with conditional navigation
+  const handleViewEstimate = (estimate) => {
+    // Check if the estimate has salesperson_id (created by salesperson)
+    if (estimate.salesperson_id && estimate.salesperson_id !== null && estimate.salesperson_id !== '') {
+      // Navigate to salesperson transactions
+      navigate(`/salesperson-transactions/${estimate.salesperson_id}`);
+      console.log(`Navigating to salesperson transactions for ID: ${estimate.salesperson_id}`);
+    } 
+    // Check if it has customer_id
+    else if (estimate.customer_id && estimate.customer_id !== null && estimate.customer_id !== '') {
+      // Navigate to customer transactions
+      navigate(`/customer-transactions/${estimate.customer_id}`);
+      console.log(`Navigating to customer transactions for ID: ${estimate.customer_id}`);
+    }
+    else {
+      // Fallback to estimate details page
+      navigate(`/estimation/${estimate.estimate_number}`);
+      console.log(`No salesperson or customer ID found, navigating to estimate: ${estimate.estimate_number}`);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -235,6 +252,17 @@ function Dashboard() {
         return '#f59e0b';
       default:
         return '#64748b';
+    }
+  };
+
+  // Updated notification click handler
+  const handleNotificationClick = (notification) => {
+    if (notification.salesperson_id) {
+      navigate(`/salesperson-transactions/${notification.salesperson_id}`);
+    } else if (notification.customer_id) {
+      navigate(`/customer-transactions/${notification.customer_id}`);
+    } else if (notification.estimate_number) {
+      navigate(`/estimation/${notification.estimate_number}`);
     }
   };
 
@@ -440,7 +468,7 @@ function Dashboard() {
                     notifications.map((notif, index) => (
                       <Dropdown.Item 
                         key={index} 
-                        onClick={() => navigate(`/estimation/${notif.estimate_number}`)}
+                        onClick={() => handleNotificationClick(notif)}
                         className="notification-item"
                       >
                         <div className="notification-item-icon" style={{ backgroundColor: getNotificationColor(notif.type) + '20' }}>
@@ -663,7 +691,7 @@ function Dashboard() {
                     {recentEstimates.map((estimate, index) => (
                       <tr 
                         key={index} 
-                        onClick={() => handleViewEstimate(estimate.estimate_number)}
+                        onClick={() => handleViewEstimate(estimate)}
                         className="clickable-row"
                       >
                         <td>{formatDate(estimate.date || estimate.created_at)}</td>

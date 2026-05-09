@@ -4,7 +4,7 @@ import InputField from "../../../Pages/TableLayout/InputField";
 import { Container, Row, Col, Button, Table, Modal, Image } from "react-bootstrap";
 import axios from "axios";
 import baseURL from "../../../Modules/ApiUrl/NodeBaseURL";
-import { FaEdit, FaTrash, FaQrcode, FaCamera, FaUpload, FaTimes, FaBoxOpen, FaSearch } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaQrcode, FaCamera, FaUpload, FaTimes, FaBoxOpen, FaSearch, FaBarcode } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { pdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
@@ -12,6 +12,7 @@ import PDFContent from "./EstimateReceipt";
 import { useLocation } from "react-router-dom";
 import Navbar from "../../../Pages/Navbar/SalesNavbar";
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import Swal from 'sweetalert2';
 
 const EstimateForm = () => {
   const navigate = useNavigate();
@@ -22,6 +23,11 @@ const EstimateForm = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [isScannerInitialized, setIsScannerInitialized] = useState(false);
   const scannerRef = useRef(null);
+  
+  // Packet Barcode Scanner states
+  const [showPacketScanner, setShowPacketScanner] = useState(false);
+  const [isPacketScannerInitialized, setIsPacketScannerInitialized] = useState(false);
+  const packetScannerRef = useRef(null);
   
   // Camera capture states
   const [showCamera, setShowCamera] = useState(false);
@@ -51,7 +57,7 @@ const EstimateForm = () => {
   // Total quantity state
   const [totalQuantity, setTotalQuantity] = useState(0);
 
-  // Initialize scanner when modal opens
+  // Initialize product scanner when modal opens
   useEffect(() => {
     if (showScanner && !isScannerInitialized) {
       const timer = setTimeout(() => {
@@ -61,6 +67,17 @@ const EstimateForm = () => {
       return () => clearTimeout(timer);
     }
   }, [showScanner, isScannerInitialized]);
+
+  // Initialize packet scanner when modal opens
+  useEffect(() => {
+    if (showPacketScanner && !isPacketScannerInitialized) {
+      const timer = setTimeout(() => {
+        initializePacketScanner();
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showPacketScanner, isPacketScannerInitialized]);
 
   const initializeScanner = () => {
     const element = document.getElementById('qr-reader');
@@ -103,31 +120,176 @@ const EstimateForm = () => {
     }
   };
 
-  // Handle QR scan success - Fetch packet details from admin
+  const initializePacketScanner = () => {
+    const element = document.getElementById('packet-qr-reader');
+    if (!element) {
+      console.error('Packet QR reader element not found');
+      return;
+    }
+
+    try {
+      const scanner = new Html5QrcodeScanner(
+        "packet-qr-reader",
+        {
+          qrbox: {
+            width: 250,
+            height: 250,
+          },
+          fps: 5,
+        },
+        false
+      );
+
+      packetScannerRef.current = scanner;
+
+      scanner.render(
+        async (decodedText) => {
+          await handlePacketQRScanSuccess(decodedText);
+        },
+        (error) => {
+          if (error !== "NotFoundException: No MultiFormat Readers were able to detect the code") {
+            console.log('Packet scan error:', error);
+          }
+        }
+      );
+
+      setIsPacketScannerInitialized(true);
+    } catch (error) {
+      console.error('Packet scanner initialization failed:', error);
+      alert('Failed to initialize camera for packet scanning. Please check permissions.');
+      setShowPacketScanner(false);
+    }
+  };
+
+  // Handle Packet QR scan success - Fetch packet details from admin
+  const handlePacketQRScanSuccess = async (decodedText) => {
+    try {
+      stopPacketScanner();
+      
+      console.log("Scanning packet QR code:", decodedText);
+      
+      // Show loading indicator
+      Swal.fire({
+        title: 'Scanning Packet...',
+        text: 'Please wait while we fetch packet details',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      try {
+        // First try to parse as JSON to extract prefix
+        let searchTerm = decodedText;
+        try {
+          const parsedData = JSON.parse(decodedText);
+          searchTerm = parsedData.qr_code || parsedData.prefix || decodedText;
+        } catch {
+          // If not JSON, use as is
+          searchTerm = decodedText;
+        }
+        
+        // Fetch packet details from backend using the scanned QR value
+        const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(searchTerm)}`);
+        
+        Swal.close();
+        
+        if (response.data.success && response.data.data) {
+          const packet = response.data.data;
+          
+          // Update packet details
+          setPacketDetails(packet);
+          setPacketBarcode(packet.prefix);
+          setPacketWt(packet.packet_wt || "");
+          
+          Swal.fire({
+            icon: 'success',
+            title: 'Packet Found!',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>Prefix:</strong> ${packet.prefix}</p>
+                <p><strong>QR Number:</strong> ${packet.qr_number || 'N/A'}</p>
+                <p><strong>Full QR:</strong> ${packet.prefix}${packet.qr_number || ''}</p>
+                <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
+                <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
+                <p><strong>Status:</strong> ${packet.status}</p>
+              </div>
+            `,
+            timer: 3000,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Packet Not Found',
+            text: `No packet found with QR: ${decodedText}\nPlease add this packet in Admin QR module first.`,
+            confirmButtonText: 'OK'
+          });
+        }
+      } catch (error) {
+        Swal.close();
+        console.error('Error fetching packet details:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to fetch packet details. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error processing packet QR code:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error processing packet QR code. Please try again.'
+      });
+    }
+  };
+
+  // Handle product QR scan success
   const handleQRScanSuccess = async (decodedText) => {
     try {
       stopScanner();
       
-      // First, try to fetch packet details from admin QR packets table
       console.log("Scanning QR code:", decodedText);
       
       // Show loading indicator
-      alert("Fetching packet details...");
+      Swal.fire({
+        title: 'Scanning...',
+        text: 'Please wait while we process the QR code',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
       
-      // Fetch packet details from backend
-      const response = await axios.get(`${baseURL}/api/get-packet-details/${encodeURIComponent(decodedText)}`);
+      // Try to fetch as packet first
+     const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
+      
+      Swal.close();
       
       if (response.data.success && response.data.data) {
         const packet = response.data.data;
         
-        // Update packet details
+        // This is a packet QR code, update packet details
         setPacketDetails(packet);
         setPacketBarcode(packet.prefix);
         setPacketWt(packet.packet_wt || "");
         
-        alert(`Packet found!\nPrefix: ${packet.prefix}\nDate: ${packet.packet_date}\nWeight: ${packet.packet_wt || 'N/A'} g`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Packet QR Scanned!',
+          html: `
+            <div style="text-align: left;">
+              <p><strong>Packet:</strong> ${packet.prefix}${packet.qr_number || ''}</p>
+              <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
+              <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
+            </div>
+          `,
+          timer: 2000,
+          showConfirmButton: false
+        });
       } else {
-        // If not found, try to extract barcode as product code
+        // Try to extract as product barcode
         const barcode = extractBarcodeFromQR(decodedText);
         
         if (barcode) {
@@ -138,12 +300,23 @@ const EstimateForm = () => {
           
           handleBarcodeChange(barcode);
           
-          alert(`Scanned product barcode: ${barcode}`);
+          Swal.fire({
+            icon: 'success',
+            title: 'Product Scanned!',
+            text: `Scanned product barcode: ${barcode}`,
+            timer: 1500,
+            showConfirmButton: false
+          });
         } else {
-          alert('Could not find packet or product for this QR code');
+          Swal.fire({
+            icon: 'warning',
+            title: 'Not Found',
+            text: 'Could not find packet or product for this QR code'
+          });
         }
       }
     } catch (error) {
+      Swal.close();
       console.error('Error processing QR code:', error);
       
       // Try to extract as product barcode
@@ -154,9 +327,19 @@ const EstimateForm = () => {
           barcode: barcode
         }));
         handleBarcodeChange(barcode);
-        alert(`Scanned product barcode: ${barcode}`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Product Scanned!',
+          text: `Scanned product barcode: ${barcode}`,
+          timer: 1500,
+          showConfirmButton: false
+        });
       } else {
-        alert('Error processing QR code. Please try again.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error processing QR code. Please try again.'
+        });
       }
     }
   };
@@ -184,21 +367,42 @@ const EstimateForm = () => {
     setShowScanner(false);
   };
 
+  const stopPacketScanner = () => {
+    if (packetScannerRef.current) {
+      try {
+        packetScannerRef.current.clear();
+      } catch (error) {
+        console.log('Error clearing packet scanner:', error);
+      }
+      packetScannerRef.current = null;
+    }
+    setIsPacketScannerInitialized(false);
+    setShowPacketScanner(false);
+  };
+
   const startScanner = () => {
     setShowScanner(true);
+  };
+
+  const startPacketScanner = () => {
+    setShowPacketScanner(true);
   };
 
   // Fetch available packets from admin
   const fetchAvailablePackets = async () => {
     try {
       setLoadingPackets(true);
-      const response = await axios.get(`${baseURL}/api/all-packets`);
+      const response = await axios.get(`${baseURL}/api/qr-packets`);
       if (response.data.success) {
         setAvailablePackets(response.data.data);
       }
     } catch (error) {
       console.error('Error fetching packets:', error);
-      alert('Failed to fetch packet list');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to fetch packet list'
+      });
     } finally {
       setLoadingPackets(false);
     }
@@ -214,7 +418,13 @@ const EstimateForm = () => {
     setPacketBarcode(packet.prefix);
     setPacketWt(packet.packet_wt || "");
     setShowPacketSelector(false);
-    alert(`Selected packet: ${packet.prefix} (${packet.packet_date})`);
+    Swal.fire({
+      icon: 'success',
+      title: 'Packet Selected',
+      text: `Selected packet: ${packet.prefix}`,
+      timer: 1500,
+      showConfirmButton: false
+    });
   };
 
   // Camera functions
@@ -1237,6 +1447,8 @@ const EstimateForm = () => {
   // Filter packets for selector
   const filteredPackets = availablePackets.filter(packet =>
     packet.prefix?.toLowerCase().includes(packetSearchTerm.toLowerCase()) ||
+    packet.qr_number?.toLowerCase().includes(packetSearchTerm.toLowerCase()) ||
+    `${packet.prefix}${packet.qr_number}`?.toLowerCase().includes(packetSearchTerm.toLowerCase()) ||
     packet.packet_date?.includes(packetSearchTerm)
   );
 
@@ -1288,13 +1500,13 @@ const EstimateForm = () => {
               <Col xs={12} md={4}>
                 <div className="barcode-field-wrapper">
                   <InputField
-                    label="Barcode"
+                    label="Product Barcode"
                     name="barcode"
                     value={formData.barcode || ""}
                     type="text"
                     onChange={handleInputChange}
                     readOnly
-                    placeholder="Scan barcode to auto-fill"
+                    placeholder="Scan product barcode to auto-fill"
                   />
                   
                   <Button
@@ -1302,7 +1514,7 @@ const EstimateForm = () => {
                     size="sm"
                     onClick={startScanner}
                     className="scanner-btn"
-                    title="Scan Barcode/QR Code"
+                    title="Scan Product Barcode/QR Code"
                   >
                     <FaQrcode /> Scan
                   </Button>
@@ -1333,7 +1545,7 @@ const EstimateForm = () => {
             </Row>
           </Row>
 
-          {/* Packet Details Section - with packet selector */}
+          {/* Packet Details Section - with packet scanner only */}
           <Row className="estimate-form-section2 mt-3">
             <Col xs={12}>
               <div className="packet-section">
@@ -1344,7 +1556,7 @@ const EstimateForm = () => {
                   <Col xs={12} md={4}>
                     <div style={{ marginBottom: '15px' }}>
                       <label style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '5px', display: 'block' }}>
-                        Packet Barcode/Prefix <span style={{ color: 'red' }}>*</span>
+                        Packet Barcode <span style={{ color: 'red' }}>*</span>
                       </label>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <input
@@ -1355,22 +1567,22 @@ const EstimateForm = () => {
                             fontSize: '14px',
                             border: '1px solid #ced4da',
                             borderRadius: '4px',
-                            backgroundColor: packetDetails ? '#e8f5e9' : 'white'
+                            backgroundColor: '#f5f5f5',
+                            cursor: 'not-allowed'
                           }}
-                          value={packetBarcode}
-                          onChange={(e) => {
-                            setPacketBarcode(e.target.value);
-                            setPacketDetails(null);
-                          }}
-                          placeholder="Enter packet prefix or scan QR"
+                           value={packetBarcode || ''} 
+                          readOnly
+                          disabled
+                          placeholder="Scan QR code to fill packet details"
                         />
                         <Button
-                          variant="outline-secondary"
+                          variant="outline-primary"
                           size="sm"
-                          onClick={handleOpenPacketSelector}
-                          title="Select from available packets"
+                          onClick={startPacketScanner}
+                          title="Scan Packet QR Code"
+                          className="packet-scanner-btn"
                         >
-                          <FaSearch /> Select
+                          <FaBarcode /> Scan Packet QR
                         </Button>
                       </div>
                     </div>
@@ -1389,15 +1601,16 @@ const EstimateForm = () => {
                           fontSize: '14px',
                           border: '1px solid #ced4da',
                           borderRadius: '4px',
-                          backgroundColor: packetDetails ? '#e8f5e9' : 'white'
+                          backgroundColor: packetDetails ? '#e8f5e9' : '#f5f5f5'
                         }}
                         value={packetWt}
+                        readOnly={!!packetDetails}
                         onChange={(e) => {
                           setPacketWt(e.target.value);
                           if (packetDetails) setPacketDetails(null);
                         }}
                         step="0.001"
-                        placeholder="Enter weight"
+                        placeholder="Auto-filled from packet"
                       />
                     </div>
                   </Col>
@@ -1419,7 +1632,7 @@ const EstimateForm = () => {
                         }}
                         value={packetDetails?.packet_date ? new Date(packetDetails.packet_date).toLocaleDateString() : ''}
                         readOnly
-                        placeholder="Auto-filled from selected packet"
+                        placeholder="Auto-filled from scanned packet"
                       />
                     </div>
                   </Col>
@@ -1427,7 +1640,7 @@ const EstimateForm = () => {
 
                 {packetDetails && (
                   <div className="mt-2 p-2 bg-success-light" style={{ backgroundColor: '#e8f5e9', borderRadius: '4px', fontSize: '12px' }}>
-                    <span className="text-success">✓ Using packet from Admin: {packetDetails.prefix} | Date: {new Date(packetDetails.packet_date).toLocaleDateString()} | Status: {packetDetails.status}</span>
+                    <span className="text-success">✓ Using packet from Admin: {packetDetails.prefix} | QR Number: {packetDetails.qr_number || 'N/A'} | Date: {new Date(packetDetails.packet_date).toLocaleDateString()} | Weight: {packetDetails.packet_wt || 'N/A'}g | Status: {packetDetails.status}</span>
                   </div>
                 )}
               </div>
@@ -1445,6 +1658,13 @@ const EstimateForm = () => {
                     onClick={startCamera}
                   >
                     <FaCamera /> Capture Image
+                  </Button>
+                  <Button
+                    variant="outline-info"
+                    size="sm"
+                    onClick={triggerFileUpload}
+                  >
+                    <FaUpload /> Upload Image
                   </Button>
                   <input
                     ref={fileInputRef}
@@ -1508,19 +1728,40 @@ const EstimateForm = () => {
         </Container>
       </div>
 
-      {/* QR/Barcode Scanner Modal */}
+      {/* Product QR/Barcode Scanner Modal */}
       <Modal show={showScanner} onHide={stopScanner} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Scan Barcode/QR Code</Modal.Title>
+          <Modal.Title>Scan Product Barcode/QR Code</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ textAlign: 'center', padding: '20px' }}>
           <div id="qr-reader" style={{ width: '100%', minHeight: '300px' }}></div>
           <p className="mt-3" style={{ fontSize: '14px', color: '#666' }}>
-            Point your camera at the barcode or QR code to scan automatically
+            Point your camera at the product barcode or QR code to scan automatically
           </p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={stopScanner}>
+            Cancel Scan
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Packet QR/Barcode Scanner Modal */}
+      <Modal show={showPacketScanner} onHide={stopPacketScanner} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Scan Packet QR Code</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ textAlign: 'center', padding: '20px' }}>
+          <div id="packet-qr-reader" style={{ width: '100%', minHeight: '300px' }}></div>
+          <p className="mt-3" style={{ fontSize: '14px', color: '#666' }}>
+            Point your camera at the packet QR code to scan automatically
+          </p>
+          <p className="text-muted" style={{ fontSize: '12px' }}>
+            Scanned packet QR will auto-fill prefix, weight, and date from admin records
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={stopPacketScanner}>
             Cancel Scan
           </Button>
         </Modal.Footer>
@@ -1564,74 +1805,6 @@ const EstimateForm = () => {
             />
           )}
         </Modal.Body>
-      </Modal>
-
-      {/* Packet Selector Modal */}
-      <Modal show={showPacketSelector} onHide={() => setShowPacketSelector(false)} size="lg" centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Select Packet from Admin</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-3">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by prefix or date..."
-              value={packetSearchTerm}
-              onChange={(e) => setPacketSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          {loadingPackets ? (
-            <div className="text-center py-4">Loading packets...</div>
-          ) : filteredPackets.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-bordered table-hover">
-                <thead>
-                  <tr>
-                    <th>Prefix</th>
-                    <th>Date</th>
-                    <th>Weight (g)</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPackets.map((packet) => (
-                    <tr key={packet.id}>
-                      <td><strong>{packet.prefix}</strong></td>
-                      <td>{new Date(packet.packet_date).toLocaleDateString()}</td>
-                      <td>{packet.packet_wt || '-'}</td>
-                      <td>
-                        <span className={`badge bg-${packet.status === 'Active' ? 'success' : 'secondary'}`}>
-                          {packet.status}
-                        </span>
-                      </td>
-                      <td>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleSelectPacket(packet)}
-                        >
-                          Select
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-4 text-muted">
-              No packets available. Please add packets from Admin QR Code module.
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowPacketSelector(false)}>
-            Close
-          </Button>
-        </Modal.Footer>
       </Modal>
 
       {/* Product Images Modal */}

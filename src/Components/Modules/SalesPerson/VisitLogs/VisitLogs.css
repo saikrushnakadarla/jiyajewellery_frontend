@@ -1296,3 +1296,473 @@
     max-width: 100%;
   }
 }
+
+
+/* Table subtitle */
+.vl-table-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 8px;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vl-table-subtitle-icon {
+  font-size: 12px;
+  color: #a36e29;
+}
+
+.vl-today-highlight-badge {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Today row highlight */
+.vl-today-row {
+  background-color: #fef3c7 !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.vl-today-row:hover {
+  background-color: #fde68a !important;
+}
+
+.vl-today-cell {
+  background-color: #fef3c7;
+}
+
+/* Date cell with today badge */
+.vl-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vl-today-badge {
+  background: #f59e0b;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* All Scheduled Visits Section */
+.vl-all-schedules-section {
+  margin-bottom: 25px;
+}
+
+.vl-all-schedules-card {
+  background: white;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.vl-all-schedules-header {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  padding: 20px 25px;
+}
+
+.vl-all-schedules-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.vl-all-schedules-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.vl-all-schedules-title {
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.vl-all-schedules-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  margin: 5px 0 0;
+}
+
+.vl-schedule-stats {
+  margin-left: 10px;
+  display: inline-flex;
+  gap: 12px;
+}
+
+.vl-schedule-stat-total {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.vl-schedule-stat-today {
+  background: #f59e0b;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.vl-toggle-schedule-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.vl-toggle-schedule-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+/* Schedule Table */
+.vl-all-schedules-table-container {
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.vl-schedule-table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.vl-schedule-table-head th {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #374151;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 14px;
+  border-bottom: 2px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vl-schedule-table tbody td {
+  padding: 14px;
+  vertical-align: middle;
+  font-size: 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* Schedule Row Variants */
+.vl-schedule-today-row {
+  background-color: #fef3c7 !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.vl-schedule-past-row {
+  background-color: #fee2e2 !important;
+  opacity: 0.8;
+}
+
+.vl-schedule-future-row {
+  background-color: #d1fae5 !important;
+}
+
+.vl-schedule-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vl-schedule-date-icon {
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.vl-schedule-date {
+  font-weight: 500;
+}
+
+.vl-schedule-today-label {
+  display: inline-block;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-past-label {
+  display: inline-block;
+  background: #ef4444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-future-label {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-customer-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.vl-schedule-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.vl-status-scheduled-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.vl-status-completed-badge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.vl-status-cancelled-badge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.vl-today-schedule-card {
+  border: 2px solid #f59e0b;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+}
+
+
+/* All Scheduled Visits Section */
+.vl-all-schedules-section {
+  margin-bottom: 25px;
+}
+
+.vl-all-schedules-card {
+  background: white;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.vl-all-schedules-header {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  padding: 20px 25px;
+}
+
+.vl-all-schedules-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.vl-all-schedules-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.vl-all-schedules-title {
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.vl-all-schedules-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  margin: 5px 0 0;
+}
+
+.vl-schedule-stats {
+  margin-left: 10px;
+  display: inline-flex;
+  gap: 12px;
+}
+
+.vl-schedule-stat-total {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.vl-schedule-stat-today {
+  background: #f59e0b;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.vl-toggle-schedule-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.vl-toggle-schedule-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+/* Schedule Table */
+.vl-all-schedules-table-container {
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.vl-schedule-table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.vl-schedule-table-head th {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #374151;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 14px;
+  border-bottom: 2px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vl-schedule-table tbody td {
+  padding: 14px;
+  vertical-align: middle;
+  font-size: 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* Schedule Row Variants */
+.vl-schedule-today-row {
+  background-color: #fef3c7 !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.vl-schedule-past-row {
+  background-color: #fee2e2 !important;
+  opacity: 0.8;
+}
+
+.vl-schedule-future-row {
+  background-color: #d1fae5 !important;
+}
+
+.vl-schedule-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vl-schedule-date-icon {
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.vl-schedule-date {
+  font-weight: 500;
+}
+
+.vl-schedule-today-label {
+  display: inline-block;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-past-label {
+  display: inline-block;
+  background: #ef4444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-future-label {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vl-schedule-customer-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.vl-schedule-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.vl-status-scheduled-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.vl-status-completed-badge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.vl-status-cancelled-badge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.vl-today-schedule-card {
+  border: 2px solid #f59e0b;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+}

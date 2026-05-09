@@ -20,6 +20,7 @@ const QRCodePrinting = () => {
   // Form state
   const [formData, setFormData] = useState({
     prefix: "",
+    qr_number: "",
     qr_code: "",
     packet_date: new Date().toISOString().split('T')[0],
     packet_wt: "",
@@ -54,12 +55,31 @@ const QRCodePrinting = () => {
     fetchPacketRecords();
   }, []);
 
-  // Generate QR Code
-  const generateQRCode = async (prefix, packetDate, packetWt) => {
+  // Get next QR number for a prefix
+  const getNextQRNumber = async (prefix) => {
+    if (!prefix) return "0001";
+    
     try {
-      // Create unique QR code data
+      const response = await axios.get(`${baseURL}/api/qr-packets/next-number/${prefix}`);
+      if (response.data.success) {
+        return response.data.next_number;
+      }
+      return "0001";
+    } catch (error) {
+      console.error("Error getting next QR number:", error);
+      return "0001";
+    }
+  };
+
+  // Generate QR Code
+  const generateQRCode = async (prefix, qrNumber, packetDate, packetWt) => {
+    try {
+      // Create unique QR code data with combined prefix and number
+      const fullQRString = `${prefix}${qrNumber}`;
       const qrData = {
+        qr_code: fullQRString,
         prefix: prefix,
+        qr_number: qrNumber,
         packet_date: packetDate,
         packet_wt: packetWt,
         timestamp: Date.now()
@@ -92,6 +112,36 @@ const QRCodePrinting = () => {
     }
   };
 
+  // Handle prefix change - auto-generate QR number
+  const handlePrefixChange = async (e) => {
+    const { value } = e.target;
+    
+    if (value) {
+      // Get next available QR number for this prefix
+      const nextNumber = await getNextQRNumber(value);
+      
+      setFormData(prev => ({
+        ...prev,
+        prefix: value,
+        qr_number: nextNumber
+      }));
+      
+      // Regenerate QR code with new prefix and number
+      await generateQRCode(
+        value, 
+        nextNumber, 
+        formData.packet_date, 
+        formData.packet_wt
+      );
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        prefix: value,
+        qr_number: ""
+      }));
+    }
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -100,14 +150,15 @@ const QRCodePrinting = () => {
       [name]: value
     }));
     
-    // Auto-generate QR code when prefix, date, or weight changes
-    if (name === 'prefix' || name === 'packet_date' || name === 'packet_wt') {
+    // Auto-generate QR code when prefix, number, date, or weight changes
+    if (name === 'prefix' || name === 'qr_number' || name === 'packet_date' || name === 'packet_wt') {
       const updatedData = {
         ...formData,
         [name]: value
       };
       generateQRCode(
         updatedData.prefix,
+        updatedData.qr_number,
         updatedData.packet_date,
         updatedData.packet_wt
       );
@@ -127,12 +178,21 @@ const QRCodePrinting = () => {
       return;
     }
 
+    if (!formData.qr_number) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Validation Error',
+        text: 'QR Number is required'
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       
       // Generate QR code if not already generated
       if (!formData.qr_code) {
-        await generateQRCode(formData.prefix, formData.packet_date, formData.packet_wt);
+        await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt);
       }
       
       let response;
@@ -140,12 +200,12 @@ const QRCodePrinting = () => {
       if (isEditing) {
         response = await axios.put(`${baseURL}/api/qr-packets/${editId}`, {
           ...formData,
-          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.packet_date, formData.packet_wt)
+          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt)
         });
       } else {
         response = await axios.post(`${baseURL}/api/qr-packets`, {
           ...formData,
-          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.packet_date, formData.packet_wt)
+          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt)
         });
       }
       
@@ -153,7 +213,7 @@ const QRCodePrinting = () => {
         Swal.fire({
           icon: 'success',
           title: isEditing ? 'Updated!' : 'Added!',
-          text: isEditing ? 'Packet record updated successfully' : 'Packet record added successfully',
+          text: isEditing ? 'Packet record updated successfully' : `Packet record added successfully with QR Number: ${formData.qr_number}`,
           timer: 2000,
           showConfirmButton: false
         });
@@ -177,6 +237,7 @@ const QRCodePrinting = () => {
   const resetForm = () => {
     setFormData({
       prefix: "",
+      qr_number: "",
       qr_code: "",
       packet_date: new Date().toISOString().split('T')[0],
       packet_wt: "",
@@ -192,6 +253,7 @@ const QRCodePrinting = () => {
   const handleEdit = (record) => {
     setFormData({
       prefix: record.prefix || "",
+      qr_number: record.qr_number || "",
       qr_code: record.qr_code || "",
       packet_date: record.packet_date ? record.packet_date.split('T')[0] : new Date().toISOString().split('T')[0],
       packet_wt: record.packet_wt || "",
@@ -260,7 +322,9 @@ const QRCodePrinting = () => {
 
       // Generate QR code for printing
       const qrImageData = await QRCode.toDataURL(record.qr_code || JSON.stringify({
+        qr_code: `${record.prefix}${record.qr_number}`,
         prefix: record.prefix,
+        qr_number: record.qr_number,
         packet_date: record.packet_date,
         packet_wt: record.packet_wt
       }), {
@@ -286,7 +350,7 @@ const QRCodePrinting = () => {
       doc.setFontSize(4);
       doc.setTextColor(0, 0, 0);
 
-      doc.text(`Prefix: ${record.prefix}`, textX, textY);
+      doc.text(`QR: ${record.prefix}${record.qr_number}`, textX, textY);
       textY += 2;
       doc.text(`Date: ${record.packet_date}`, textX, textY);
       textY += 2;
@@ -296,12 +360,12 @@ const QRCodePrinting = () => {
       }
 
       // Save PDF
-      doc.save(`QR_Packet_${record.prefix}_${record.packet_date}.pdf`);
+      doc.save(`QR_${record.prefix}${record.qr_number}_${record.packet_date}.pdf`);
       
       // Upload PDF to server
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
-      formData.append("invoice", pdfBlob, `QR_Packet_${record.prefix}.pdf`);
+      formData.append("invoice", pdfBlob, `QR_${record.prefix}${record.qr_number}.pdf`);
       
       await axios.post(`${baseURL}/upload-invoice`, formData);
       
@@ -327,6 +391,8 @@ const QRCodePrinting = () => {
     const searchLower = searchTerm.toLowerCase();
     return (
       (record.prefix?.toLowerCase().includes(searchLower)) ||
+      (record.qr_number?.toLowerCase().includes(searchLower)) ||
+      (`${record.prefix}${record.qr_number}`?.toLowerCase().includes(searchLower)) ||
       (record.packet_date?.includes(searchTerm)) ||
       (record.packet_wt?.toString().includes(searchTerm))
     );
@@ -381,7 +447,7 @@ const QRCodePrinting = () => {
                 <FaSearch className="search-icon" />
                 <input
                   type="text"
-                  placeholder="Search by prefix, date, or weight..."
+                  placeholder="Search by prefix, QR number, or weight..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="qr-code-search-input"
@@ -405,21 +471,42 @@ const QRCodePrinting = () => {
                   </h4>
                   <Form onSubmit={handleSubmit}>
                     <Row>
-                      <Col md={4}>
+                      <Col md={3}>
                         <Form.Group className="mb-3">
                           <Form.Label>Prefix <span className="required">*</span></Form.Label>
                           <Form.Control
                             type="text"
                             name="prefix"
                             value={formData.prefix}
-                            onChange={handleInputChange}
-                            placeholder="Enter prefix (e.g., PKT, PKG)"
+                            onChange={handlePrefixChange}
+                            placeholder="Enter prefix (e.g., PKT, PGT)"
                             required
                           />
+                          <Form.Text className="text-muted">
+                            QR Number will auto-increment based on prefix
+                          </Form.Text>
                         </Form.Group>
                       </Col>
                       
-                      <Col md={4}>
+                      <Col md={3}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>QR Number <span className="required">*</span></Form.Label>
+                          <Form.Control
+                            type="text"
+                            name="qr_number"
+                            value={formData.qr_number}
+                            onChange={handleInputChange}
+                            placeholder="Auto-generated"
+                            readOnly={!isEditing}
+                            className={!isEditing ? "bg-light" : ""}
+                          />
+                          <Form.Text className="text-muted">
+                            Format: {formData.prefix}{formData.qr_number}
+                          </Form.Text>
+                        </Form.Group>
+                      </Col>
+                      
+                      <Col md={3}>
                         <Form.Group className="mb-3">
                           <Form.Label>Date <span className="required">*</span></Form.Label>
                           <Form.Control
@@ -432,7 +519,7 @@ const QRCodePrinting = () => {
                         </Form.Group>
                       </Col>
                       
-                      <Col md={4}>
+                      <Col md={3}>
                         <Form.Group className="mb-3">
                           <Form.Label>Packet Weight (grams)</Form.Label>
                           <Form.Control
@@ -451,7 +538,21 @@ const QRCodePrinting = () => {
                     <Row>
                       <Col md={12}>
                         <Form.Group className="mb-3">
-                          <Form.Label>QR Code Data</Form.Label>
+                          <Form.Label>Full QR Code Value</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={`${formData.prefix}${formData.qr_number}`}
+                            readOnly
+                            className="bg-light"
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+
+                    <Row>
+                      <Col md={12}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>QR Code Data (JSON)</Form.Label>
                           <Form.Control
                             as="textarea"
                             rows={2}
@@ -475,6 +576,9 @@ const QRCodePrinting = () => {
                               alt="QR Code Preview" 
                               className="qr-preview-image"
                             />
+                            <p className="mt-2">
+                              <strong>{formData.prefix}{formData.qr_number}</strong>
+                            </p>
                             <canvas ref={qrCanvasRef} style={{ display: 'none' }} />
                           </div>
                         </Col>
@@ -517,7 +621,9 @@ const QRCodePrinting = () => {
                     <thead>
                       <tr>
                         <th>#</th>
+                        <th>QR Code</th>
                         <th>Prefix</th>
+                        <th>QR Number</th>
                         <th>Date</th>
                         <th>Packet Weight</th>
                         <th>Created At</th>
@@ -527,14 +633,22 @@ const QRCodePrinting = () => {
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan="6" className="text-center">Loading...</td>
+                          <td colSpan="8" className="text-center">Loading...</td>
                         </tr>
                       ) : filteredRecords.length > 0 ? (
                         filteredRecords.map((record, index) => (
                           <tr key={record.id}>
                             <td>{index + 1}</td>
                             <td>
+                              <span className="qr-code-badge">
+                                {record.prefix}{record.qr_number}
+                              </span>
+                            </td>
+                            <td>
                               <span className="prefix-badge">{record.prefix}</span>
+                            </td>
+                            <td>
+                              <span className="qr-number-badge">{record.qr_number}</span>
                             </td>
                             <td>{formatDate(record.packet_date)}</td>
                             <td>{record.packet_wt ? `${record.packet_wt} g` : '-'}</td>
@@ -574,7 +688,7 @@ const QRCodePrinting = () => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="text-center no-records">
+                          <td colSpan="8" className="text-center no-records">
                             No packet records found
                           </td>
                         </tr>
