@@ -42,13 +42,16 @@ const EstimateForm = () => {
   const [previewImage, setPreviewImage] = useState(null);
   
   // Packet level state (shared across all entries for this customer)
-  const [packetBarcode, setPacketBarcode] = useState("");
+  const [packetBarcode, setPacketBarcode] = useState(""); // This should ALWAYS be a string
   const [packetWt, setPacketWt] = useState("");
-  const [packetDetails, setPacketDetails] = useState(null); // Store packet details from admin
+  const [packetDetails, setPacketDetails] = useState(null); // Store full packet details object for display
   const [showPacketSelector, setShowPacketSelector] = useState(false);
   const [availablePackets, setAvailablePackets] = useState([]);
   const [packetSearchTerm, setPacketSearchTerm] = useState("");
   const [loadingPackets, setLoadingPackets] = useState(false);
+  
+  // Flag to track if packet has been scanned
+  const [isPacketScanned, setIsPacketScanned] = useState(false);
 
   // Store the saved estimate number for updates
   const [savedEstimateNumber, setSavedEstimateNumber] = useState("");
@@ -162,88 +165,58 @@ const EstimateForm = () => {
   };
 
   // Handle Packet QR scan success - Fetch packet details from admin
-  const handlePacketQRScanSuccess = async (decodedText) => {
-    try {
-      stopPacketScanner();
-      
-      console.log("Scanning packet QR code:", decodedText);
-      
-      // Show loading indicator
-      Swal.fire({
-        title: 'Scanning Packet...',
-        text: 'Please wait while we fetch packet details',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-      
-      try {
-        // First try to parse as JSON to extract prefix
-        let searchTerm = decodedText;
-        try {
-          const parsedData = JSON.parse(decodedText);
-          searchTerm = parsedData.qr_code || parsedData.prefix || decodedText;
-        } catch {
-          // If not JSON, use as is
-          searchTerm = decodedText;
-        }
-        
-        // Fetch packet details from backend using the scanned QR value
-        const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(searchTerm)}`);
-        
-        Swal.close();
-        
-        if (response.data.success && response.data.data) {
-          const packet = response.data.data;
-          
-          // Update packet details
-          setPacketDetails(packet);
-          setPacketBarcode(packet.prefix);
-          setPacketWt(packet.packet_wt || "");
-          
-          Swal.fire({
-            icon: 'success',
-            title: 'Packet Found!',
-            html: `
-              <div style="text-align: left;">
-                <p><strong>Prefix:</strong> ${packet.prefix}</p>
-                <p><strong>QR Number:</strong> ${packet.qr_number || 'N/A'}</p>
-                <p><strong>Full QR:</strong> ${packet.prefix}${packet.qr_number || ''}</p>
-                <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
-                <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
-                <p><strong>Status:</strong> ${packet.status}</p>
-              </div>
-            `,
-            timer: 3000,
-            showConfirmButton: false
-          });
-        } else {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Packet Not Found',
-            text: `No packet found with QR: ${decodedText}\nPlease add this packet in Admin QR module first.`,
-            confirmButtonText: 'OK'
-          });
-        }
-      } catch (error) {
-        Swal.close();
-        console.error('Error fetching packet details:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Failed to fetch packet details. Please try again.'
-        });
+ const handlePacketQRScanSuccess = async (decodedText) => {
+  try {
+    stopPacketScanner();
+
+    Swal.fire({ title: 'Scanning Packet...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    // Always send raw decoded text to backend — backend will parse JSON if needed
+    const response = await axios.get(
+      `${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`
+    );
+
+    Swal.close();
+
+    if (response.data.success && response.data.data) {
+      const packet = response.data.data;
+
+      // packet.qr_code is now ALWAYS a plain string from the fixed backend
+      const qrCodeString = packet.qr_code; // e.g. "PKT0003"
+
+      if (typeof qrCodeString !== 'string' || qrCodeString.startsWith('{')) {
+        // Safety check — should never happen after backend fix
+        console.error("Unexpected qr_code format:", qrCodeString);
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Invalid packet QR code format.' });
+        return;
       }
-    } catch (error) {
-      console.error('Error processing packet QR code:', error);
+
+      setPacketDetails(packet);
+      setPacketBarcode(qrCodeString);       // Plain string only
+      setPacketWt(packet.packet_wt || "");
+      setIsPacketScanned(true);
+
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Error processing packet QR code. Please try again.'
+        icon: 'success',
+        title: 'Packet Found!',
+        html: `
+          <div style="text-align:left">
+            <p><strong>QR Code:</strong> ${qrCodeString}</p>
+            <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
+            <p><strong>Status:</strong> ${packet.status}</p>
+          </div>`,
+        timer: 3000,
+        showConfirmButton: false
       });
+    } else {
+      Swal.fire({ icon: 'warning', title: 'Packet Not Found', text: `No packet found for: ${decodedText}` });
     }
-  };
+  } catch (error) {
+    Swal.close();
+    console.error('Error processing packet QR:', error);
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
+  }
+};
 
   // Handle product QR scan success
   const handleQRScanSuccess = async (decodedText) => {
@@ -252,7 +225,6 @@ const EstimateForm = () => {
       
       console.log("Scanning QR code:", decodedText);
       
-      // Show loading indicator
       Swal.fire({
         title: 'Scanning...',
         text: 'Please wait while we process the QR code',
@@ -262,25 +234,26 @@ const EstimateForm = () => {
         }
       });
       
-      // Try to fetch as packet first
-     const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
+      const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
       
       Swal.close();
       
       if (response.data.success && response.data.data) {
         const packet = response.data.data;
         
-        // This is a packet QR code, update packet details
+        // This is a packet QR code - store ONLY the qr_code string
         setPacketDetails(packet);
-        setPacketBarcode(packet.prefix);
+        const fullQrCode = packet.qr_code;
+        setPacketBarcode(fullQrCode);
         setPacketWt(packet.packet_wt || "");
+        setIsPacketScanned(true);
         
         Swal.fire({
           icon: 'success',
           title: 'Packet QR Scanned!',
           html: `
             <div style="text-align: left;">
-              <p><strong>Packet:</strong> ${packet.prefix}${packet.qr_number || ''}</p>
+              <p><strong>QR Code:</strong> ${fullQrCode}</p>
               <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
               <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
             </div>
@@ -289,7 +262,6 @@ const EstimateForm = () => {
           showConfirmButton: false
         });
       } else {
-        // Try to extract as product barcode
         const barcode = extractBarcodeFromQR(decodedText);
         
         if (barcode) {
@@ -319,7 +291,6 @@ const EstimateForm = () => {
       Swal.close();
       console.error('Error processing QR code:', error);
       
-      // Try to extract as product barcode
       const barcode = extractBarcodeFromQR(decodedText);
       if (barcode) {
         setFormData(prev => ({
@@ -413,19 +384,22 @@ const EstimateForm = () => {
     setShowPacketSelector(true);
   };
 
-  const handleSelectPacket = (packet) => {
-    setPacketDetails(packet);
-    setPacketBarcode(packet.prefix);
-    setPacketWt(packet.packet_wt || "");
-    setShowPacketSelector(false);
-    Swal.fire({
-      icon: 'success',
-      title: 'Packet Selected',
-      text: `Selected packet: ${packet.prefix}`,
-      timer: 1500,
-      showConfirmButton: false
-    });
-  };
+ const handleSelectPacket = (packet) => {
+  // packet.qr_code from the list endpoint also needs parsing
+  let qrCodeString = `${packet.prefix}${packet.qr_number}`;
+  try {
+    const parsed = JSON.parse(packet.qr_code);
+    if (parsed.qr_code) qrCodeString = parsed.qr_code;
+  } catch (e) {
+    if (packet.qr_code && !packet.qr_code.startsWith('{')) qrCodeString = packet.qr_code;
+  }
+
+  setPacketDetails({ ...packet, qr_code: qrCodeString });
+  setPacketBarcode(qrCodeString);
+  setPacketWt(packet.packet_wt || "");
+  setIsPacketScanned(true);
+  setShowPacketSelector(false);
+};
 
   // Camera functions
   const startCamera = async () => {
@@ -591,7 +565,7 @@ const EstimateForm = () => {
     return `${baseURL}/uploads/products/${imageName}`;
   };
 
-  // Generate packet barcode
+  // Generate packet barcode - ONLY for temporary use if needed
   const generatePacketBarcode = async () => {
     try {
       const response = await axios.get(`${baseURL}/next-packet-barcode`);
@@ -601,7 +575,6 @@ const EstimateForm = () => {
     } catch (error) {
       console.error('Error fetching packet barcode:', error);
     }
-    // Fallback to local generation if API fails
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `PKT${timestamp}${random}`;
@@ -1016,6 +989,7 @@ const EstimateForm = () => {
         setPacketDetails(null);
         setPacketBarcode("");
         setPacketWt("");
+        setIsPacketScanned(false);
       }
 
       if (name === "product_name" && value !== prevData.product_name) {
@@ -1178,23 +1152,7 @@ const EstimateForm = () => {
     fetchLastEstimateNumber();
   }, [salespersonId, sourceBy]);
 
-  // Fetch packet barcode initially
-  useEffect(() => {
-    const fetchInitialPacketBarcode = async () => {
-      try {
-        const response = await axios.get(`${baseURL}/next-packet-barcode`);
-        if (response.data.success && response.data.packet_barcode) {
-          setPacketBarcode(response.data.packet_barcode);
-        }
-      } catch (error) {
-        console.error('Error fetching packet barcode:', error);
-      }
-    };
-    
-    fetchInitialPacketBarcode();
-  }, []);
-
-  // Handle Add Entry
+  // Handle Add Entry - Send ONLY the string value
   const handleAddEntry = async () => {
     if (!formData.barcode) {
       alert("Please select a product via barcode first");
@@ -1234,7 +1192,6 @@ const EstimateForm = () => {
     setEntries(updatedEntries);
     setTotalQuantity(calculateTotalQuantity(updatedEntries));
 
-    // Calculate totals for all entries
     const totalAmount = updatedEntries.reduce((sum, item) => {
       const stonePrice = parseFloat(item.stone_price) || 0;
       const makingCharges = parseFloat(item.making_charges) || 0;
@@ -1248,11 +1205,14 @@ const EstimateForm = () => {
     const taxAmount = updatedEntries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
     const netAmount = taxableAmount + taxAmount;
 
-    let currentPacketBarcode = packetBarcode;
-    if (!currentPacketBarcode || currentPacketBarcode.trim() === '') {
-      currentPacketBarcode = await generatePacketBarcode();
-      setPacketBarcode(currentPacketBarcode);
-    }
+    // FIX: Send ONLY the string value, not the entire packet object
+    let currentPacketBarcode = null;
+    let currentPacketWt = null;
+    
+    if (isPacketScanned && packetDetails) {
+  currentPacketBarcode = packetDetails.qr_code; // Always a plain string now
+  currentPacketWt = packetDetails.packet_wt || packetWt || null;
+}
 
     try {
       const requestData = {
@@ -1265,11 +1225,14 @@ const EstimateForm = () => {
         taxable_amount: taxableAmount.toFixed(2),
         tax_amount: taxAmount.toFixed(2),
         net_amount: netAmount.toFixed(2),
-        packet_barcode: currentPacketBarcode,
-        packet_wt: packetWt || null,
+        packet_barcode: currentPacketBarcode, // This will be just the string "PKT0003"
+        packet_wt: currentPacketWt ? parseFloat(currentPacketWt) : null,
         pack_images: [],
         force_insert: true
       };
+
+      console.log("Sending packet_barcode to server:", currentPacketBarcode);
+      console.log("Type of packet_barcode:", typeof currentPacketBarcode);
 
       const response = await axios.post(`${baseURL}/add/estimate`, requestData);
       
@@ -1278,7 +1241,8 @@ const EstimateForm = () => {
         setIsEstimateSaved(true);
       }
 
-      alert(`Entry saved successfully!\nEstimate Number: ${formData.estimate_number}\nPacket Barcode: ${currentPacketBarcode}`);
+      const savedPacketMsg = currentPacketBarcode ? `\nPacket Barcode: ${currentPacketBarcode}` : '';
+      alert(`Entry saved successfully!\nEstimate Number: ${formData.estimate_number}${savedPacketMsg}`);
 
       setFormData(prev => ({
         ...initialFormData,
@@ -1312,16 +1276,19 @@ const EstimateForm = () => {
         return;
       }
 
-      let finalPacketBarcode = packetBarcode;
-      if (!finalPacketBarcode || finalPacketBarcode.trim() === '') {
-        finalPacketBarcode = await generatePacketBarcode();
-        setPacketBarcode(finalPacketBarcode);
+      // Get the string packet barcode
+      let finalPacketBarcode = null;
+      let finalPacketWt = null;
+      
+      if (isPacketScanned && packetBarcode && typeof packetBarcode === 'string' && packetBarcode.trim() !== '') {
+        finalPacketBarcode = packetBarcode;
+        finalPacketWt = packetWt;
       }
       
       const entriesWithPacketDetails = entries.map(entry => ({
         ...entry,
         packet_barcode: finalPacketBarcode,
-        packet_wt: packetWt || null
+        packet_wt: finalPacketWt
       }));
 
       const totalAmount = entriesWithPacketDetails.reduce((sum, item) => {
@@ -1370,7 +1337,7 @@ const EstimateForm = () => {
           tax_amount: taxAmount.toFixed(2),
           net_amount: netAmount.toFixed(2),
           packet_barcode: finalPacketBarcode,
-          packet_wt: packetWt || null,
+          packet_wt: finalPacketWt,
           pack_images: uploadedFilenames
         };
 
@@ -1399,7 +1366,8 @@ const EstimateForm = () => {
       const blob = await pdfDoc.toBlob();
       saveAs(blob, `estimate_${formData.estimate_number}.pdf`);
 
-      alert(`Estimate printed successfully!\nPacket Barcode: ${finalPacketBarcode}`);
+      const packetMsg = finalPacketBarcode ? `\nPacket Barcode: ${finalPacketBarcode}` : '\nNo packet barcode attached';
+      alert(`Estimate printed successfully!${packetMsg}`);
 
       setEntries([]);
       setTotalQuantity(0);
@@ -1411,6 +1379,7 @@ const EstimateForm = () => {
       setPacketImages([]);
       setIsEstimateSaved(false);
       setSavedEstimateNumber("");
+      setIsPacketScanned(false);
       
       const response = await axios.get(`${baseURL}/lastEstimateNumber`);
       setFormData({
@@ -1567,13 +1536,13 @@ const EstimateForm = () => {
                             fontSize: '14px',
                             border: '1px solid #ced4da',
                             borderRadius: '4px',
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: isPacketScanned ? '#e8f5e9' : '#f5f5f5',
                             cursor: 'not-allowed'
                           }}
-                           value={packetBarcode || ''} 
+                          value={packetBarcode || ''} 
                           readOnly
                           disabled
-                          placeholder="Scan QR code to fill packet details"
+                          placeholder={isPacketScanned ? "Packet scanned" : "Scan QR code to fill packet details"}
                         />
                         <Button
                           variant="outline-primary"
@@ -1585,6 +1554,11 @@ const EstimateForm = () => {
                           <FaBarcode /> Scan Packet QR
                         </Button>
                       </div>
+                      {!isPacketScanned && (
+                        <small style={{ color: '#999', fontSize: '11px' }}>
+                          Scan a packet QR code to attach it to this estimate
+                        </small>
+                      )}
                     </div>
                   </Col>
                   
@@ -1601,16 +1575,12 @@ const EstimateForm = () => {
                           fontSize: '14px',
                           border: '1px solid #ced4da',
                           borderRadius: '4px',
-                          backgroundColor: packetDetails ? '#e8f5e9' : '#f5f5f5'
+                          backgroundColor: isPacketScanned ? '#e8f5e9' : '#f5f5f5'
                         }}
                         value={packetWt}
-                        readOnly={!!packetDetails}
-                        onChange={(e) => {
-                          setPacketWt(e.target.value);
-                          if (packetDetails) setPacketDetails(null);
-                        }}
+                        readOnly={true}
                         step="0.001"
-                        placeholder="Auto-filled from packet"
+                        placeholder={isPacketScanned ? "Auto-filled from packet" : "Will be auto-filled from scanned packet"}
                       />
                     </div>
                   </Col>
@@ -1628,19 +1598,19 @@ const EstimateForm = () => {
                           fontSize: '14px',
                           border: '1px solid #ced4da',
                           borderRadius: '4px',
-                          backgroundColor: '#f5f5f5'
+                          backgroundColor: isPacketScanned ? '#e8f5e9' : '#f5f5f5'
                         }}
                         value={packetDetails?.packet_date ? new Date(packetDetails.packet_date).toLocaleDateString() : ''}
                         readOnly
-                        placeholder="Auto-filled from scanned packet"
+                        placeholder={isPacketScanned ? "Auto-filled from scanned packet" : "Will be auto-filled from scanned packet"}
                       />
                     </div>
                   </Col>
                 </Row>
 
                 {packetDetails && (
-                  <div className="mt-2 p-2 bg-success-light" style={{ backgroundColor: '#e8f5e9', borderRadius: '4px', fontSize: '12px' }}>
-                    <span className="text-success">✓ Using packet from Admin: {packetDetails.prefix} | QR Number: {packetDetails.qr_number || 'N/A'} | Date: {new Date(packetDetails.packet_date).toLocaleDateString()} | Weight: {packetDetails.packet_wt || 'N/A'}g | Status: {packetDetails.status}</span>
+                  <div className="mt-2 p-2" style={{ backgroundColor: '#e8f5e9', borderRadius: '4px', fontSize: '12px' }}>
+                    <span className="text-success">✓ Packet attached: {packetDetails.qr_code || `${packetDetails.prefix}${packetDetails.qr_number}`} | Date: {new Date(packetDetails.packet_date).toLocaleDateString()} | Weight: {packetDetails.packet_wt || 'N/A'}g | Status: {packetDetails.status}</span>
                   </div>
                 )}
               </div>
