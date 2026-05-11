@@ -24,6 +24,7 @@ const QRCodePrinting = () => {
     qr_code: "",
     packet_date: new Date().toISOString().split('T')[0],
     packet_wt: "",
+    quantity: 1,
     status: "Active"
   });
   
@@ -71,8 +72,8 @@ const QRCodePrinting = () => {
     }
   };
 
-  // Generate QR Code
-  const generateQRCode = async (prefix, qrNumber, packetDate, packetWt) => {
+  // Generate QR Code preview
+  const generateQRCodePreview = async (prefix, qrNumber, packetDate, packetWt) => {
     try {
       // Create unique QR code data with combined prefix and number
       const fullQRString = `${prefix}${qrNumber}`;
@@ -127,7 +128,7 @@ const QRCodePrinting = () => {
       }));
       
       // Regenerate QR code with new prefix and number
-      await generateQRCode(
+      await generateQRCodePreview(
         value, 
         nextNumber, 
         formData.packet_date, 
@@ -139,6 +140,7 @@ const QRCodePrinting = () => {
         prefix: value,
         qr_number: ""
       }));
+      setQrPreview(null);
     }
   };
 
@@ -150,18 +152,30 @@ const QRCodePrinting = () => {
       [name]: value
     }));
     
-    // Auto-generate QR code when prefix, number, date, or weight changes
-    if (name === 'prefix' || name === 'qr_number' || name === 'packet_date' || name === 'packet_wt') {
+    // Auto-generate QR code when relevant fields change
+    if ((name === 'prefix' || name === 'qr_number' || name === 'packet_date' || name === 'packet_wt') && formData.prefix && formData.qr_number) {
       const updatedData = {
         ...formData,
         [name]: value
       };
-      generateQRCode(
+      generateQRCodePreview(
         updatedData.prefix,
         updatedData.qr_number,
         updatedData.packet_date,
         updatedData.packet_wt
       );
+    }
+  };
+
+  // Handle quantity change
+  const handleQuantityChange = (e) => {
+    const value = parseInt(e.target.value) || 1;
+    if (value < 1) {
+      setFormData(prev => ({ ...prev, quantity: 1 }));
+    } else if (value > 100) {
+      setFormData(prev => ({ ...prev, quantity: 100 }));
+    } else {
+      setFormData(prev => ({ ...prev, quantity: value }));
     }
   };
 
@@ -190,32 +204,48 @@ const QRCodePrinting = () => {
     try {
       setLoading(true);
       
-      // Generate QR code if not already generated
-      if (!formData.qr_code) {
-        await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt);
-      }
-      
       let response;
       
       if (isEditing) {
+        // For editing, don't allow quantity changes
         response = await axios.put(`${baseURL}/api/qr-packets/${editId}`, {
           ...formData,
-          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt)
+          qr_code: formData.qr_code || await generateQRCodePreview(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt)
         });
       } else {
+        // For new records, include quantity
         response = await axios.post(`${baseURL}/api/qr-packets`, {
-          ...formData,
-          qr_code: formData.qr_code || await generateQRCode(formData.prefix, formData.qr_number, formData.packet_date, formData.packet_wt)
+          prefix: formData.prefix,
+          qr_number: formData.qr_number,
+          qr_code: formData.qr_code,
+          packet_date: formData.packet_date,
+          packet_wt: formData.packet_wt,
+          status: formData.status,
+          quantity: formData.quantity
         });
       }
       
       if (response.data.success) {
+        let successMessage = '';
+        
+        if (isEditing) {
+          successMessage = 'Packet record updated successfully';
+        } else {
+          const { total_inserted, total_skipped, starting_number } = response.data.data;
+          
+          if (total_skipped > 0) {
+            successMessage = `Generated ${total_inserted} QR code(s) starting from ${starting_number}. Skipped ${total_skipped} existing numbers.`;
+          } else {
+            successMessage = `Successfully generated ${total_inserted} QR code(s) starting from ${starting_number}`;
+          }
+        }
+        
         Swal.fire({
           icon: 'success',
-          title: isEditing ? 'Updated!' : 'Added!',
-          text: isEditing ? 'Packet record updated successfully' : `Packet record added successfully with QR Number: ${formData.qr_number}`,
-          timer: 2000,
-          showConfirmButton: false
+          title: isEditing ? 'Updated!' : 'Generated!',
+          text: successMessage,
+          timer: 3000,
+          showConfirmButton: true
         });
         
         resetForm();
@@ -226,7 +256,7 @@ const QRCodePrinting = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.message || 'Failed to save packet record'
+        text: error.response?.data?.message || 'Failed to save packet record(s)'
       });
     } finally {
       setLoading(false);
@@ -241,6 +271,7 @@ const QRCodePrinting = () => {
       qr_code: "",
       packet_date: new Date().toISOString().split('T')[0],
       packet_wt: "",
+      quantity: 1,
       status: "Active"
     });
     setQrPreview(null);
@@ -257,6 +288,7 @@ const QRCodePrinting = () => {
       qr_code: record.qr_code || "",
       packet_date: record.packet_date ? record.packet_date.split('T')[0] : new Date().toISOString().split('T')[0],
       packet_wt: record.packet_wt || "",
+      quantity: 1, // Reset to 1 for editing
       status: record.status || "Active"
     });
     
@@ -409,6 +441,26 @@ const QRCodePrinting = () => {
     });
   };
 
+  // Calculate preview range for quantity
+  const getQuantityPreview = () => {
+    if (!formData.prefix || !formData.qr_number || isEditing) return null;
+    
+    const startNum = parseInt(formData.qr_number);
+    const qty = parseInt(formData.quantity) || 1;
+    const endNum = startNum + qty - 1;
+    
+    const start = startNum.toString().padStart(4, '0');
+    const end = endNum.toString().padStart(4, '0');
+    
+    return {
+      start: `${formData.prefix}${start}`,
+      end: `${formData.prefix}${end}`,
+      count: qty
+    };
+  };
+
+  const quantityPreview = getQuantityPreview();
+
   return (
     <>
       <Navbar />
@@ -467,7 +519,7 @@ const QRCodePrinting = () => {
               <Col md={12}>
                 <div className="qr-code-form-card">
                   <h4 className="form-title">
-                    {isEditing ? 'Edit Packet Record' : 'Add New Packet Record'}
+                    {isEditing ? 'Edit Packet Record' : 'Add New Packet Record(s)'}
                   </h4>
                   <Form onSubmit={handleSubmit}>
                     <Row>
@@ -481,6 +533,7 @@ const QRCodePrinting = () => {
                             onChange={handlePrefixChange}
                             placeholder="Enter prefix (e.g., PKT, PGT)"
                             required
+                            disabled={isEditing}
                           />
                           <Form.Text className="text-muted">
                             QR Number will auto-increment based on prefix
@@ -490,7 +543,7 @@ const QRCodePrinting = () => {
                       
                       <Col md={3}>
                         <Form.Group className="mb-3">
-                          <Form.Label>QR Number <span className="required">*</span></Form.Label>
+                          <Form.Label>Starting QR Number <span className="required">*</span></Form.Label>
                           <Form.Control
                             type="text"
                             name="qr_number"
@@ -506,7 +559,26 @@ const QRCodePrinting = () => {
                         </Form.Group>
                       </Col>
                       
-                      <Col md={3}>
+                      <Col md={2}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>Quantity {!isEditing && <span className="required">*</span>}</Form.Label>
+                          <Form.Control
+                            type="number"
+                            name="quantity"
+                            value={formData.quantity}
+                            onChange={handleQuantityChange}
+                            min="1"
+                            max="100"
+                            disabled={isEditing}
+                            className={isEditing ? "bg-light" : ""}
+                          />
+                          <Form.Text className="text-muted">
+                            {isEditing ? 'Disabled in edit mode' : 'Number of QR codes to generate'}
+                          </Form.Text>
+                        </Form.Group>
+                      </Col>
+                      
+                      <Col md={2}>
                         <Form.Group className="mb-3">
                           <Form.Label>Date <span className="required">*</span></Form.Label>
                           <Form.Control
@@ -519,7 +591,7 @@ const QRCodePrinting = () => {
                         </Form.Group>
                       </Col>
                       
-                      <Col md={3}>
+                      <Col md={2}>
                         <Form.Group className="mb-3">
                           <Form.Label>Packet Weight (grams)</Form.Label>
                           <Form.Control
@@ -527,7 +599,7 @@ const QRCodePrinting = () => {
                             name="packet_wt"
                             value={formData.packet_wt}
                             onChange={handleInputChange}
-                            placeholder="Enter packet weight"
+                            placeholder="Weight"
                             step="0.001"
                             min="0"
                           />
@@ -535,10 +607,23 @@ const QRCodePrinting = () => {
                       </Col>
                     </Row>
                     
+                    {/* Quantity Preview */}
+                    {quantityPreview && !isEditing && (
+                      <Row>
+                        <Col md={12}>
+                          <div className="quantity-preview-alert">
+                            <strong>Generation Preview:</strong> {quantityPreview.count} QR code(s) will be generated
+                            <br />
+                            <strong>Range:</strong> {quantityPreview.start} to {quantityPreview.end}
+                          </div>
+                        </Col>
+                      </Row>
+                    )}
+
                     <Row>
                       <Col md={12}>
                         <Form.Group className="mb-3">
-                          <Form.Label>Full QR Code Value</Form.Label>
+                          <Form.Label>Full QR Code Value (Preview)</Form.Label>
                           <Form.Control
                             type="text"
                             value={`${formData.prefix}${formData.qr_number}`}
@@ -552,7 +637,7 @@ const QRCodePrinting = () => {
                     <Row>
                       <Col md={12}>
                         <Form.Group className="mb-3">
-                          <Form.Label>QR Code Data (JSON)</Form.Label>
+                          <Form.Label>QR Code Data (JSON) - Sample for first QR</Form.Label>
                           <Form.Control
                             as="textarea"
                             rows={2}
@@ -570,7 +655,7 @@ const QRCodePrinting = () => {
                       <Row className="mb-3">
                         <Col md={12} className="text-center">
                           <div className="qr-preview-container">
-                            <h5>QR Code Preview</h5>
+                            <h5>QR Code Preview (First in series)</h5>
                             <img 
                               src={qrPreview} 
                               alt="QR Code Preview" 
@@ -599,7 +684,7 @@ const QRCodePrinting = () => {
                           className="save-btn"
                           disabled={loading}
                         >
-                          {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                          {loading ? 'Generating...' : isEditing ? 'Update' : `Generate ${formData.quantity > 1 ? `${formData.quantity} QR Codes` : 'QR Code'}`}
                         </Button>
                       </Col>
                     </Row>
