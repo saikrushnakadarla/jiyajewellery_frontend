@@ -2,16 +2,14 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
   z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   overflow: hidden;
 }
 
+/* Optional pattern */
 .watermark-pattern {
   position: absolute;
   width: 200%;
@@ -26,9 +24,25 @@
   transform: rotate(-30deg);
 }
 
+/* 🔥 MAIN CHANGE */
 .watermark-logo {
-  position: relative;
-  z-index: 1;
-  opacity: 0.05;
-  width: 300px;
+  position: absolute;
+
+  /* start from LEFT */
+  top: 50%;
+  left: 0;
+
+  /* vertically center */
+  transform: translateY(-50%);
+
+  /* make it wide across screen */
+  width: 160vw;
+  height: auto;
+
+  object-fit: contain;
+
+  opacity: 0.08;
+  filter: grayscale(100%);
+  user-select: none;
+  pointer-events: none;
 }
