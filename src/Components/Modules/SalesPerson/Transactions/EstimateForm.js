@@ -630,6 +630,11 @@ const EstimateForm = () => {
 
       resetForm();
 
+    setTimeout(() => {
+      navigate("/salesperson-transactions");
+    }, 2000); 
+
+
     } catch (error) {
       Swal.close();
       console.error("Error in handleSaveAndPrint:", error);
@@ -719,7 +724,7 @@ const EstimateForm = () => {
     }).then((result) => {
       if (result.isConfirmed) {
         resetForm();
-        navigate("/estimation");
+        navigate("/salesperson-transactions");
       }
     });
   };
