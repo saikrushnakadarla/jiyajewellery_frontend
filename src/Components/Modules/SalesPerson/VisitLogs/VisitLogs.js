@@ -8,7 +8,8 @@ import {
   FaEdit, FaTrash, FaEye, FaClock, FaCheckCircle, FaEnvelope, 
   FaUserCheck, FaCalendarCheck, FaMapMarkerAlt, FaCrosshairs,
   FaSpinner, FaExclamationTriangle, FaUser, FaPhone, FaBuilding,
-  FaCity, FaCalendarDay, FaInfoCircle, FaCalendarAlt, FaListAlt
+  FaCity, FaCalendarDay, FaInfoCircle, FaCalendarAlt, FaListAlt,
+  FaFilter, FaSortAmountDown
 } from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
@@ -104,13 +105,11 @@ const VisitLogsForm = () => {
     unique_customers: 0
   });
 
-  // State for scheduled visits and user details
+  // State for scheduled visits
   const [scheduledVisits, setScheduledVisits] = useState([]);
   const [usersData, setUsersData] = useState([]);
-  const [todayScheduledVisits, setTodayScheduledVisits] = useState([]);
-  const [allScheduledVisits, setAllScheduledVisits] = useState([]);
   const [loadingScheduleData, setLoadingScheduleData] = useState(false);
-  const [showAllSchedules, setShowAllSchedules] = useState(false);
+  const [scheduleFilter, setScheduleFilter] = useState('all'); // 'all', 'today', 'upcoming', 'past'
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -284,24 +283,6 @@ const VisitLogsForm = () => {
 
       setScheduledVisits(visitLogsScheduleData);
       setUsersData(usersData);
-
-      // Filter visits for logged-in salesperson
-      const myVisits = visitLogsScheduleData.filter(visit => {
-        const isMatchingSalesPerson = visit.salesperson_name === loggedInSalesPersonName;
-        return isMatchingSalesPerson;
-      });
-
-      // Set all scheduled visits for this salesperson
-      setAllScheduledVisits(myVisits);
-
-      // Filter today's visits
-      const todayFiltered = myVisits.filter(visit => {
-        const visitDate = new Date(visit.scheduled_date).toDateString();
-        const isToday = visitDate === todayDate;
-        return isToday;
-      });
-
-      setTodayScheduledVisits(todayFiltered);
     } catch (error) {
       console.error('Error fetching scheduled visits or users:', error);
     } finally {
@@ -314,6 +295,52 @@ const VisitLogsForm = () => {
     if (!fullName || !usersData.length) return null;
     return usersData.find(user => user.full_name === fullName) || null;
   };
+
+  // Get filtered and sorted scheduled visits for current salesperson
+  const getFilteredScheduledVisits = () => {
+    // Filter visits for logged-in salesperson
+    let filtered = scheduledVisits.filter(visit => 
+      visit.salesperson_name === loggedInSalesPersonName
+    );
+
+    // Apply filter
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    switch (scheduleFilter) {
+      case 'today':
+        filtered = filtered.filter(visit => {
+          const visitDate = new Date(visit.scheduled_date);
+          return visitDate.toDateString() === now.toDateString();
+        });
+        break;
+      case 'upcoming':
+        filtered = filtered.filter(visit => {
+          const visitDate = new Date(visit.scheduled_date);
+          visitDate.setHours(0, 0, 0, 0);
+          return visitDate > now; // Only future dates (not today)
+        });
+        break;
+      case 'past':
+        filtered = filtered.filter(visit => {
+          const visitDate = new Date(visit.scheduled_date);
+          visitDate.setHours(0, 0, 0, 0);
+          return visitDate < now;
+        });
+        break;
+      default:
+        // 'all' - no additional filter
+        break;
+    }
+
+    // Sort by scheduled date (nearest first)
+    return filtered.sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date));
+  };
+
+  const filteredScheduledVisits = getFilteredScheduledVisits();
+  const todayScheduledCount = filteredScheduledVisits.filter(visit => 
+    new Date(visit.scheduled_date).toDateString() === new Date().toDateString()
+  ).length;
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -800,7 +827,7 @@ const VisitLogsForm = () => {
     return date < today;
   };
 
-  // Check if a scheduled date is future
+  // Check if a scheduled date is future (strictly greater than today, not including today)
   const isFutureDate = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -1005,7 +1032,7 @@ const VisitLogsForm = () => {
             </Col>
           </Row>
 
-          {/* Today's Scheduled Visits Section */}
+          {/* Scheduled Visits Card - Combined in ONE CARD with ONE TABLE */}
           <Row className="vl-scheduled-visits-section mb-4">
             <Col md={12}>
               <div className="vl-scheduled-visits-card">
@@ -1014,15 +1041,49 @@ const VisitLogsForm = () => {
                     <div className="vl-scheduled-visits-title-wrapper">
                       <FaCalendarDay className="vl-section-icon" />
                       <div>
-                        <h4 className="vl-scheduled-visits-title">Today's Scheduled Visits</h4>
+                        <h4 className="vl-scheduled-visits-title">Scheduled Visits</h4>
                         <p className="vl-scheduled-visits-subtitle">
-                          {getTodayDateFormatted()} • {todayScheduledVisits.length} Visit{todayScheduledVisits.length !== 1 ? 's' : ''} Scheduled
+                          {getTodayDateFormatted()} • 
+                          <span className="vl-schedule-stats-header">
+                            <span className="vl-schedule-stat-total-header">{filteredScheduledVisits.length} Total</span>
+                            <span className="vl-schedule-stat-today-header">{todayScheduledCount} Today</span>
+                          </span>
                         </p>
                       </div>
                     </div>
-                    <div className="vl-scheduled-visits-count-badge">
-                      <span className="vl-count-number">{todayScheduledVisits.length}</span>
-                      <span className="vl-count-label">Today's Visits</span>
+                    <div className="vl-schedule-filters">
+                      <Button
+                        variant={scheduleFilter === 'all' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setScheduleFilter('all')}
+                        className="vl-filter-btn"
+                      >
+                        <FaListAlt /> All
+                      </Button>
+                      <Button
+                        variant={scheduleFilter === 'today' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setScheduleFilter('today')}
+                        className="vl-filter-btn"
+                      >
+                        <FaCalendarDay /> Today
+                      </Button>
+                      <Button
+                        variant={scheduleFilter === 'upcoming' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setScheduleFilter('upcoming')}
+                        className="vl-filter-btn"
+                      >
+                        <FaCalendarCheck /> Upcoming
+                      </Button>
+                      <Button
+                        variant={scheduleFilter === 'past' ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => setScheduleFilter('past')}
+                        className="vl-filter-btn"
+                      >
+                        <FaClock /> Past
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1030,279 +1091,112 @@ const VisitLogsForm = () => {
                 {loadingScheduleData ? (
                   <div className="vl-schedule-loading">
                     <FaSpinner className="fa-spin" />
-                    <span>Loading today's schedule...</span>
+                    <span>Loading scheduled visits...</span>
                   </div>
-                ) : todayScheduledVisits.length > 0 ? (
-                  <div className="vl-scheduled-visits-grid">
-                    {todayScheduledVisits.map((visit, index) => {
-                      const customerDetails = getUserDetailsByName(visit.customer_name);
-                      const salesPersonDetails = getUserDetailsByName(visit.salesperson_name);
-                      
-                      return (
-                        <div key={visit.id || index} className="vl-scheduled-visit-card vl-today-schedule-card">
-                          <div className="vl-scheduled-visit-card-header">
-                            <div className="vl-visit-time-badge">
-                              <FaClock />
-                              {formatTime(visit.scheduled_date)}
-                            </div>
-                            <div className={`vl-status-indicator vl-status-${visit.status}`}>
-                              <span className="vl-status-dot"></span>
-                              {visit.status}
-                            </div>
-                          </div>
+                ) : filteredScheduledVisits.length > 0 ? (
+                  <div className="vl-all-schedules-table-container">
+                    <Table bordered hover responsive className="vl-schedule-table">
+                      <thead className="vl-schedule-table-head">
+                        <tr>
+                          <th>#</th>
+                          <th>Schedule Date & Time</th>
+                          <th>Customer Name</th>
+                          <th>Customer Details</th>
+                          <th>Status</th>
+                          <th>Salesperson</th>
+                          <th>Created At</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredScheduledVisits.map((visit, index) => {
+                          const isTodaySchedule = isScheduledToday(visit.scheduled_date);
+                          const isPast = isPastDate(visit.scheduled_date);
+                          const isFuture = isFutureDate(visit.scheduled_date);
+                          const customerDetails = getUserDetailsByName(visit.customer_name);
                           
-                          <div className="vl-scheduled-visit-body">
-                            <div className="vl-visit-detail-section">
-                              <h5 className="vl-detail-section-title">
-                                <FaUser className="vl-detail-section-icon" /> Customer Details
-                              </h5>
-                              <div className="vl-detail-grid">
-                                <div className="vl-detail-item-enhanced">
-                                  <FaUser className="vl-detail-item-icon" />
-                                  <div className="vl-detail-item-content">
-                                    <span className="vl-detail-label">Full Name</span>
-                                    <span className="vl-detail-value">{visit.customer_name}</span>
+                          let rowClass = '';
+                          if (isTodaySchedule) rowClass = 'vl-schedule-today-row';
+                          else if (isPast) rowClass = 'vl-schedule-past-row';
+                          else if (isFuture) rowClass = 'vl-schedule-future-row';
+                          
+                          let statusBadgeClass = '';
+                          if (visit.status === 'scheduled') statusBadgeClass = 'vl-status-scheduled-badge';
+                          else if (visit.status === 'completed') statusBadgeClass = 'vl-status-completed-badge';
+                          else if (visit.status === 'cancelled') statusBadgeClass = 'vl-status-cancelled-badge';
+                          
+                          return (
+                            <tr key={visit.id || index} className={rowClass}>
+                              <td>{index + 1}</td>
+                              <td>
+                                <div className="vl-schedule-date-cell">
+                                  <FaCalendarAlt className="vl-schedule-date-icon" />
+                                  <div>
+                                    <div className="vl-schedule-date">{formatDate(visit.scheduled_date)}</div>
+                                    {/* Today shows "Today" tag */}
+                                    {isTodaySchedule && <span className="vl-schedule-today-label">Today</span>}
+                                    {/* Past shows "Past" tag */}
+                                    {isPast && <span className="vl-schedule-past-label">Past</span>}
+                                    {/* Future shows "Upcoming" tag (only for dates after today, not including today) */}
+                                    {isFuture && <span className="vl-schedule-future-label">Upcoming</span>}
                                   </div>
                                 </div>
+                              </td>
+                              <td className="vl-schedule-customer-name">
+                                <strong>{visit.customer_name}</strong>
+                              </td>
+                              <td>
                                 {customerDetails && (
-                                  <>
-                                    <div className="vl-detail-item-enhanced">
-                                      <FaEnvelope className="vl-detail-item-icon" />
-                                      <div className="vl-detail-item-content">
-                                        <span className="vl-detail-label">Email</span>
-                                        <span className="vl-detail-value">{customerDetails.email_id}</span>
+                                  <div className="vl-customer-details-mini">
+                                    {customerDetails.email_id && (
+                                      <div className="vl-mini-detail">
+                                        <FaEnvelope className="vl-mini-icon" />
+                                        <span>{customerDetails.email_id}</span>
                                       </div>
-                                    </div>
+                                    )}
                                     {customerDetails.phone && (
-                                      <div className="vl-detail-item-enhanced">
-                                        <FaPhone className="vl-detail-item-icon" />
-                                        <div className="vl-detail-item-content">
-                                          <span className="vl-detail-label">Phone</span>
-                                          <span className="vl-detail-value">{customerDetails.phone}</span>
-                                        </div>
+                                      <div className="vl-mini-detail">
+                                        <FaPhone className="vl-mini-icon" />
+                                        <span>{customerDetails.phone}</span>
                                       </div>
                                     )}
-                                    {customerDetails.company_name && (
-                                      <div className="vl-detail-item-enhanced">
-                                        <FaBuilding className="vl-detail-item-icon" />
-                                        <div className="vl-detail-item-content">
-                                          <span className="vl-detail-label">Company</span>
-                                          <span className="vl-detail-value">{customerDetails.company_name}</span>
-                                        </div>
+                                    {customerDetails.city && (
+                                      <div className="vl-mini-detail">
+                                        <FaCity className="vl-mini-icon" />
+                                        <span>{customerDetails.city}</span>
                                       </div>
                                     )}
-                                    <div className="vl-detail-item-enhanced">
-                                      <FaCity className="vl-detail-item-icon" />
-                                      <div className="vl-detail-item-content">
-                                        <span className="vl-detail-label">Location</span>
-                                        <span className="vl-detail-value">
-                                          {[customerDetails.city, customerDetails.state, customerDetails.country]
-                                            .filter(Boolean)
-                                            .join(', ')}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </>
+                                  </div>
                                 )}
-                              </div>
-                            </div>
-
-                            <div className="vl-visit-divider-enhanced"></div>
-
-                            <div className="vl-visit-detail-section">
-                              <h5 className="vl-detail-section-title">
-                                <FaUserCheck className="vl-detail-section-icon" /> Sales Person Details
-                              </h5>
-                              <div className="vl-detail-grid">
-                                <div className="vl-detail-item-enhanced">
-                                  <FaUser className="vl-detail-item-icon" />
-                                  <div className="vl-detail-item-content">
-                                    <span className="vl-detail-label">Full Name</span>
-                                    <span className="vl-detail-value">{visit.salesperson_name}</span>
-                                  </div>
-                                </div>
-                                {salesPersonDetails && (
-                                  <>
-                                    <div className="vl-detail-item-enhanced">
-                                      <FaEnvelope className="vl-detail-item-icon" />
-                                      <div className="vl-detail-item-content">
-                                        <span className="vl-detail-label">Email</span>
-                                        <span className="vl-detail-value">{salesPersonDetails.email_id}</span>
-                                      </div>
-                                    </div>
-                                    {salesPersonDetails.phone && (
-                                      <div className="vl-detail-item-enhanced">
-                                        <FaPhone className="vl-detail-item-icon" />
-                                        <div className="vl-detail-item-content">
-                                          <span className="vl-detail-label">Phone</span>
-                                          <span className="vl-detail-value">{salesPersonDetails.phone}</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                    <div className="vl-detail-item-enhanced">
-                                      <FaInfoCircle className="vl-detail-item-icon" />
-                                      <div className="vl-detail-item-content">
-                                        <span className="vl-detail-label">Designation</span>
-                                        <span className="vl-detail-value">{salesPersonDetails.designation}</span>
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="vl-visit-divider-enhanced"></div>
-
-                            <div className="vl-visit-detail-section">
-                              <h5 className="vl-detail-section-title">
-                                <FaCalendarDay className="vl-detail-section-icon" /> Visit Schedule
-                              </h5>
-                              <div className="vl-detail-grid">
-                                <div className="vl-detail-item-enhanced">
-                                  <FaCalendarCheck className="vl-detail-item-icon" />
-                                  <div className="vl-detail-item-content">
-                                    <span className="vl-detail-label">Date & Time</span>
-                                    <span className="vl-detail-value">{formatDate(visit.scheduled_date)}</span>
-                                  </div>
-                                </div>
-                                <div className="vl-detail-item-enhanced">
-                                  <FaInfoCircle className="vl-detail-item-icon" />
-                                  <div className="vl-detail-item-content">
-                                    <span className="vl-detail-label">Status</span>
-                                    <span className={`vl-status-badge-enhanced vl-status-${visit.status}`}>
-                                      {visit.status}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                              </td>
+                              <td>
+                                <span className={`vl-schedule-status-badge ${statusBadgeClass}`}>
+                                  {visit.status}
+                                </span>
+                              </td>
+                              <td>{visit.salesperson_name}</td>
+                              <td>{new Date(visit.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
                   </div>
                 ) : (
                   <div className="vl-no-visits-container">
                     <div className="vl-no-visits-icon-wrapper">
                       <FaCalendarDay className="vl-no-visits-icon" />
                     </div>
-                    <h5 className="vl-no-visits-title">No Visits Scheduled for Today</h5>
+                    <h5 className="vl-no-visits-title">No Scheduled Visits Found</h5>
                     <p className="vl-no-visits-message">
-                      You don't have any customer visits scheduled for today. 
-                      Use the form below to log a new visit or check back later for updates.
+                      {scheduleFilter === 'today' 
+                        ? "You don't have any customer visits scheduled for today."
+                        : scheduleFilter === 'upcoming'
+                        ? "You don't have any upcoming scheduled visits."
+                        : scheduleFilter === 'past'
+                        ? "No past scheduled visits found."
+                        : "You don't have any scheduled visits in the system."}
                     </p>
                   </div>
-                )}
-              </div>
-            </Col>
-          </Row>
-
-          {/* All Scheduled Visits Section - NEW */}
-          <Row className="vl-all-schedules-section mb-4">
-            <Col md={12}>
-              <div className="vl-all-schedules-card">
-                <div className="vl-all-schedules-header">
-                  <div className="vl-all-schedules-header-content">
-                    <div className="vl-all-schedules-title-wrapper">
-                      <FaListAlt className="vl-section-icon" />
-                      <div>
-                        <h4 className="vl-all-schedules-title">All Scheduled Visits</h4>
-                        <p className="vl-all-schedules-subtitle">
-                          Complete schedule history for {user?.full_name || 'you'} • 
-                          <span className="vl-schedule-stats">
-                            <span className="vl-schedule-stat-total">{allScheduledVisits.length} Total</span>
-                            <span className="vl-schedule-stat-today">{todayScheduledVisits.length} Today</span>
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline-light"
-                      size="sm"
-                      onClick={() => setShowAllSchedules(!showAllSchedules)}
-                      className="vl-toggle-schedule-btn"
-                    >
-                      {showAllSchedules ? 'Hide Schedule' : 'View All Schedules'}
-                    </Button>
-                  </div>
-                </div>
-
-                {showAllSchedules && (
-                  <>
-                    {loadingScheduleData ? (
-                      <div className="vl-schedule-loading">
-                        <FaSpinner className="fa-spin" />
-                        <span>Loading all schedules...</span>
-                      </div>
-                    ) : allScheduledVisits.length > 0 ? (
-                      <div className="vl-all-schedules-table-container">
-                        <Table bordered hover responsive className="vl-schedule-table">
-                          <thead className="vl-schedule-table-head">
-                            <tr>
-                              <th>#</th>
-                              <th>Schedule Date & Time</th>
-                              <th>Customer Name</th>
-                              <th>Status</th>
-                              <th>Salesperson</th>
-                              <th>Created At</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {allScheduledVisits.map((visit, index) => {
-                              const isTodaySchedule = isScheduledToday(visit.scheduled_date);
-                              const isPast = isPastDate(visit.scheduled_date);
-                              const isFuture = isFutureDate(visit.scheduled_date);
-                              
-                              let rowClass = '';
-                              if (isTodaySchedule) rowClass = 'vl-schedule-today-row';
-                              else if (isPast) rowClass = 'vl-schedule-past-row';
-                              else if (isFuture) rowClass = 'vl-schedule-future-row';
-                              
-                              let statusBadgeClass = '';
-                              if (visit.status === 'scheduled') statusBadgeClass = 'vl-status-scheduled-badge';
-                              else if (visit.status === 'completed') statusBadgeClass = 'vl-status-completed-badge';
-                              else if (visit.status === 'cancelled') statusBadgeClass = 'vl-status-cancelled-badge';
-                              
-                              return (
-                                <tr key={visit.id || index} className={rowClass}>
-                                  <td>{index + 1}</td>
-                                  <td>
-                                    <div className="vl-schedule-date-cell">
-                                      <FaCalendarAlt className="vl-schedule-date-icon" />
-                                      <div>
-                                        <div className="vl-schedule-date">{formatDate(visit.scheduled_date)}</div>
-                                        {isTodaySchedule && <span className="vl-schedule-today-label">Today</span>}
-                                        {isPast && <span className="vl-schedule-past-label">Past</span>}
-                                        {isFuture && <span className="vl-schedule-future-label">Upcoming</span>}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="vl-schedule-customer-name">{visit.customer_name}</td>
-                                  <td>
-                                    <span className={`vl-schedule-status-badge ${statusBadgeClass}`}>
-                                      {visit.status}
-                                    </span>
-                                  </td>
-                                  <td>{visit.salesperson_name}</td>
-                                  <td>{new Date(visit.created_at).toLocaleDateString()}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <div className="vl-no-visits-container">
-                        <div className="vl-no-visits-icon-wrapper">
-                          <FaListAlt className="vl-no-visits-icon" />
-                        </div>
-                        <h5 className="vl-no-visits-title">No Scheduled Visits Found</h5>
-                        <p className="vl-no-visits-message">
-                          You don't have any scheduled visits in the system.
-                        </p>
-                      </div>
-                    )}
-                  </>
                 )}
               </div>
             </Col>

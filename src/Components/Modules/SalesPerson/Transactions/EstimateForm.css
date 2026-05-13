@@ -958,3 +958,539 @@
   align-items: center;
   gap: 5px;
 }
+
+/* --- New & Improved Button Styles --- */
+
+/* Container for the 3 action buttons (Scan, Capture, Upload) */
+.button-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Individual button base style */
+.action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background-color: white;
+}
+
+/* Scan Product QR Button */
+.action-icon-btn.scan-btn {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+.action-icon-btn.scan-btn:hover {
+    background-color: #4338ca;
+    border-color: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Capture Image Button */
+.action-icon-btn.capture-btn {
+    background-color: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+.action-icon-btn.capture-btn:hover {
+    background-color: #059669;
+    border-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Upload Image Button */
+.action-icon-btn.upload-btn {
+    background-color: #f59e0b;
+    border-color: #f59e0b;
+    color: white;
+}
+
+.action-icon-btn.upload-btn:hover {
+    background-color: #d97706;
+    border-color: #d97706;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Cancel Button */
+.cancel-btn {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+    transform: translateY(-1px);
+}
+
+/* Save & Print Button */
+.print-btn {
+    background: linear-gradient(135deg, #a36e29 0%, #8b5a1f 100%);
+    border: none;
+    color: white;
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.print-btn:hover {
+    background: linear-gradient(135deg, #8b5a1f 0%, #6e4512 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(163, 110, 41, 0.3);
+}
+
+.print-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Remove entry button in table */
+.remove-entry-btn {
+    background-color: #dc3545;
+    border: none;
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.remove-entry-btn:hover {
+    background-color: #c82333;
+    transform: scale(1.02);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .button-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-icon-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .cancel-btn, .print-btn {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+}
+
+
+/* Update button group for better horizontal alignment */
+.button-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+/* Make buttons have consistent width */
+.action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* Total quantity container - right aligned */
+.total-qty-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 8px 0;
+    margin-left: auto;
+}
+
+/* Responsive: stack buttons on mobile */
+@media (max-width: 768px) {
+    .button-group {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    
+    .action-icon-btn {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+    }
+    
+    .total-qty-container {
+        justify-content: flex-start;
+        margin-top: 10px;
+    }
+}
+
+/* For medium screens */
+@media (max-width: 992px) and (min-width: 769px) {
+    .action-icon-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .action-icon-btn svg {
+        margin-right: 4px;
+    }
+}
+
+
+/* Button Group Styles */
+.button-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.action-icon-btn.scan-btn {
+    background-color: #4f46e5;
+    color: white;
+}
+
+.action-icon-btn.scan-btn:hover {
+    background-color: #4338ca;
+    transform: translateY(-1px);
+}
+
+.action-icon-btn.packet-scan-btn {
+    background-color: #10b981;
+    color: white;
+}
+
+.action-icon-btn.packet-scan-btn:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+}
+
+.packet-attached-info {
+    background-color: #e8f5e9;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #2e7d32;
+}
+
+@media (max-width: 768px) {
+    .button-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-icon-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Action Buttons Row */
+.action-buttons-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    color: white;
+}
+
+/* Scan Product Button */
+.action-btn.scan-product-btn {
+    background-color: #4f46e5;
+}
+
+.action-btn.scan-product-btn:hover {
+    background-color: #4338ca;
+    transform: translateY(-1px);
+}
+
+/* Scan Packet Button */
+.action-btn.scan-packet-btn {
+    background-color: #10b981;
+}
+
+.action-btn.scan-packet-btn:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+}
+
+/* Capture Image Button */
+.action-btn.capture-btn {
+    background-color: #f59e0b;
+}
+
+.action-btn.capture-btn:hover {
+    background-color: #d97706;
+    transform: translateY(-1px);
+}
+
+/* Upload Image Button */
+.action-btn.upload-btn {
+    background-color: #6c757d;
+}
+
+.action-btn.upload-btn:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+}
+
+/* Cancel Button */
+.cancel-btn {
+    background-color: #dc3545;
+    border: none;
+    color: white;
+    padding: 10px 30px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+}
+
+/* Total Quantity Display */
+.total-qty-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.total-qty-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+}
+
+.total-qty-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #a36e29;
+    background-color: rgba(163, 110, 41, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Image Preview Container */
+.image-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.image-preview-item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.image-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-image-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(255, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0;
+}
+
+.remove-image-btn:hover {
+    background: rgba(255, 0, 0, 0.9);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .action-buttons-row {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .cancel-btn {
+        width: 100%;
+    }
+    
+    .total-qty-container {
+        justify-content: flex-start;
+        margin-top: 10px;
+    }
+}
+
+
+/* Save Button */
+.save-btn {
+    background: linear-gradient(135deg, #a36e29 0%, #8b5a1f 100%);
+    border: none;
+    color: white;
+    padding: 10px 25px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.save-btn:hover {
+    background: linear-gradient(135deg, #8b5a1f 0%, #6e4512 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(163, 110, 41, 0.3);
+}
+
+/* Products Summary Section */
+.products-summary {
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.products-summary h5 {
+    color: #a36e29;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.products-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.product-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+}
+
+.product-item:last-child {
+    border-bottom: none;
+}
+
+.product-sno {
+    font-weight: 600;
+    color: #a36e29;
+    min-width: 30px;
+}
+
+.product-name {
+    flex: 2;
+    font-weight: 500;
+    color: #333;
+}
+
+.product-barcode {
+    flex: 1;
+    color: #666;
+    font-family: monospace;
+}
+
+.product-qty {
+    min-width: 60px;
+    color: #28a745;
+    font-weight: 500;
+}
+
+
+.selected-customer-badge {
+    margin-bottom: 10px;
+}
+
+.selected-customer-badge .badge {
+    background-color: #28a745;
+    color: white;
+    padding: 8px 15px;
+    font-size: 14px;
+    border-radius: 20px;
+}

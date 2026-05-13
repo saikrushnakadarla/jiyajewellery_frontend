@@ -1766,3 +1766,98 @@
   border: 2px solid #f59e0b;
   box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
 }
+
+
+/* Schedule Filters */
+.vl-schedule-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vl-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.vl-filter-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Schedule Stats Header */
+.vl-schedule-stats-header {
+  margin-left: 10px;
+  display: inline-flex;
+  gap: 12px;
+}
+
+.vl-schedule-stat-total-header {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.vl-schedule-stat-today-header {
+  background: #f59e0b;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+/* Customer Details Mini in Table */
+.vl-customer-details-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vl-mini-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.vl-mini-icon {
+  font-size: 11px;
+  color: #a36e29;
+  min-width: 14px;
+}
+
+/* Responsive adjustments for filters */
+@media (max-width: 768px) {
+  .vl-schedule-filters {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .vl-scheduled-visits-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .vl-schedule-filters {
+    margin-top: 10px;
+  }
+  
+  .vl-customer-details-mini {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .vl-filter-btn span {
+    display: none;
+  }
+  
+  .vl-filter-btn {
+    padding: 6px 10px;
+  }
+}
