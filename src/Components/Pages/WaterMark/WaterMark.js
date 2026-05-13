@@ -18,8 +18,8 @@ const Watermark = () => {
         src={logo} 
         alt="Jiya Jewellery"
         style={{
-          width: '500px', // Adjust size as needed
-          opacity: 0.09, // Very subtle watermark
+          width: '800px', // Adjust size as needed
+          opacity: 0.1, // Very subtle watermark
           objectFit: 'contain',
           userSelect: 'none',
           filter: 'grayscale(100%)', // Optional: makes it look more watermark-like

@@ -23,13 +23,13 @@
 }
 
 .navbar-logo {
-    width: 175px;
-    height: 80px;
+    width: 500px;
+    height: 500px;
     /* object-fit: contain; */
 }
 
 .navbar-logo-placeholder {
-    width: 180px;
+    width: 500px;
     height: 60px;
     display: flex;
     align-items: center;

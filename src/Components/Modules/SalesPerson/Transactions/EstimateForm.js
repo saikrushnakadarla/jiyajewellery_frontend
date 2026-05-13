@@ -64,6 +64,10 @@ const EstimateForm = () => {
   const [currentEstimateNumber, setCurrentEstimateNumber] = useState("");
   const currentEstimateNumberRef = useRef("");
 
+  // Success message state
+  const [successMessage, setSuccessMessage] = useState("");
+  const [lastAddedProduct, setLastAddedProduct] = useState("");
+
   // Form data
   const getUserData = () => {
     try {
@@ -105,6 +109,17 @@ const EstimateForm = () => {
   useEffect(() => {
     allProductsRef.current = allProducts;
   }, [allProducts]);
+
+  // Auto-hide success message after 3 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+        setLastAddedProduct("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // Fetch all products
   useEffect(() => {
@@ -253,61 +268,61 @@ const EstimateForm = () => {
   };
 
   // Handle Packet QR scan success
- const handlePacketQRScanSuccess = async (decodedText) => {
-  try {
-    stopPacketScanner();
-    Swal.fire({ title: 'Scanning Packet...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  const handlePacketQRScanSuccess = async (decodedText) => {
+    try {
+      stopPacketScanner();
+      Swal.fire({ title: 'Scanning Packet...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
-    Swal.close();
+      const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
+      Swal.close();
 
-    if (response.data.success && response.data.data) {
-      const packet = response.data.data;
+      if (response.data.success && response.data.data) {
+        const packet = response.data.data;
 
-      // Update state AND refs
-      setPacketDetails(packet);
-      setSharedPacketBarcode(packet.qr_code);
-      setSharedPacketWt(packet.packet_wt || null);
-      setIsPacketScanned(true);
+        // Update state AND refs
+        setPacketDetails(packet);
+        setSharedPacketBarcode(packet.qr_code);
+        setSharedPacketWt(packet.packet_wt || null);
+        setIsPacketScanned(true);
 
-      sharedPacketBarcodeRef.current = packet.qr_code;
-      sharedPacketWtRef.current = packet.packet_wt || null;
-      isPacketScannedRef.current = true;
+        sharedPacketBarcodeRef.current = packet.qr_code;
+        sharedPacketWtRef.current = packet.packet_wt || null;
+        isPacketScannedRef.current = true;
 
-      // ✅ KEY FIX: If products were already saved, update them all now
-      const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
-      if (estimateNum) {
-        try {
-          await axios.put(`${baseURL}/update/estimate-packet/${estimateNum}`, {
-            packet_barcode: packet.qr_code,
-            packet_wt: packet.packet_wt || null
-          });
-          console.log("✅ Updated existing estimate rows with packet barcode:", packet.qr_code);
-        } catch (updateErr) {
-          console.error("Failed to update existing rows with packet barcode:", updateErr);
+        // ✅ KEY FIX: If products were already saved, update them all now
+        const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
+        if (estimateNum) {
+          try {
+            await axios.put(`${baseURL}/update/estimate-packet/${estimateNum}`, {
+              packet_barcode: packet.qr_code,
+              packet_wt: packet.packet_wt || null
+            });
+            console.log("✅ Updated existing estimate rows with packet barcode:", packet.qr_code);
+          } catch (updateErr) {
+            console.error("Failed to update existing rows with packet barcode:", updateErr);
+          }
         }
-      }
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Packet Attached!',
-        html: `<div style="text-align:left">
-          <p><strong>QR Code:</strong> ${packet.qr_code}</p>
-          <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
-          <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
-        </div><p class="mt-2 text-success">This packet has been applied to ALL products in this estimate</p>`,
-        timer: 3000,
-        showConfirmButton: false
-      });
-    } else {
-      Swal.fire({ icon: 'warning', title: 'Packet Not Found', text: `No packet found for: ${decodedText}` });
+        Swal.fire({
+          icon: 'success',
+          title: 'Packet Attached!',
+          html: `<div style="text-align:left">
+            <p><strong>QR Code:</strong> ${packet.qr_code}</p>
+            <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
+            <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
+          </div><p class="mt-2 text-success">This packet has been applied to ALL products in this estimate</p>`,
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire({ icon: 'warning', title: 'Packet Not Found', text: `No packet found for: ${decodedText}` });
+      }
+    } catch (error) {
+      Swal.close();
+      console.error('Error processing packet QR:', error);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
     }
-  } catch (error) {
-    Swal.close();
-    console.error('Error processing packet QR:', error);
-    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
-  }
-};
+  };
 
   // Handle product QR scan success
   const handleQRScanSuccess = async (decodedText) => {
@@ -328,6 +343,11 @@ const EstimateForm = () => {
         if (product) {
           setScannedProducts(prev => [...prev, product]);
           setTotalQuantity(prev => prev + 1);
+          
+          // Set success message
+          setSuccessMessage(`✓ Product Added Successfully!`);
+          setLastAddedProduct(product.product_name);
+          
           Swal.fire({
             icon: 'success',
             title: 'Product Added!',
@@ -654,6 +674,8 @@ const EstimateForm = () => {
     setCurrentEstimateNumber("");
     setIsEstimateSaved(false);
     setSavedEstimateNumber("");
+    setSuccessMessage("");
+    setLastAddedProduct("");
 
     // ✅ Reset refs too
     sharedPacketBarcodeRef.current = null;
@@ -696,6 +718,8 @@ const EstimateForm = () => {
         setCurrentEstimateNumber("");
         setIsEstimateSaved(false);
         setSavedEstimateNumber("");
+        setSuccessMessage("");
+        setLastAddedProduct("");
 
         // ✅ Reset refs too
         sharedPacketBarcodeRef.current = null;
@@ -735,7 +759,7 @@ const EstimateForm = () => {
       <div className="main-container" style={{ marginTop: '120px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
-            <h2>Estimate</h2>
+            <h2>Selections</h2>
 
             {/* Date and Estimate Number Row */}
             <Row className="d-flex justify-content-end align-items-center mb-3">
@@ -814,28 +838,45 @@ const EstimateForm = () => {
               </Col>
             </Row>
 
-            {/* Display Selected Customer */}
-            {formData.customer_name && (
+            {/* Success Message Below Total Quantity */}
+            {successMessage && (
               <Row className="mb-3">
-                <Col xs={12}>
-                  <div className="selected-customer-badge">
-                    <span className="badge bg-success">✓ Customer: {formData.customer_name}</span>
+                <Col xs={12} className="d-flex justify-content-end">
+                  <div className="success-message-container">
+                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{ 
+                      backgroundColor: '#d4edda', 
+                      color: '#155724', 
+                      border: '1px solid #c3e6cb',
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      animation: 'slideIn 0.3s ease-out'
+                    }}>
+                      <span style={{ fontSize: '18px' }}>✓</span>
+                      <span>{successMessage}</span>
+                      {lastAddedProduct && (
+                        <span style={{ fontWeight: '600', color: '#0b5e2e' }}> - {lastAddedProduct}</span>
+                      )}
+                      <button 
+                        type="button" 
+                        className="btn-close" 
+                        style={{ fontSize: '10px', marginLeft: '15px' }}
+                        onClick={() => setSuccessMessage("")}
+                        aria-label="Close"
+                      ></button>
+                    </div>
                   </div>
                 </Col>
               </Row>
             )}
 
-            {/* Packet Details Section */}
-            {packetDetails && (
-              <Row className="mt-2 mb-3">
-                <Col xs={12}>
-                  <div className="packet-attached-info">
-                    <FaBoxOpen className="me-2" />
-                    <span>📦 Packet attached to ALL products: {packetDetails.qr_code} | Weight: {packetDetails.packet_wt || 'N/A'}g | Date: {new Date(packetDetails.packet_date).toLocaleDateString()}</span>
-                  </div>
-                </Col>
-              </Row>
-            )}
+            {/* REMOVED: Display Selected Customer badge */}
+
+            {/* REMOVED: Packet Details Section */}
 
             {/* Packet Images Preview Section */}
             {packetImages.length > 0 && (
@@ -862,44 +903,14 @@ const EstimateForm = () => {
               </Row>
             )}
 
-            {/* Scanned Products Summary */}
-            {scannedProducts.length > 0 && (
-              <Row className="mt-3 mb-3">
-                <Col xs={12}>
-                  <div className="products-summary">
-                    <h5>Scanned Products ({scannedProducts.length} items):</h5>
-                    <div className="products-list">
-                      {scannedProducts.map((product, index) => (
-                        <div key={index} className="product-item">
-                          <span className="product-sno">{index + 1}.</span>
-                          <span className="product-name">{product.product_name}</span>
-                          <span className="product-barcode">({product.barcode})</span>
-                          <span className="product-qty">Qty: {product.qty}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {isPacketScanned && sharedPacketBarcode && (
-                      <div className="packet-summary-note mt-2">
-                        <small className="text-success">✓ All products above share packet: {sharedPacketBarcode}</small>
-                      </div>
-                    )}
-                    {!isPacketScanned && (
-                      <div className="packet-summary-note mt-2">
-                        <small className="text-muted">ℹ️ No packet attached to these products</small>
-                      </div>
-                    )}
-                  </div>
-                </Col>
-              </Row>
-            )}
+            {/* REMOVED: Scanned Products Summary section */}
 
             {/* Action Buttons */}
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
-                <Button className="clear-btn me-2" onClick={resetForm}>Clear All</Button>
                 <Button className="cancel-btn me-2" onClick={handleCancel}>Cancel</Button>
                 <Button className="save-btn" onClick={handleSaveAndPrint} disabled={scannedProducts.length === 0}>
-                  <FaSave /> Save & Print Receipt
+                  <FaSave /> Save
                 </Button>
               </Col>
             </Row>
@@ -913,12 +924,7 @@ const EstimateForm = () => {
         <Modal.Body style={{ textAlign: 'center', padding: '20px' }}>
           <div id="qr-reader" style={{ width: '100%', minHeight: '300px' }}></div>
           <p className="mt-3">Point your camera at the product barcode to scan and automatically add to estimate</p>
-          {isPacketScanned && sharedPacketBarcode && (
-            <p className="text-success mt-2">✓ Packet {sharedPacketBarcode} will be applied to this product</p>
-          )}
-          {!isPacketScanned && (
-            <p className="text-muted mt-2">ℹ️ No packet attached - product will have no packet barcode</p>
-          )}
+          {/* REMOVED: Packet status messages */}
         </Modal.Body>
         <Modal.Footer><Button variant="secondary" onClick={stopScanner}>Cancel Scan</Button></Modal.Footer>
       </Modal>

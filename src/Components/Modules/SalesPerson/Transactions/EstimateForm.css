@@ -1494,3 +1494,45 @@
     font-size: 14px;
     border-radius: 20px;
 }
+
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.success-message-container {
+  position: relative;
+  z-index: 100;
+}
+
+.success-message-container .alert {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 250px;
+}
+
+.total-qty-container {
+  background-color: #f8f9fa;
+  padding: 8px 15px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+}
+
+.total-qty-label {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 8px;
+}
+
+.total-qty-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #007bff;
+}
