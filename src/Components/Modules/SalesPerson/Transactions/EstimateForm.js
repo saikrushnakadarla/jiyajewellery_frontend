@@ -348,46 +348,70 @@ const EstimateForm = () => {
 
       const barcode = extractBarcodeFromQR(decodedText);
 
+      console.log("Decoded QR text:", decodedText);
+      console.log("Extracted barcode:", barcode);
+
       if (barcode) {
         const product = await handleBarcodeAndAddEntry(barcode);
         if (product) {
           setScannedProducts(prev => [...prev, product]);
           setTotalQuantity(prev => prev + 1);
-          
-          // ✅ Set success message (Product Added Successfully - without product name)
+
           setSuccessMessage(`✓ Product Added Successfully!`);
-          
+          setLastAddedProduct(product.product_name);
+
           Swal.fire({
             icon: 'success',
             title: 'Product Added!',
-            text: `Product has been added to estimate`,
+            text: `Product with barcode ${barcode} has been added to estimate`,
             timer: 1500,
             showConfirmButton: false
           });
         } else {
           Swal.close();
+          Swal.fire({
+            icon: 'warning',
+            title: 'Product Not Found',
+            text: `No product found with barcode: ${barcode}`,
+            confirmButtonText: 'OK'
+          });
         }
       } else {
+        Swal.close();
         Swal.fire({
           icon: 'warning',
-          title: 'Not Found',
-          text: 'Could not find product for this QR code'
+          title: 'Invalid QR Code',
+          text: 'Could not extract barcode from QR code. Please try a different QR code.',
+          confirmButtonText: 'OK'
         });
       }
     } catch (error) {
       Swal.close();
       console.error('Error processing QR code:', error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Error processing QR code. Please try again.' });
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error processing QR code. Please try again.'
+      });
     }
   };
 
   const extractBarcodeFromQR = (qrData) => {
     try {
+      // Try to parse as JSON first (for TagEntry generated QR codes)
       const parsedData = JSON.parse(qrData);
-      return parsedData.barcode || parsedData.PCode || parsedData.code || parsedData.BarCode || parsedData.prefix;
+      return parsedData.barcode || parsedData.PCode_BarCode || parsedData.code || parsedData.BarCode;
     } catch {
-      const barcodeMatch = qrData.match(/(barcode|Barcode|PCode|code|prefix)[:\s]*([^\s,]+)/i);
-      return barcodeMatch ? barcodeMatch[2] : qrData;
+      // If not JSON, try to extract barcode from text format
+      // Handle format: "TAG: GC001\nTOPS 22K\nNT WT: 5.000\nMRP: 5000"
+      const barcodeMatch = qrData.match(/TAG:\s*([A-Z0-9]+)/i);
+      if (barcodeMatch) {
+        return barcodeMatch[1];
+      }
+
+      // Fallback to other patterns
+      const altMatch = qrData.match(/(barcode|Barcode|PCode|code|prefix)[:\s]*([^\s,]+)/i);
+      return altMatch ? altMatch[2] : qrData;
     }
   };
 
@@ -853,9 +877,9 @@ const EstimateForm = () => {
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
                   <div className="success-message-container">
-                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{ 
-                      backgroundColor: '#d4edda', 
-                      color: '#155724', 
+                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{
+                      backgroundColor: '#d4edda',
+                      color: '#155724',
                       border: '1px solid #c3e6cb',
                       borderRadius: '8px',
                       padding: '10px 20px',
@@ -868,9 +892,9 @@ const EstimateForm = () => {
                     }}>
                       <span style={{ fontSize: '18px' }}>✓</span>
                       <span>{packetSuccessMessage}</span>
-                      <button 
-                        type="button" 
-                        className="btn-close" 
+                      <button
+                        type="button"
+                        className="btn-close"
                         style={{ fontSize: '10px', marginLeft: '15px' }}
                         onClick={() => setPacketSuccessMessage("")}
                         aria-label="Close"
@@ -886,9 +910,9 @@ const EstimateForm = () => {
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
                   <div className="success-message-container">
-                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{ 
-                      backgroundColor: '#d4edda', 
-                      color: '#155724', 
+                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{
+                      backgroundColor: '#d4edda',
+                      color: '#155724',
                       border: '1px solid #c3e6cb',
                       borderRadius: '8px',
                       padding: '10px 20px',
@@ -901,9 +925,9 @@ const EstimateForm = () => {
                     }}>
                       <span style={{ fontSize: '18px' }}>✓</span>
                       <span>{successMessage}</span>
-                      <button 
-                        type="button" 
-                        className="btn-close" 
+                      <button
+                        type="button"
+                        className="btn-close"
                         style={{ fontSize: '10px', marginLeft: '15px' }}
                         onClick={() => setSuccessMessage("")}
                         aria-label="Close"
