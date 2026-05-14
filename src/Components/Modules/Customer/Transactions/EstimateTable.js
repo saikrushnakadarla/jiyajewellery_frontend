@@ -457,7 +457,7 @@ const EstimateTable = () => {
         <div className="estimates-table-container">
           <Row className="mb-3">
             <Col className="d-flex justify-content-between align-items-center">
-              <h3 style={{ marginTop: "10px" }}>Your Selections</h3>
+              <h3 style={{ marginTop: "10px" }}>Selections</h3>
             </Col>
           </Row>
           {tableData.length > 0 && (

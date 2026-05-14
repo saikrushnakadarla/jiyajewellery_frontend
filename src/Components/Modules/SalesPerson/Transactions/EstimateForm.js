@@ -66,6 +66,7 @@ const EstimateForm = () => {
 
   // Success message state
   const [successMessage, setSuccessMessage] = useState("");
+  const [packetSuccessMessage, setPacketSuccessMessage] = useState(""); // NEW: Packet success message
   const [lastAddedProduct, setLastAddedProduct] = useState("");
 
   // Form data
@@ -120,6 +121,16 @@ const EstimateForm = () => {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+  // Auto-hide packet success message after 3 seconds
+  useEffect(() => {
+    if (packetSuccessMessage) {
+      const timer = setTimeout(() => {
+        setPacketSuccessMessage("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [packetSuccessMessage]);
 
   // Fetch all products
   useEffect(() => {
@@ -303,15 +314,14 @@ const EstimateForm = () => {
           }
         }
 
+        // ✅ Set packet success message (only barcode, no card/packet details)
+        setPacketSuccessMessage(`✓ Packet Added Successfully! - Barcode: ${packet.qr_code}`);
+
         Swal.fire({
           icon: 'success',
           title: 'Packet Attached!',
-          html: `<div style="text-align:left">
-            <p><strong>QR Code:</strong> ${packet.qr_code}</p>
-            <p><strong>Weight:</strong> ${packet.packet_wt || 'N/A'} g</p>
-            <p><strong>Date:</strong> ${new Date(packet.packet_date).toLocaleDateString()}</p>
-          </div><p class="mt-2 text-success">This packet has been applied to ALL products in this estimate</p>`,
-          timer: 3000,
+          text: `Packet barcode ${packet.qr_code} has been applied to ALL products in this estimate`,
+          timer: 2000,
           showConfirmButton: false
         });
       } else {
@@ -344,14 +354,13 @@ const EstimateForm = () => {
           setScannedProducts(prev => [...prev, product]);
           setTotalQuantity(prev => prev + 1);
           
-          // Set success message
+          // ✅ Set success message (Product Added Successfully - without product name)
           setSuccessMessage(`✓ Product Added Successfully!`);
-          setLastAddedProduct(product.product_name);
           
           Swal.fire({
             icon: 'success',
             title: 'Product Added!',
-            text: `Product with barcode ${barcode} has been added to estimate`,
+            text: `Product has been added to estimate`,
             timer: 1500,
             showConfirmButton: false
           });
@@ -650,10 +659,9 @@ const EstimateForm = () => {
 
       resetForm();
 
-    setTimeout(() => {
-      navigate("/salesperson-transactions");
-    }, 2000); 
-
+      setTimeout(() => {
+        navigate("/salesperson-transactions");
+      }, 2000);
 
     } catch (error) {
       Swal.close();
@@ -675,6 +683,7 @@ const EstimateForm = () => {
     setIsEstimateSaved(false);
     setSavedEstimateNumber("");
     setSuccessMessage("");
+    setPacketSuccessMessage("");
     setLastAddedProduct("");
 
     // ✅ Reset refs too
@@ -719,6 +728,7 @@ const EstimateForm = () => {
         setIsEstimateSaved(false);
         setSavedEstimateNumber("");
         setSuccessMessage("");
+        setPacketSuccessMessage("");
         setLastAddedProduct("");
 
         // ✅ Reset refs too
@@ -838,7 +848,40 @@ const EstimateForm = () => {
               </Col>
             </Row>
 
-            {/* Success Message Below Total Quantity */}
+            {/* Packet Success Message Below Total Quantity */}
+            {packetSuccessMessage && (
+              <Row className="mb-3">
+                <Col xs={12} className="d-flex justify-content-end">
+                  <div className="success-message-container">
+                    <div className="alert alert-success alert-dismissible fade show mb-0" role="alert" style={{ 
+                      backgroundColor: '#d4edda', 
+                      color: '#155724', 
+                      border: '1px solid #c3e6cb',
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      animation: 'slideIn 0.3s ease-out'
+                    }}>
+                      <span style={{ fontSize: '18px' }}>✓</span>
+                      <span>{packetSuccessMessage}</span>
+                      <button 
+                        type="button" 
+                        className="btn-close" 
+                        style={{ fontSize: '10px', marginLeft: '15px' }}
+                        onClick={() => setPacketSuccessMessage("")}
+                        aria-label="Close"
+                      ></button>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+            )}
+
+            {/* Product Success Message Below Packet Success Message */}
             {successMessage && (
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
@@ -858,9 +901,6 @@ const EstimateForm = () => {
                     }}>
                       <span style={{ fontSize: '18px' }}>✓</span>
                       <span>{successMessage}</span>
-                      {lastAddedProduct && (
-                        <span style={{ fontWeight: '600', color: '#0b5e2e' }}> - {lastAddedProduct}</span>
-                      )}
                       <button 
                         type="button" 
                         className="btn-close" 
@@ -873,10 +913,6 @@ const EstimateForm = () => {
                 </Col>
               </Row>
             )}
-
-            {/* REMOVED: Display Selected Customer badge */}
-
-            {/* REMOVED: Packet Details Section */}
 
             {/* Packet Images Preview Section */}
             {packetImages.length > 0 && (
@@ -903,8 +939,6 @@ const EstimateForm = () => {
               </Row>
             )}
 
-            {/* REMOVED: Scanned Products Summary section */}
-
             {/* Action Buttons */}
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
@@ -924,7 +958,6 @@ const EstimateForm = () => {
         <Modal.Body style={{ textAlign: 'center', padding: '20px' }}>
           <div id="qr-reader" style={{ width: '100%', minHeight: '300px' }}></div>
           <p className="mt-3">Point your camera at the product barcode to scan and automatically add to estimate</p>
-          {/* REMOVED: Packet status messages */}
         </Modal.Body>
         <Modal.Footer><Button variant="secondary" onClick={stopScanner}>Cancel Scan</Button></Modal.Footer>
       </Modal>

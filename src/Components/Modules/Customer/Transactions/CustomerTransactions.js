@@ -29,7 +29,7 @@ const CustomerTransactions = () => {
               className={`customer-transactions-tab ${activeTab === 'estimation' ? 'active' : ''}`}
               onClick={() => handleTabChange('estimation')}
             >
-              Estimation
+              Selections
             </button>
             <button
               className={`customer-transactions-tab ${activeTab === 'catalog' ? 'active' : ''}`}

@@ -1086,7 +1086,7 @@ const EstimateForm = () => {
       <div className="main-container" style={{ marginTop: '120px' }}>
         <Container className="estimate-form-container">
           <Row className="estimate-form-section">
-            <h2>Estimate</h2>
+            <h2>Selections</h2>
             <Row className="d-flex justify-content-end align-items-center mb-3" style={{ marginLeft: '9px', marginTop: '-60px' }}>
               <Col xs={12} md={2}>
                 <InputField
