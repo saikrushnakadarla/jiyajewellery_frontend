@@ -71,6 +71,10 @@ import VisitLogsSchedule from "./Components/Modules/Admin/VisitLogsSchedule/Visi
 
 import QRCodePrinting from './Components/Modules/Admin/QRCodePrinting/QRCodePrinitng';
 
+import EmailVerification from './Components/Pages/EmailVerification/EmailVerification';
+
+
+
 
 function App() {
   const [count, setCount] = useState(0);
@@ -159,6 +163,9 @@ function App() {
 
 
           <Route path="/qr-code-printing" element={<QRCodePrinting />} />
+
+        
+          <Route path="/email-verification" element={<EmailVerification />} />
 
         </Routes>
       </ScreenshotProtection>

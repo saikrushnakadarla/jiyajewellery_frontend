@@ -33,6 +33,8 @@ ChartJS.register(
   ArcElement
 );
 
+
+
 function Dashboard() {
   const navigate = useNavigate();
   const protectionRef = useRef(null);
@@ -260,6 +262,23 @@ function Dashboard() {
 
     fetchData();
   }, []);
+
+
+  
+// Add this useEffect at the beginning of CustomerDashboard component
+useEffect(() => {
+  // Check if email verification is needed
+  const userData = localStorage.getItem("user");
+  if (userData) {
+    const user = JSON.parse(userData);
+    const needsVerification = localStorage.getItem("needsEmailVerification");
+    
+    if (needsVerification === 'true' || user.email_verified === 'Not Verified') {
+      navigate("/email-verification");
+      return;
+    }
+  }
+}, [navigate]);
 
   // Handle new real-time notification
   const handleNewNotification = (notification) => {
