@@ -291,6 +291,26 @@ const Login = () => {
     };
   }, []);
 
+
+  const checkEmailVerification = async (userId) => {
+  try {
+    const response = await fetch(`${baseURL}/api/users/check-verification/${userId}`);
+    const data = await response.json();
+    
+    if (response.ok && data.needs_verification) {
+      // Store that verification is needed
+      localStorage.setItem('needsEmailVerification', 'true');
+      return true;
+    }
+    
+    localStorage.removeItem('needsEmailVerification');
+    return false;
+  } catch (error) {
+    console.error('Error checking verification:', error);
+    return false;
+  }
+};
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -358,17 +378,23 @@ const Login = () => {
           navigate("/dashboard");
         } else if (userRole === "customer") {
           if (data.user.status === "approved") {
-            navigate("/customer-dashboard");
-          } else {
-            Swal.fire({
-              icon: "info",
-              title: "Account Pending Approval",
-              text: "Your account is awaiting approval from the administrator.",
-              confirmButtonText: "OK"
-            }).then(() => {
-              navigate("/customer-dashboard");
-            });
-          }
+              // Check if email verification is needed
+              const needsVerification = await checkEmailVerification(data.user.id);
+              if (needsVerification) {
+                navigate("/email-verification");
+              } else {
+                navigate("/customer-dashboard");
+              }
+            } else {
+              Swal.fire({
+                icon: "info",
+                title: "Account Pending Approval",
+                text: "Your account is awaiting approval from the administrator.",
+                confirmButtonText: "OK"
+              }).then(() => {
+                navigate("/customer-dashboard");
+              });
+            }
         } else if (userRole === "salesman") {
           const today = new Date().toDateString();
           const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
