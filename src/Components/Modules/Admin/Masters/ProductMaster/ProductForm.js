@@ -8,7 +8,7 @@ import { FaEdit, FaTrash, FaCloudUploadAlt, FaQrcode } from "react-icons/fa";
 import "./ProductForm.css";
 import baseURL from "../../../ApiUrl/NodeBaseURL";
 
-// Import jsPDF and QRCode (kept for potential future use but commented out)
+// Import jsPDF and QRCode (kept imported but commented usage)
 // import { jsPDF } from "jspdf";
 // import QRCode from "qrcode";
 
@@ -30,8 +30,8 @@ function ProductForm() {
     rate: false
   });
   
-  // QR Code state - kept but disabled
-  // const [isGenerateQRCode, setIsGenerateQRCode] = useState(false);
+  // QR Code state (kept but commented usage)
+  // const [isGenerateQRCode, setIsGenerateQRCode] = useState(true);
 
   const editingRecord = location.state?.editingRecord || null;
 
@@ -234,7 +234,150 @@ function ProductForm() {
     }
   };
 
-  // *** RESTORED BARCODE GENERATION FUNCTIONS - from old code ***
+  // QR Code PDF generation function - COMMENTED OUT (kept for reference but not used)
+  /*
+  const generateQRCodePDF = async (productData) => {
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [75, 25]
+      });
+
+      let qrContent = "";
+      if (productData.pricing === "By Weight") {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Gross Wt: ${productData.gross_wt || '0'}, Net Wt: ${productData.net_wt || '0'}, Total Price: ${productData.total_price || '0'}`;
+      } else if (productData.pricing === "By fixed") {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Piece Cost: ${productData.pieace_cost || '0'}, Total Price: ${productData.total_price || '0'}`;
+      } else {
+        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}`;
+      }
+
+      const qrImageData = await QRCode.toDataURL(qrContent, {
+        width: 400,
+        margin: 0
+      });
+
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, 25, 75, "F");
+
+      const leftMargin = 2;
+      const qrSize = 21;
+      const qrHeight = 13;
+      const qrStartY = 1;
+
+      doc.addImage(qrImageData, "PNG", leftMargin, qrStartY, qrSize, qrHeight);
+
+      let textY = 16;
+      const textX = 2;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(4);
+      doc.setTextColor(0, 0, 0);
+
+      doc.text(`Barcode: ${productData.barcode}`, textX, textY);
+      textY += 2;
+      doc.text(`Product: ${productData.product_name || "Product"}`, textX, textY);
+      textY += 2;
+
+      if (productData.gross_wt) {
+        doc.text(`Gross Wt: ${productData.gross_wt}g`, textX, textY);
+        textY += 2;
+      }
+
+      if (productData.net_wt) {
+        doc.text(`Net Wt: ${productData.net_wt}g`, textX, textY);
+        textY += 2;
+      }
+
+      if (productData.total_price) {
+        doc.text(`Price: ${productData.total_price}`, textX, textY);
+      }
+
+      return doc.output("blob");
+    } catch (error) {
+      console.error("Error generating QR Code PDF:", error);
+      return null;
+    }
+  };
+
+  const handleSavePDFToServer = async (pdfBlob, barcode) => {
+    const formData = new FormData();
+    formData.append("invoice", pdfBlob, `${barcode}.pdf`);
+
+    try {
+      const response = await fetch(`${baseURL}/upload-invoice`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload invoice");
+      }
+
+      console.log(`QR PDF ${barcode} saved on server`);
+      return true;
+    } catch (error) {
+      console.error("Error uploading QR PDF:", error);
+      return false;
+    }
+  };
+  */
+
+  const fetchAllData = async () => {
+    try {
+      const metalResponse = await fetch(`${baseURL}/metaltype`);
+      if (metalResponse.ok) {
+        const metalData = await metalResponse.json();
+        setMetalTypes(Array.isArray(metalData) ? metalData : []);
+      }
+      setLoading(prev => ({ ...prev, metals: false }));
+
+      const purityResponse = await fetch(`${baseURL}/purity`);
+      if (purityResponse.ok) {
+        const purityData = await purityResponse.json();
+        setPurities(Array.isArray(purityData) ? purityData : []);
+      }
+      setLoading(prev => ({ ...prev, purities: false }));
+
+      const designResponse = await fetch(`${baseURL}/designmaster`);
+      if (designResponse.ok) {
+        const designData = await designResponse.json();
+        setDesigns(Array.isArray(designData) ? designData : []);
+      }
+      setLoading(prev => ({ ...prev, designs: false }));
+
+      const productNameResponse = await fetch(`${baseURL}/get/category`);
+      if (productNameResponse.ok) {
+        const productNameData = await productNameResponse.json();
+        setProductNames(Array.isArray(productNameData) ? productNameData : []);
+      }
+      setLoading(prev => ({ ...prev, productNames: false }));
+
+      // Don't fetch barcode initially - will be generated when product name is selected
+      setLoading(prev => ({ ...prev, barcode: false }));
+
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Data Loading Error',
+        text: 'Failed to load dropdown data. Please refresh the page.',
+        confirmButtonColor: '#3085d6',
+      });
+
+      setLoading({
+        metals: false,
+        purities: false,
+        designs: false,
+        productNames: false,
+        barcode: false,
+        rate: false
+      });
+    }
+  };
+
+  // RESTORED: Function to fetch next barcode based on category prefix
   const fetchNextBarcode = async (categoryId, productName) => {
     setLoading(prev => ({ ...prev, barcode: true }));
 
@@ -282,6 +425,7 @@ function ProductForm() {
     }
   };
 
+  // RESTORED: Fallback function for old barcode generation
   const fetchOldBarcode = async () => {
     try {
       const barcodeResponse = await fetch(`${baseURL}/last-rbarcode`);
@@ -296,62 +440,6 @@ function ProductForm() {
       }
     } catch (error) {
       console.error('Error fetching old barcode:', error);
-    }
-  };
-
-  // QR Code PDF generation - COMMENTED OUT as requested
-  // const generateQRCodePDF = async (productData) => { ... }
-  // const handleSavePDFToServer = async (pdfBlob, barcode) => { ... }
-
-  const fetchAllData = async () => {
-    try {
-      const metalResponse = await fetch(`${baseURL}/metaltype`);
-      if (metalResponse.ok) {
-        const metalData = await metalResponse.json();
-        setMetalTypes(Array.isArray(metalData) ? metalData : []);
-      }
-      setLoading(prev => ({ ...prev, metals: false }));
-
-      const purityResponse = await fetch(`${baseURL}/purity`);
-      if (purityResponse.ok) {
-        const purityData = await purityResponse.json();
-        setPurities(Array.isArray(purityData) ? purityData : []);
-      }
-      setLoading(prev => ({ ...prev, purities: false }));
-
-      const designResponse = await fetch(`${baseURL}/designmaster`);
-      if (designResponse.ok) {
-        const designData = await designResponse.json();
-        setDesigns(Array.isArray(designData) ? designData : []);
-      }
-      setLoading(prev => ({ ...prev, designs: false }));
-
-      const productNameResponse = await fetch(`${baseURL}/get/category`);
-      if (productNameResponse.ok) {
-        const productNameData = await productNameResponse.json();
-        setProductNames(Array.isArray(productNameData) ? productNameData : []);
-      }
-      setLoading(prev => ({ ...prev, productNames: false }));
-
-      setLoading(prev => ({ ...prev, barcode: false }));
-
-    } catch (error) {
-      console.error('Error fetching dropdown data:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Data Loading Error',
-        text: 'Failed to load dropdown data. Please refresh the page.',
-        confirmButtonColor: '#3085d6',
-      });
-
-      setLoading({
-        metals: false,
-        purities: false,
-        designs: false,
-        productNames: false,
-        barcode: false,
-        rate: false
-      });
     }
   };
 
@@ -597,7 +685,6 @@ function ProductForm() {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
 
-    // *** RESTORED - When product name is selected, generate barcode ***
     if (name === 'product_name') {
       const selectedProduct = productNames.find(p => p.category_name === value);
       if (selectedProduct) {
@@ -615,7 +702,7 @@ function ProductForm() {
         
         setFormData(prev => ({ ...prev, ...updatedData }));
 
-        // Generate barcode for new products (not when editing)
+        // RESTORED: Generate barcode when product name is selected (for new records)
         if (!editingRecord) {
           await fetchNextBarcode(selectedProduct.category_id, value);
         }
@@ -780,7 +867,7 @@ function ProductForm() {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    // Validation - barcode is now required
+    // Validation
     if (!formData.product_name || !formData.category_id ||
       !formData.metal_type_id || !formData.purity_id || !formData.design_id) {
       Swal.fire({
@@ -793,8 +880,8 @@ function ProductForm() {
       return;
     }
 
-    // Validate barcode format for new products
-    if (!editingRecord && (!formData.barcode || !/^[A-Z]{2,}\d{3}$/.test(formData.barcode))) {
+    // RESTORED: Validate barcode format
+    if (!formData.barcode || !/^[A-Z]{2,}\d{3}$/.test(formData.barcode)) {
       Swal.fire({
         icon: 'error',
         title: 'Invalid Barcode Format',
@@ -807,7 +894,6 @@ function ProductForm() {
 
     const formDataToSend = new FormData();
     
-    // Add all form fields to FormData
     Object.keys(formData).forEach(key => {
       formDataToSend.append(key, formData[key] || "");
     });
@@ -845,15 +931,31 @@ function ProductForm() {
           }
         });
 
-        // *** QR CODE GENERATION - COMPLETELY COMMENTED OUT AS REQUESTED ***
-        // No QR code generation for products added through this form
+        // QR CODE GENERATION - COMMENTED OUT AS REQUESTED
+        /*
+        if (isGenerateQRCode && !editingRecord && formData.barcode && formData.barcode.trim() !== "") {
+          try {
+            const pdfBlob = await generateQRCodePDF(formData);
+            if (pdfBlob) {
+              await handleSavePDFToServer(pdfBlob, formData.barcode);
+              const qrResponse = await fetch(`${baseURL}/update-product-qr/${result.product_id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qr_generated: true })
+              });
+            }
+          } catch (qrError) {
+            console.error("Error generating QR Code:", qrError);
+          }
+        }
+        */
 
         Swal.fire({
           icon: 'success',
           title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
           text: editingRecord
             ? 'Product details have been updated successfully.'
-            : `Product added successfully with barcode: ${formData.barcode}`,
+            : `Product added with barcode: ${formData.barcode}`,
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
@@ -958,7 +1060,7 @@ function ProductForm() {
               <Col xs={12} md={3}>
                 <InputField
                   label="Barcode *"
-                  placeholder={loading.barcode ? "Generating barcode..." : "Barcode will auto-generate"}
+                  placeholder={loading.barcode ? "Generating barcode..." : "Auto-generated from product name"}
                   name="barcode"
                   value={formData.barcode}
                   onChange={handleChange}
@@ -966,9 +1068,7 @@ function ProductForm() {
                   disabled={loading.barcode || editingRecord}
                   readOnly={!editingRecord}
                 />
-                {!editingRecord && (
-                  <small className="text-muted">Barcode auto-generates when product name is selected</small>
-                )}
+                <small className="text-muted">Barcode is auto-generated when product name is selected</small>
               </Col>
 
               <Col xs={12} md={2}>
@@ -1027,7 +1127,7 @@ function ProductForm() {
                 />
               </Col>
 
-              {/* Hidden field for source */}
+              {/* Hidden field for source - always "Order Management" for Product Form */}
               <input type="hidden" name="source" value="Order Management" />
 
               {/* Condition based on Pricing selection */}
@@ -1311,8 +1411,20 @@ function ProductForm() {
                 </Col>
               )}
 
-              {/* QR Code Checkbox - COMPLETELY COMMENTED OUT as requested */}
-              {/* No QR code generation for Product Form */}
+              {/* QR CODE CHECKBOX - COMMENTED OUT AS REQUESTED */}
+              {/* {!editingRecord && formData.barcode && formData.barcode.trim() !== "" && (
+                <div className="qr-code-checkbox mt-3 mb-3">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={isGenerateQRCode}
+                      onChange={(e) => setIsGenerateQRCode(e.target.checked)}
+                    />
+                    <FaQrcode className="qr-icon" />
+                    Generate QR Code for Barcode
+                  </label>
+                </div>
+              )} */}
 
               {/* Product Images Section */}
               <Col xs={12} className="mt-4">
