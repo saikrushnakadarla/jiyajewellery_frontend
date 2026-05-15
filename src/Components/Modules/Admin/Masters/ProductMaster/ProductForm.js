@@ -8,9 +8,9 @@ import { FaEdit, FaTrash, FaCloudUploadAlt, FaQrcode } from "react-icons/fa";
 import "./ProductForm.css";
 import baseURL from "../../../ApiUrl/NodeBaseURL";
 
-// Import jsPDF and QRCode
-import { jsPDF } from "jspdf";
-import QRCode from "qrcode";
+// Import jsPDF and QRCode (kept for potential future use but commented out)
+// import { jsPDF } from "jspdf";
+// import QRCode from "qrcode";
 
 function ProductForm() {
   const navigate = useNavigate();
@@ -30,13 +30,11 @@ function ProductForm() {
     rate: false
   });
   
-  // QR Code state
-  const [isGenerateQRCode, setIsGenerateQRCode] = useState(true);
+  // QR Code state - kept but disabled
+  // const [isGenerateQRCode, setIsGenerateQRCode] = useState(false);
 
-  // Get editing record if exists
   const editingRecord = location.state?.editingRecord || null;
 
-  // Initialize form data with empty values instead of "0.000"
   const [formData, setFormData] = useState({
     product_name: "",
     category_id: "",
@@ -68,16 +66,15 @@ function ProductForm() {
     pieace_cost: "",
     disscount_percentage: "",
     disscount: "",
-    qty: "1"
+    qty: "1",
+    source: "Order Management"
   });
 
-  // State for product images
   const [productImages, setProductImages] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imagesToDelete, setImagesToDelete] = useState([]);
   const [editingImageIndex, setEditingImageIndex] = useState(null);
 
-  // State for current rate info
   const [currentRateInfo, setCurrentRateInfo] = useState({
     rate: 0,
     rate_date: "",
@@ -85,17 +82,14 @@ function ProductForm() {
     isLoading: false
   });
 
-  // Fetch all dropdown data
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // Initialize form with editing data if available
   useEffect(() => {
     if (editingRecord) {
       console.log("Editing record:", editingRecord);
       
-      // Format the editing record data properly
       const formattedData = {
         product_name: editingRecord.product_name || "",
         category_id: editingRecord.category_id || "",
@@ -127,24 +121,21 @@ function ProductForm() {
         pieace_cost: editingRecord.pieace_cost || "",
         disscount_percentage: editingRecord.disscount_percentage || "",
         disscount: editingRecord.disscount || "",
-        qty: editingRecord.qty?.toString() || "1"
+        qty: editingRecord.qty?.toString() || "1",
+        source: editingRecord.source || "Order Management"
       };
       
-      console.log("Formatted data:", formattedData);
       setFormData(formattedData);
       
-      // Set product images if editing
       if (editingRecord.images) {
         const imagesArray = Array.isArray(editingRecord.images) ? editingRecord.images : [];
         setProductImages(imagesArray);
       }
       
-      // Fetch rate for the purity in editing mode
       if (editingRecord.purity) {
         fetchRateByPurity(editingRecord.purity);
       }
     } else {
-      // For new records, set empty values
       setFormData({
         product_name: "",
         category_id: "",
@@ -176,54 +167,37 @@ function ProductForm() {
         pieace_cost: "",
         disscount_percentage: "",
         disscount: "",
-        qty: "1"
+        qty: "1",
+        source: "Order Management"
       });
       setProductImages([]);
     }
   }, [editingRecord]);
 
-  // Function to extract purity value from purity string (e.g., "16K" -> "16crt", "Silver" -> "silver")
   const extractPurityValue = (purityString) => {
     if (!purityString) return null;
-    
-    // Remove spaces and convert to lowercase
     const cleanString = purityString.toLowerCase().replace(/\s+/g, '');
-    
-    // Check for silver - handle different silver names
     if (cleanString.includes('silver') || cleanString === 'silver') {
       return 'silver';
     }
-    
-    // Extract numeric value for gold (16K, 18K, 22K, 24K)
     const match = cleanString.match(/(\d+)/);
     if (match) {
       const numericValue = match[1];
       return `${numericValue}crt`;
     }
-    
     return null;
   };
 
-  // Function to fetch rate by purity
   const fetchRateByPurity = async (purityString) => {
     if (!purityString) {
-      setFormData(prev => ({
-        ...prev,
-        rate: ""
-      }));
+      setFormData(prev => ({ ...prev, rate: "" }));
       return;
     }
 
     const purityValue = extractPurityValue(purityString);
     
-    console.log("Purity string:", purityString);
-    console.log("Extracted purity value:", purityValue);
-    
     if (!purityValue) {
-      setFormData(prev => ({
-        ...prev,
-        rate: ""
-      }));
+      setFormData(prev => ({ ...prev, rate: "" }));
       return;
     }
 
@@ -235,7 +209,6 @@ function ProductForm() {
       
       if (response.ok) {
         const rateData = await response.json();
-        console.log("Rate data received:", rateData);
         
         setFormData(prev => ({
           ...prev,
@@ -249,196 +222,19 @@ function ProductForm() {
           isLoading: false
         });
       } else {
-        // If API fails, keep the current rate or set to empty
-        setFormData(prev => ({
-          ...prev,
-          rate: prev.rate || ""
-        }));
+        setFormData(prev => ({ ...prev, rate: prev.rate || "" }));
         setCurrentRateInfo(prev => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       console.error('Error fetching rate:', error);
-      setFormData(prev => ({
-        ...prev,
-        rate: ""
-      }));
+      setFormData(prev => ({ ...prev, rate: "" }));
       setCurrentRateInfo(prev => ({ ...prev, isLoading: false }));
     } finally {
       setLoading(prev => ({ ...prev, rate: false }));
     }
   };
 
-  // Function to generate and download QR Code PDF
-  const generateAndDownloadPDF = async (productData) => {
-    try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: [75, 25] // height: 75mm (with tail), width: 25mm
-      });
-
-      // Generate QR Code content based on pricing type
-      let qrContent = "";
-      if (productData.pricing === "By Weight") {
-        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Gross Wt: ${productData.gross_wt || '0'}, Net Wt: ${productData.net_wt || '0'}, Total Price: ${productData.total_price || '0'}`;
-      } else if (productData.pricing === "By fixed") {
-        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}, Piece Cost: ${productData.pieace_cost || '0'}, Total Price: ${productData.total_price || '0'}`;
-      } else {
-        qrContent = `Barcode: ${productData.barcode}, Product: ${productData.product_name}`;
-      }
-
-      // Generate QR code image
-      const qrImageData = await QRCode.toDataURL(qrContent, {
-        width: 400,
-        margin: 0
-      });
-
-      // Background white
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, 25, 75, "F");
-
-      // ---------------------------------------------------
-      // TOP TAG AREA = 30mm
-      // ---------------------------------------------------
-
-      // QR BLOCK 0–15mm
-      const leftMargin = 2;
-      const qrSize = 21;
-      const qrHeight = 13;
-      const qrStartY = 1;
-
-      // Add QR Code
-      doc.addImage(qrImageData, "PNG", leftMargin, qrStartY, qrSize, qrHeight);
-
-      // PRODUCT DETAILS BLOCK 15–30mm
-      let textY = 16;
-      const textX = 2;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(4);
-      doc.setTextColor(0, 0, 0);
-
-      // Barcode
-      doc.text(`Barcode: ${productData.barcode}`, textX, textY);
-      textY += 2;
-
-      // Product Name
-      doc.text(`Product: ${productData.product_name || "Product"}`, textX, textY);
-      textY += 2;
-
-      // Gross weight (if exists)
-      if (productData.gross_wt) {
-        doc.text(`Gross Wt: ${productData.gross_wt}g`, textX, textY);
-        textY += 2;
-      }
-
-      // Net weight (if exists)
-      if (productData.net_wt) {
-        doc.text(`Net Wt: ${productData.net_wt}g`, textX, textY);
-        textY += 2;
-      }
-
-      // Price
-      if (productData.total_price) {
-        doc.text(`Price: ${productData.total_price}`, textX, textY);
-      }
-
-      // Generate PDF blob
-      const pdfBlob = doc.output("blob");
-      
-      // Save PDF to server
-      await handleSavePDFToServer(pdfBlob, productData.barcode);
-
-      // Download PDF to client
-      doc.save(`QR_${productData.barcode}.pdf`);
-      
-      return true;
-    } catch (error) {
-      console.error("Error generating QR Code PDF:", error);
-      return false;
-    }
-  };
-
-  // Function to save PDF to server
-  const handleSavePDFToServer = async (pdfBlob, barcode) => {
-    const formData = new FormData();
-    formData.append("invoice", pdfBlob, `${barcode}.pdf`);
-
-    try {
-      const response = await fetch(`${baseURL}/upload-invoice`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload invoice");
-      }
-
-      console.log(`QR PDF ${barcode} saved on server`);
-      return true;
-    } catch (error) {
-      console.error("Error uploading QR PDF:", error);
-      return false;
-    }
-  };
-
-  const fetchAllData = async () => {
-    try {
-      // Fetch metal types
-      const metalResponse = await fetch(`${baseURL}/metaltype`);
-      if (metalResponse.ok) {
-        const metalData = await metalResponse.json();
-        setMetalTypes(Array.isArray(metalData) ? metalData : []);
-      }
-      setLoading(prev => ({ ...prev, metals: false }));
-
-      // Fetch purities
-      const purityResponse = await fetch(`${baseURL}/purity`);
-      if (purityResponse.ok) {
-        const purityData = await purityResponse.json();
-        setPurities(Array.isArray(purityData) ? purityData : []);
-      }
-      setLoading(prev => ({ ...prev, purities: false }));
-
-      // Fetch designs
-      const designResponse = await fetch(`${baseURL}/designmaster`);
-      if (designResponse.ok) {
-        const designData = await designResponse.json();
-        setDesigns(Array.isArray(designData) ? designData : []);
-      }
-      setLoading(prev => ({ ...prev, designs: false }));
-
-      // Fetch product names (categories)
-      const productNameResponse = await fetch(`${baseURL}/get/category`);
-      if (productNameResponse.ok) {
-        const productNameData = await productNameResponse.json();
-        setProductNames(Array.isArray(productNameData) ? productNameData : []);
-      }
-      setLoading(prev => ({ ...prev, productNames: false }));
-
-      // Don't fetch barcode initially
-      setLoading(prev => ({ ...prev, barcode: false }));
-
-    } catch (error) {
-      console.error('Error fetching dropdown data:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Data Loading Error',
-        text: 'Failed to load dropdown data. Please refresh the page.',
-        confirmButtonColor: '#3085d6',
-      });
-
-      setLoading({
-        metals: false,
-        purities: false,
-        designs: false,
-        productNames: false,
-        barcode: false,
-        rate: false
-      });
-    }
-  };
-
+  // *** RESTORED BARCODE GENERATION FUNCTIONS - from old code ***
   const fetchNextBarcode = async (categoryId, productName) => {
     setLoading(prev => ({ ...prev, barcode: true }));
 
@@ -503,7 +299,63 @@ function ProductForm() {
     }
   };
 
-  // Calculate wastage weight and total weight
+  // QR Code PDF generation - COMMENTED OUT as requested
+  // const generateQRCodePDF = async (productData) => { ... }
+  // const handleSavePDFToServer = async (pdfBlob, barcode) => { ... }
+
+  const fetchAllData = async () => {
+    try {
+      const metalResponse = await fetch(`${baseURL}/metaltype`);
+      if (metalResponse.ok) {
+        const metalData = await metalResponse.json();
+        setMetalTypes(Array.isArray(metalData) ? metalData : []);
+      }
+      setLoading(prev => ({ ...prev, metals: false }));
+
+      const purityResponse = await fetch(`${baseURL}/purity`);
+      if (purityResponse.ok) {
+        const purityData = await purityResponse.json();
+        setPurities(Array.isArray(purityData) ? purityData : []);
+      }
+      setLoading(prev => ({ ...prev, purities: false }));
+
+      const designResponse = await fetch(`${baseURL}/designmaster`);
+      if (designResponse.ok) {
+        const designData = await designResponse.json();
+        setDesigns(Array.isArray(designData) ? designData : []);
+      }
+      setLoading(prev => ({ ...prev, designs: false }));
+
+      const productNameResponse = await fetch(`${baseURL}/get/category`);
+      if (productNameResponse.ok) {
+        const productNameData = await productNameResponse.json();
+        setProductNames(Array.isArray(productNameData) ? productNameData : []);
+      }
+      setLoading(prev => ({ ...prev, productNames: false }));
+
+      setLoading(prev => ({ ...prev, barcode: false }));
+
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Data Loading Error',
+        text: 'Failed to load dropdown data. Please refresh the page.',
+        confirmButtonColor: '#3085d6',
+      });
+
+      setLoading({
+        metals: false,
+        purities: false,
+        designs: false,
+        productNames: false,
+        barcode: false,
+        rate: false
+      });
+    }
+  };
+
+  // Calculation functions
   const calculateWastageAndTotalWeight = (grossWt, stoneWt, vaPercent, vaOn) => {
     const gross = parseFloat(grossWt) || 0;
     const stone = parseFloat(stoneWt) || 0;
@@ -527,7 +379,6 @@ function ProductForm() {
     };
   };
 
-  // Calculate making charges
   const calculateMakingCharges = (totalWeight, mcPerGram, mcOn, rateAmt) => {
     const total = parseFloat(totalWeight) || 0;
     const mcGram = parseFloat(mcPerGram) || 0;
@@ -544,7 +395,6 @@ function ProductForm() {
     return makingCharges.toFixed(2);
   };
 
-  // Calculate rate amount
   const calculateRateAmount = (rate, totalWeight, pricing, qty) => {
     const rateValue = parseFloat(rate) || 0;
     const total = parseFloat(totalWeight) || 0;
@@ -561,7 +411,6 @@ function ProductForm() {
     return rateAmount.toFixed(2);
   };
 
-  // Calculate tax and total price
   const calculateTaxAndTotal = (rateAmt, stonePrice, makingCharges, hmCharges, taxPercent, discount) => {
     const rateAmount = parseFloat(rateAmt) || 0;
     const stone = parseFloat(stonePrice) || 0;
@@ -569,7 +418,6 @@ function ProductForm() {
     const hm = parseFloat(hmCharges) || 0;
     const discountAmt = parseFloat(discount) || 0;
 
-    // Extract numeric tax percentage
     const taxPercentNum = parseFloat(taxPercent) || 0;
 
     const totalBeforeTax = rateAmount + stone + mc + hm - discountAmt;
@@ -582,11 +430,10 @@ function ProductForm() {
     };
   };
 
-  // Handle image upload
+  // Image handlers
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     
-    // Validate file types
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     const invalidFiles = files.filter(file => !validTypes.includes(file.type));
     
@@ -600,8 +447,7 @@ function ProductForm() {
       return;
     }
     
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024;
     const oversizedFiles = files.filter(file => file.size > maxSize);
     
     if (oversizedFiles.length > 0) {
@@ -614,7 +460,6 @@ function ProductForm() {
       return;
     }
     
-    // Create preview URLs and add to uploaded images
     const newImages = files.map(file => ({
       file: file,
       preview: URL.createObjectURL(file),
@@ -625,12 +470,10 @@ function ProductForm() {
     }));
     
     setUploadedImages(prev => [...prev, ...newImages]);
-    e.target.value = null; // Reset file input
+    e.target.value = null;
   };
 
-  // Handle edit image (replace existing image)
   const handleEditImage = (index, imageName) => {
-    // Create a hidden file input
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
@@ -640,7 +483,6 @@ function ProductForm() {
       const file = e.target.files[0];
       if (!file) return;
       
-      // Validate file type
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         Swal.fire({
@@ -652,7 +494,6 @@ function ProductForm() {
         return;
       }
       
-      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         Swal.fire({
           icon: 'error',
@@ -663,17 +504,14 @@ function ProductForm() {
         return;
       }
       
-      // Mark existing image for deletion
       if (editingRecord) {
         setImagesToDelete(prev => [...prev, imageName]);
       }
       
-      // Remove the old image
       const updatedImages = [...productImages];
       updatedImages.splice(index, 1);
       setProductImages(updatedImages);
       
-      // Add new image to uploaded images
       const newImage = {
         file: file,
         preview: URL.createObjectURL(file),
@@ -692,7 +530,6 @@ function ProductForm() {
     document.body.removeChild(fileInput);
   };
 
-  // Handle delete uploaded image (new images not yet saved)
   const handleDeleteUploadedImage = (index) => {
     Swal.fire({
       title: 'Delete Image?',
@@ -707,7 +544,7 @@ function ProductForm() {
       if (result.isConfirmed) {
         setUploadedImages(prev => {
           const newImages = [...prev];
-          URL.revokeObjectURL(newImages[index].preview); // Clean up memory
+          URL.revokeObjectURL(newImages[index].preview);
           newImages.splice(index, 1);
           return newImages;
         });
@@ -715,7 +552,6 @@ function ProductForm() {
     });
   };
 
-  // Handle delete existing image (for editing mode)
   const handleDeleteExistingImage = (imageName) => {
     Swal.fire({
       title: 'Delete Image?',
@@ -736,7 +572,6 @@ function ProductForm() {
     });
   };
 
-  // Get image URL for display
   const getImageUrl = (imageName) => {
     if (imageName.startsWith('blob:')) {
       return imageName;
@@ -747,7 +582,6 @@ function ProductForm() {
   const handleChange = async (e) => {
     const { name, value } = e.target;
 
-    // Handle numeric fields - allow empty string
     const numericFields = [
       'gross_wt', 'stone_wt', 'net_wt', 'stone_price', 'va_percent',
       'wastage_weight', 'total_weight_av', 'mc_per_gram', 'making_charges',
@@ -756,25 +590,17 @@ function ProductForm() {
     ];
 
     if (numericFields.includes(name)) {
-      // Allow empty string or valid numbers
       if (value === '' || /^\d*\.?\d{0,3}$/.test(value) || name === 'qty' && /^\d*$/.test(value)) {
-        setFormData(prev => ({
-          ...prev,
-          [name]: value,
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
       }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-      }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
 
-    // When product name is selected
+    // *** RESTORED - When product name is selected, generate barcode ***
     if (name === 'product_name') {
       const selectedProduct = productNames.find(p => p.category_name === value);
       if (selectedProduct) {
-        // Find the matching metal type from metalTypes array
         const selectedMetal = metalTypes.find(mt => 
           mt.metal_name === selectedProduct.metal_type || 
           mt.id.toString() === selectedProduct.metal_type_id?.toString()
@@ -783,23 +609,19 @@ function ProductForm() {
         const updatedData = {
           category_id: selectedProduct.category_id,
           product_name: value,
-          // Auto-fill metal type from category
           metal_type_id: selectedMetal ? selectedMetal.id.toString() : "",
           metal_type: selectedProduct.metal_type || ""
         };
         
-        setFormData(prev => ({
-          ...prev,
-          ...updatedData
-        }));
+        setFormData(prev => ({ ...prev, ...updatedData }));
 
+        // Generate barcode for new products (not when editing)
         if (!editingRecord) {
           await fetchNextBarcode(selectedProduct.category_id, value);
         }
       }
     }
 
-    // Auto-update related fields when metal type is manually selected
     if (name === 'metal_type_id') {
       const selectedMetal = metalTypes.find(mt => mt.id.toString() === value);
       if (selectedMetal) {
@@ -819,8 +641,6 @@ function ProductForm() {
           purity: selectedPurity.name,
           purity_id: value
         }));
-
-        // Fetch rate based on purity
         fetchRateByPurity(selectedPurity.name);
       }
     }
@@ -837,9 +657,8 @@ function ProductForm() {
     }
   };
 
-  // Auto-calculate when dependent fields change
+  // Auto-calculation effects
   useEffect(() => {
-    // Calculate net weight
     const gross = parseFloat(formData.gross_wt) || 0;
     const stone = parseFloat(formData.stone_wt) || 0;
     const net = gross - stone;
@@ -853,7 +672,6 @@ function ProductForm() {
     }
   }, [formData.gross_wt, formData.stone_wt]);
 
-  // Calculate wastage and total weight when relevant fields change
   useEffect(() => {
     const { wastageWeight, totalWeight } = calculateWastageAndTotalWeight(
       formData.gross_wt || "0",
@@ -880,7 +698,6 @@ function ProductForm() {
     }
   }, [formData.gross_wt, formData.stone_wt, formData.va_percent, formData.va_on]);
 
-  // Calculate rate amount
   useEffect(() => {
     const rateAmount = calculateRateAmount(
       formData.rate || "0",
@@ -898,7 +715,6 @@ function ProductForm() {
     }
   }, [formData.rate, formData.total_weight_av, formData.pricing, formData.qty]);
 
-  // Calculate making charges
   useEffect(() => {
     const makingCharges = calculateMakingCharges(
       formData.total_weight_av || "0",
@@ -916,7 +732,6 @@ function ProductForm() {
     }
   }, [formData.total_weight_av, formData.mc_per_gram, formData.mc_on, formData.rate_amt]);
 
-  // Calculate tax and total price
   useEffect(() => {
     const { taxAmt, totalPrice } = calculateTaxAndTotal(
       formData.rate_amt || "0",
@@ -946,7 +761,6 @@ function ProductForm() {
   }, [formData.rate_amt, formData.stone_price, formData.making_charges,
   formData.hm_charges, formData.tax_percent, formData.disscount]);
 
-  // Calculate discount when discount percentage changes
   useEffect(() => {
     const makingCharges = parseFloat(formData.making_charges) || 0;
     const discountPercent = parseFloat(formData.disscount_percentage) || 0;
@@ -961,147 +775,112 @@ function ProductForm() {
     }
   }, [formData.disscount_percentage, formData.making_charges]);
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setErrorMessage("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrorMessage("");
 
-  // Validation
-  if (!formData.product_name || !formData.barcode || !formData.category_id ||
-    !formData.metal_type_id || !formData.purity_id || !formData.design_id) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Validation Error',
-      text: 'All required fields must be filled!',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Validate barcode format
-  if (!/^[A-Z]{2,}\d{3}$/.test(formData.barcode)) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Invalid Barcode Format',
-      text: 'Barcode should be in format: Prefix + 3 digits (e.g., GC001)',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Prepare FormData for file upload
-  const formDataToSend = new FormData();
-  
-  // Add all form fields to FormData
-  Object.keys(formData).forEach(key => {
-    formDataToSend.append(key, formData[key] || "");
-  });
-
-  // Add existing images to delete (for edit mode)
-  if (editingRecord && imagesToDelete.length > 0) {
-    formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
-  }
-
-  // Add new image files
-  uploadedImages.forEach((imageObj, index) => {
-    if (imageObj.file) {
-      formDataToSend.append('images', imageObj.file);
-    }
-  });
-
-  console.log("Submitting data...");
-
-  try {
-    let url = `${baseURL}/post/product`;
-    let method = "POST";
-
-    if (editingRecord) {
-      url = `${baseURL}/update/product/${editingRecord.product_id}`;
-      method = "PUT";
-    }
-
-    const response = await fetch(url, {
-      method: method,
-      body: formDataToSend,
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("Success:", result);
-
-      // Clean up preview URLs
-      uploadedImages.forEach(img => {
-        if (img.preview && img.preview.startsWith('blob:')) {
-          URL.revokeObjectURL(img.preview);
-        }
-      });
-
-      // Generate QR Code PDF if checkbox is checked
-      if (isGenerateQRCode && !editingRecord) {
-        try {
-          const qrGenerated = await generateAndDownloadPDF(formData);
-          if (qrGenerated) {
-            console.log("QR Code PDF generated successfully");
-            
-            // Update product with QR status
-            try {
-              const qrResponse = await fetch(`${baseURL}/update-product-qr/${result.product_id}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ qr_generated: true })
-              });
-              
-              if (qrResponse.ok) {
-                console.log('QR status updated in database');
-              }
-            } catch (qrUpdateError) {
-              console.error('Error updating QR status:', qrUpdateError);
-              // Continue even if QR status update fails
-            }
-          }
-        } catch (qrError) {
-          console.error("Error generating QR Code:", qrError);
-          // Don't show error to user if QR generation fails
-        }
-      }
-
-      Swal.fire({
-        icon: 'success',
-        title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
-        text: editingRecord
-          ? 'Product details have been updated successfully.'
-          : `Product added with barcode: ${formData.barcode}`,
-        confirmButtonColor: '#3085d6',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          navigate("/productmaster");
-        }
-      });
-    } else {
-      const errorData = await response.json();
+    // Validation - barcode is now required
+    if (!formData.product_name || !formData.category_id ||
+      !formData.metal_type_id || !formData.purity_id || !formData.design_id) {
       Swal.fire({
         icon: 'error',
-        title: 'Submission Failed',
-        text: errorData.message || 'Failed to save product details. Please try again.',
+        title: 'Validation Error',
+        text: 'All required fields must be filled!',
         confirmButtonColor: '#3085d6',
       });
+      setIsSubmitting(false);
+      return;
     }
-  } catch (error) {
-    console.error("Error:", error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Network Error',
-      text: 'Please check your connection and try again.',
-      confirmButtonColor: '#3085d6',
+
+    // Validate barcode format for new products
+    if (!editingRecord && (!formData.barcode || !/^[A-Z]{2,}\d{3}$/.test(formData.barcode))) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid Barcode Format',
+        text: 'Barcode should be in format: Prefix + 3 digits (e.g., GC001)',
+        confirmButtonColor: '#3085d6',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const formDataToSend = new FormData();
+    
+    // Add all form fields to FormData
+    Object.keys(formData).forEach(key => {
+      formDataToSend.append(key, formData[key] || "");
     });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+
+    if (editingRecord && imagesToDelete.length > 0) {
+      formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
+    }
+
+    uploadedImages.forEach((imageObj) => {
+      if (imageObj.file) {
+        formDataToSend.append('images', imageObj.file);
+      }
+    });
+
+    try {
+      let url = `${baseURL}/post/product`;
+      let method = "POST";
+
+      if (editingRecord) {
+        url = `${baseURL}/update/product/${editingRecord.product_id}`;
+        method = "PUT";
+      }
+
+      const response = await fetch(url, {
+        method: method,
+        body: formDataToSend,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        uploadedImages.forEach(img => {
+          if (img.preview && img.preview.startsWith('blob:')) {
+            URL.revokeObjectURL(img.preview);
+          }
+        });
+
+        // *** QR CODE GENERATION - COMPLETELY COMMENTED OUT AS REQUESTED ***
+        // No QR code generation for products added through this form
+
+        Swal.fire({
+          icon: 'success',
+          title: editingRecord ? 'Product Updated Successfully!' : 'Product Added Successfully!',
+          text: editingRecord
+            ? 'Product details have been updated successfully.'
+            : `Product added successfully with barcode: ${formData.barcode}`,
+          confirmButtonColor: '#3085d6',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/productmaster");
+          }
+        });
+      } else {
+        const errorData = await response.json();
+        Swal.fire({
+          icon: 'error',
+          title: 'Submission Failed',
+          text: errorData.message || 'Failed to save product details. Please try again.',
+          confirmButtonColor: '#3085d6',
+        });
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Network Error',
+        text: 'Please check your connection and try again.',
+        confirmButtonColor: '#3085d6',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleBack = () => {
     navigate(-1);
@@ -1139,22 +918,6 @@ function ProductForm() {
     }))
   ];
 
-  const pricingOptions = [
-    { value: "By Weight", label: "By Weight" },
-    { value: "By fixed", label: "By fixed" }
-  ];
-
-  const vaOnOptions = [
-    { value: "Gross Weight", label: "Gross Weight" },
-    { value: "Weight BW", label: "Weight BW" }
-  ];
-
-  const mcOnOptions = [
-    { value: "MC / Gram", label: "MC / Gram" },
-    { value: "MC / Piece", label: "MC / Piece" },
-    { value: "MC %", label: "MC %" }
-  ];
-
   const taxPercentOptions = [
     { value: "0.9% GST", label: "0.9% GST" },
     { value: "3% GST", label: "3% GST" },
@@ -1178,7 +941,6 @@ function ProductForm() {
 
           <form className="product-form" onSubmit={handleSubmit} encType="multipart/form-data">
             <Row className="product-form-section">
-              {/* Product Name, Barcode, Metal Type, Design, Purity */}
               <Col xs={12} md={3}>
                 <InputField
                   label="Product Name *"
@@ -1204,6 +966,9 @@ function ProductForm() {
                   disabled={loading.barcode || editingRecord}
                   readOnly={!editingRecord}
                 />
+                {!editingRecord && (
+                  <small className="text-muted">Barcode auto-generates when product name is selected</small>
+                )}
               </Col>
 
               <Col xs={12} md={2}>
@@ -1248,7 +1013,6 @@ function ProductForm() {
                 />
               </Col>
 
-              {/* Pricing dropdown */}
               <Col xs={12} md={2}>
                 <InputField
                   label="Pricing"
@@ -1262,6 +1026,9 @@ function ProductForm() {
                   ]}
                 />
               </Col>
+
+              {/* Hidden field for source */}
+              <input type="hidden" name="source" value="Order Management" />
 
               {/* Condition based on Pricing selection */}
               {formData.pricing === "By fixed" ? (
@@ -1332,7 +1099,6 @@ function ProductForm() {
                 </>
               ) : (
                 <>
-                  {/* Weight-based pricing fields */}
                   <Col xs={12} md={1}>
                     <InputField
                       label="Gross Wt"
@@ -1531,7 +1297,6 @@ function ProductForm() {
                 </>
               )}
 
-              {/* Qty field only for By Weight pricing */}
               {formData.pricing !== "By fixed" && (
                 <Col xs={12} md={1}>
                   <InputField
@@ -1546,28 +1311,14 @@ function ProductForm() {
                 </Col>
               )}
 
-
-                {/* QR Code Checkbox */}
-            {!editingRecord && (
-              <div className="qr-code-checkbox mt-3 mb-3">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={isGenerateQRCode}
-                    onChange={(e) => setIsGenerateQRCode(e.target.checked)}
-                  />
-                  <FaQrcode className="qr-icon" />
-                  Generate QR Code for Barcode
-                </label>
-              </div>
-            )}
+              {/* QR Code Checkbox - COMPLETELY COMMENTED OUT as requested */}
+              {/* No QR code generation for Product Form */}
 
               {/* Product Images Section */}
               <Col xs={12} className="mt-4">
                 <div className="image-upload-section">
                   <h5>Product Images</h5>
                   <div className="image-upload-container">
-                    {/* File upload input */}
                     <div className="file-upload-box">
                       <input
                         type="file"
@@ -1585,9 +1336,7 @@ function ProductForm() {
                       </label>
                     </div>
 
-                    {/* Image previews */}
                     <div className="image-previews">
-                      {/* Existing images */}
                       {productImages.map((image, index) => (
                         <div key={`existing-${index}`} className="image-preview-item">
                           <div className="image-controls">
@@ -1621,7 +1370,6 @@ function ProductForm() {
                         </div>
                       ))}
 
-                      {/* Newly uploaded images */}
                       {uploadedImages.map((image, index) => (
                         <div key={`new-${index}`} className="image-preview-item">
                           <div className="image-controls">
@@ -1645,7 +1393,6 @@ function ProductForm() {
                       ))}
                     </div>
 
-                    {/* Image count info */}
                     <div className="image-count-info">
                       <small>
                         Total images: {productImages.length + uploadedImages.length} / 10
@@ -1660,15 +1407,9 @@ function ProductForm() {
                 </div>
               </Col>
 
-              {/* Hidden field for category_id */}
-              <input
-                type="hidden"
-                name="category_id"
-                value={formData.category_id}
-              />
+              <input type="hidden" name="category_id" value={formData.category_id} />
             </Row>
 
-            {/* Buttons */}
             <div className="product-form-button-container">
               <button
                 type="button"

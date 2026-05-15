@@ -145,6 +145,39 @@ const ProductCatalog = () => {
     return `${baseURL}/uploads/products/${imageFilename}`
   }
 
+  // Get button text based on qr_generated status
+  const getAddToCartButtonText = (product) => {
+    if (isAddingToCart[product.product_id]) {
+      return <>
+        <FaSpinner className="product-catalog-spinner" /> Adding...
+      </>
+    }
+    if (inCartProducts[product.product_id]) {
+      return <>
+        <FaCheck /> In Cart
+      </>
+    }
+    // Check qr_generated status
+    if (product.qr_generated === 1) {
+      return <>
+        <FaShoppingCart /> Order Cart
+      </>
+    } else {
+      return <>
+        <FaShoppingCart /> Add to Cart
+      </>
+    }
+  }
+
+  // Get Order Now button text based on qr_generated status
+  const getOrderNowButtonText = (product) => {
+    if (product.qr_generated === 1) {
+      return "Order Now"
+    } else {
+      return "Buy Now"
+    }
+  }
+
   // Add to cart function
   const handleAddToCart = async (productId) => {
     if (!userData) {
@@ -199,58 +232,54 @@ const ProductCatalog = () => {
   }
 
   // Handle Order Now button click
- // In ProductCatalog.js
-
- // Updated handleOrderNow function
-const handleOrderNow = async (product) => {
-  if (!userData) {
-    alert('Please login to place an order');
-    return;
-  }
-  
-  if (userData.role !== 'Customer') {
-    alert('Only customers can place orders');
-    return;
-  }
-
-  // Store product data
-  const productData = {
-    product_id: product.product_id,
-    product_name: product.product_name,
-    barcode: product.barcode || '',
-    metal_type: product.metal_type || 'Gold',
-    design: product.design || '',
-    purity: product.purity || '22K',
-    gross_wt: parseFloat(product.gross_wt) || 0,
-    net_wt: parseFloat(product.net_wt) || 0,
-    stone_wt: parseFloat(product.stone_wt) || 0,
-    stone_price: parseFloat(product.stone_price) || 0,
-    making_charges: parseFloat(product.making_charges) || 0,
-    tax_percent: parseFloat(product.tax_percent) || 0,
-    tax_amt: parseFloat(product.tax_amt) || 0,
-    rate: parseFloat(product.rate) || 0,
-    total_price: parseFloat(product.total_price) || 0,
-    images: product.images || [],
-    customer_id: userData.id,
-    customer_name: userData.name,
+  const handleOrderNow = async (product) => {
+    if (!userData) {
+      alert('Please login to place an order');
+      return;
+    }
     
-    // Add these new fields for direct ordering
-    estimate_status: 'Ordered',
-    source_by: 'customer',
-    date: new Date().toISOString().split('T')[0] // Today's date
+    if (userData.role !== 'Customer') {
+      alert('Only customers can place orders');
+      return;
+    }
+
+    // Store product data
+    const productData = {
+      product_id: product.product_id,
+      product_name: product.product_name,
+      barcode: product.barcode || '',
+      metal_type: product.metal_type || 'Gold',
+      design: product.design || '',
+      purity: product.purity || '22K',
+      gross_wt: parseFloat(product.gross_wt) || 0,
+      net_wt: parseFloat(product.net_wt) || 0,
+      stone_wt: parseFloat(product.stone_wt) || 0,
+      stone_price: parseFloat(product.stone_price) || 0,
+      making_charges: parseFloat(product.making_charges) || 0,
+      tax_percent: parseFloat(product.tax_percent) || 0,
+      tax_amt: parseFloat(product.tax_amt) || 0,
+      rate: parseFloat(product.rate) || 0,
+      total_price: parseFloat(product.total_price) || 0,
+      images: product.images || [],
+      customer_id: userData.id,
+      customer_name: userData.name,
+      
+      // Add these new fields for direct ordering
+      estimate_status: 'Ordered',
+      source_by: 'customer',
+      date: new Date().toISOString().split('T')[0] // Today's date
+    };
+
+    console.log('Storing product data for estimate form:', productData);
+
+    // Store in localStorage
+    localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
+    
+    // Show message and navigate
+    alert('Product selected for ordering! Redirecting to estimate form...');
+    
+    navigate('/customer-estimates');
   };
-
-  console.log('Storing product data for estimate form:', productData);
-
-  // Store in localStorage
-  localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
-  
-  // Show message and navigate
-  alert('Product selected for ordering! Redirecting to estimate form...');
-  
-  navigate('/customer-estimates');
-};
-
 
   // Rest of your existing functions remain the same...
   const nextImage = (productId, e) => {
@@ -478,25 +507,13 @@ const handleOrderNow = async (product) => {
                       onClick={() => handleAddToCart(product.product_id)}
                       disabled={isAdding || isInCart}
                     >
-                      {isAdding ? (
-                        <>
-                          <FaSpinner className="product-catalog-spinner" /> Adding...
-                        </>
-                      ) : isInCart ? (
-                        <>
-                          <FaCheck /> In Cart
-                        </>
-                      ) : (
-                        <>
-                          <FaShoppingCart /> Add to Cart
-                        </>
-                      )}
+                      {getAddToCartButtonText(product)}
                     </button>
                     <button 
                       className="product-catalog-buy-now-btn"
                       onClick={() => handleOrderNow(product)}
                     >
-                      Order Now
+                      {getOrderNowButtonText(product)}
                     </button>
                   </div>
                 </div>
@@ -590,7 +607,7 @@ const handleOrderNow = async (product) => {
                   ) : inCartProducts[modalProduct.product_id] ? (
                     'Already in Cart'
                   ) : (
-                    'Add to Cart'
+                    modalProduct.qr_generated === 1 ? 'Order Cart' : 'Add to Cart'
                   )}
                 </button>
                 <button 
@@ -600,7 +617,7 @@ const handleOrderNow = async (product) => {
                     closeModal()
                   }}
                 >
-                  Order Now
+                  {modalProduct.qr_generated === 1 ? 'Order Now' : 'Buy Now'}
                 </button>
               </div>
             </div>
