@@ -11,6 +11,7 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import CustomerNavbar from '../../../Pages/Navbar/CustomerNavbar';
 import InvoicePDF from '../../Admin/Transactions/InvoicePDF';
 import './EstimateTable.css';
+import baseURL2 from '../../ApiUrl/NodeBaseURL2';
 
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   const [fromDate, setFromDate] = useState('');
@@ -142,36 +143,295 @@ const EstimateTable = () => {
     return `${day}/${month}/${year}`;
   }, []);
 
-  const handleStatusChange = useCallback(async (rowData, newStatus) => {
-    try {
-      const sourceBy = rowData.source_by;
-      const currentOrderNumber = rowData.order_number;
-      if (currentOrderNumber && currentOrderNumber.trim() !== '') {
-        Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
-        return;
-      }
-      if (sourceBy === "customer") {
-        Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
-        return;
-      }
-      const identifier = rowData.estimate_number;
-      if (!identifier) { Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' }); return; }
-      setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
-      const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, { estimate_status: newStatus });
-      if (response.data && response.data.success) {
-        Swal.fire({ icon: 'success', title: 'Success', text: `Estimate status updated to "${newStatus}" successfully!`, timer: 3000, showConfirmButton: true });
-        setTimeout(() => fetchData(), 1000);
-      } else {
-        throw new Error(response.data?.message || 'Failed to update status');
-      }
-    } catch (error) {
-      let errorMessage = 'Failed to update estimate status. Please try again.';
-      if (error.response?.data?.message) errorMessage = error.response.data.message;
-      Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
-    } finally {
-      setUpdatingStatus(prev => { const newState = { ...prev }; delete newState[rowData.estimate_number]; return newState; });
+// Create sales entries from estimate when status changes to Ordered
+const createSalesFromEstimate = async (estimateNumber) => {
+  try {
+    // Fetch estimate details with products
+    const estimateResponse = await axios.get(`${baseURL}/get-estimates/${estimateNumber}`);
+    const estimateData = estimateResponse.data;
+    
+    if (!estimateData || !estimateData.repeatedData || estimateData.repeatedData.length === 0) {
+      throw new Error('No products found in this estimate');
     }
-  }, [data, fetchData]);
+    
+    // Get latest invoice number
+    const invoiceResponse = await axios.get(`${baseURL2}/lastInvoiceNumber`);
+    const latestInvoiceNumber = invoiceResponse.data.lastInvoiceNumber;
+    
+    // Prepare repairDetails format similar to handleSave
+    const repairDetails = estimateData.repeatedData.map(product => ({
+      id: "",
+      product_id: product.product_id || '',
+      product_name: product.product_name || '',
+      code: product.code || product.barcode || '',
+      metal_type: product.metal_type || '',
+      purity: product.purity || '',
+      gross_weight: parseFloat(product.gross_weight) || 0,
+      stone_weight: parseFloat(product.stone_weight) || 0,
+      weight_bw: parseFloat(product.total_weight_av) || parseFloat(product.net_wt) || 0,
+      stone_price: parseFloat(product.stone_price) || 0,
+      rate: parseFloat(product.rate) || 0,
+      rate_amt: parseFloat(product.rate_amt) || 0,
+      making_charges: parseFloat(product.making_charges) || 0,
+      tax_percent: product.tax_percent || '0.9% GST',
+      tax_amt: parseFloat(product.tax_amt) || 0,
+      total_price: parseFloat(product.total_price) || 0,
+      qty: parseInt(product.qty) || 1
+    }));
+    
+    // Calculate totals
+    let totalNetWt = 0;
+    let totalGrossWt = 0;
+    let totalAmount = 0;
+    
+    repairDetails.forEach(item => {
+      totalNetWt += parseFloat(item.weight_bw) || 0;
+      totalGrossWt += parseFloat(item.gross_weight) || 0;
+      totalAmount += parseFloat(item.total_price) || 0;
+    });
+    
+    // Prepare data to save
+    const dataToSave = {
+      repairDetails: repairDetails.map(item => ({
+        ...item,
+        invoice_number: latestInvoiceNumber,
+        customer_id: estimateData.uniqueData?.customer_id || '',
+        mobile: estimateData.uniqueData?.mobile || '',
+        account_name: estimateData.uniqueData?.customer_name || '',
+        email: estimateData.uniqueData?.email || '',
+        address1: estimateData.uniqueData?.address1 || '',
+        address2: estimateData.uniqueData?.address2 || '',
+        city: estimateData.uniqueData?.city || '',
+        pincode: estimateData.uniqueData?.pincode || '',
+        state: estimateData.uniqueData?.state || '',
+        state_code: estimateData.uniqueData?.state_code || '',
+        aadhar_card: estimateData.uniqueData?.aadhar_card || '',
+        gst_in: estimateData.uniqueData?.gst_in || '',
+        pan_card: estimateData.uniqueData?.pan_card || '',
+        terms: estimateData.uniqueData?.terms || '',
+        cash_amount: 0,
+        card_amt: 0,
+        chq_amt: 0,
+        online_amt: 0,
+      })),
+      totalAmount: totalAmount.toFixed(2),
+      discountAmt: "0.00",
+      festivalDiscountAmt: "0.00",
+      taxableAmount: totalAmount.toFixed(2),
+      taxAmount: "0.00",
+      netAmount: totalAmount.toFixed(2),
+      oldItems: [],
+      memberSchemes: [],
+      oldItemsAmount: "0.00",
+      schemeAmount: "0.00",
+      salesNetAmount: totalAmount.toFixed(2),
+      salesTaxableAmount: totalAmount.toFixed(2),
+      selectedAdvanceReceiptAmount: "0.00",
+      total_net_wt: totalNetWt.toFixed(3),
+      total_gross_wt: totalGrossWt.toFixed(3),
+      total_bal_amt: totalAmount.toFixed(2),
+    };
+    
+    // Save sales data using baseURL2
+    const saveResponse = await axios.post(`${baseURL2}/save-repair-details`, dataToSave);
+    
+    if (saveResponse.status === 200 || saveResponse.status === 201) {
+      console.log('Sales saved successfully with invoice:', latestInvoiceNumber);
+      
+      // Post to ledger API using baseURL2
+      if (estimateData.uniqueData?.customer_id) {
+        try {
+          const ledgerData = {
+            transaction_date: new Date().toISOString().split('T')[0],
+            transaction_type: "SALE",
+            invoice_number: latestInvoiceNumber,
+            credit: 0,
+            debit: parseFloat(totalAmount.toFixed(2)),
+            balance: parseFloat(totalAmount.toFixed(2)),
+            net_wt: parseFloat(totalNetWt.toFixed(3)),
+            gross_wt: parseFloat(totalGrossWt.toFixed(3)),
+            amount: parseFloat(totalAmount.toFixed(2)),
+            account_id: Number(estimateData.uniqueData.customer_id)
+          };
+          
+          await axios.post(`${baseURL2}/ledger`, ledgerData);
+          console.log("Ledger entry created successfully");
+        } catch (ledgerError) {
+          console.error("Error posting to ledger:", ledgerError);
+        }
+      }
+      
+      console.log(`Sales created for estimate ${estimateNumber} with invoice: ${latestInvoiceNumber}`);
+      return true;
+    } else {
+      throw new Error('Failed to save sales data');
+    }
+    
+  } catch (error) {
+    console.error('Error creating sales from estimate:', error);
+    throw error;
+  }
+};
+
+// Generate PDF invoice using the same method as handleSave
+const generateInvoicePDF = async (invoiceNumber, salesData) => {
+  try {
+    // Dynamically import PDF components
+    const { pdf } = await import('@react-pdf/renderer');
+    // Import your PDFLayout component (adjust path as needed)
+    const PDFLayout = (await import('../../Admin/Transactions/PDFLayout')).default;
+    
+    // Get company and product details if needed
+    const company = {}; // Fetch from your context/state
+    const product = {}; // Fetch from your context/state
+    
+    // Create PDF blob
+    const pdfDoc = (
+      <PDFLayout
+        formData={{
+          invoice_number: invoiceNumber,
+          account_name: salesData.repairDetails[0]?.account_name || '',
+          mobile: salesData.repairDetails[0]?.mobile || '',
+          customer_id: salesData.repairDetails[0]?.customer_id || '',
+          address1: salesData.repairDetails[0]?.address1 || '',
+          address2: salesData.repairDetails[0]?.address2 || '',
+          city: salesData.repairDetails[0]?.city || '',
+          pincode: salesData.repairDetails[0]?.pincode || '',
+          state: salesData.repairDetails[0]?.state || '',
+          gst_in: salesData.repairDetails[0]?.gst_in || '',
+        }}
+        repairDetails={salesData.repairDetails}
+        cash_amount={0}
+        card_amt={0}
+        chq_amt={0}
+        online_amt={0}
+        taxableAmount={salesData.taxableAmount}
+        taxAmount={salesData.taxAmount}
+        discountAmt={salesData.discountAmt}
+        festivalDiscountAmt={salesData.festivalDiscountAmt}
+        oldItemsAmount="0.00"
+        schemeAmount="0.00"
+        salesNetAmount={salesData.salesNetAmount}
+        salesTaxableAmount={salesData.salesTaxableAmount}
+        selectedAdvanceReceiptAmount="0.00"
+        netAmount={salesData.netAmount}
+        netPayableAmount={salesData.netAmount}
+        company={company}
+        product={product}
+      />
+    );
+    
+    const pdfBlob = await pdf(pdfDoc).toBlob();
+    
+    // Save PDF to server using the same endpoint
+    const formData = new FormData();
+    formData.append("invoice", pdfBlob, `${invoiceNumber}.pdf`);
+    
+    await fetch(`${baseURL}/upload-invoice`, {
+      method: "POST",
+      body: formData,
+    });
+    
+    console.log(`PDF generated for invoice ${invoiceNumber}`);
+    return true;
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    return false;
+  }
+};
+
+// Generate PDF for sales invoice using baseURL2
+const generateSalesPDF = async (invoiceNumber, salesEntries, salesSummary) => {
+  try {
+    const { pdf } = await import('@react-pdf/renderer');
+    
+    // Update PDF generation status using baseURL2
+    await axios.put(`${baseURL2}/update-sales-pdf/${invoiceNumber}`, {
+      pdf_generated: 1
+    });
+    
+    console.log(`PDF status updated for invoice ${invoiceNumber}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating sales PDF status:', error);
+    return false;
+  }
+};
+
+const handleStatusChange = useCallback(async (rowData, newStatus) => {
+  try {
+    const sourceBy = rowData.source_by;
+    const currentOrderNumber = rowData.order_number;
+    
+    if (currentOrderNumber && currentOrderNumber.trim() !== '') {
+      Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
+      return;
+    }
+    
+    if (sourceBy === "customer") {
+      Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
+      return;
+    }
+    
+    const identifier = rowData.estimate_number;
+    if (!identifier) { 
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' }); 
+      return; 
+    }
+    
+    setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
+    
+    // If status is changing to "Ordered", create sales entries first
+    if (newStatus === 'Ordered') {
+      try {
+        await createSalesFromEstimate(identifier);
+      } catch (salesError) {
+        console.error('Error creating sales:', salesError);
+        Swal.fire({ 
+          icon: 'error', 
+          title: 'Sales Creation Failed', 
+          text: 'Failed to create sales entries. Status not updated.' 
+        });
+        setUpdatingStatus(prev => { 
+          const newState = { ...prev }; 
+          delete newState[identifier]; 
+          return newState; 
+        });
+        return;
+      }
+    }
+    
+    // Update estimate status - using the same endpoint as old working code
+    const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, { 
+      estimate_status: newStatus 
+    });
+    
+    if (response.data && response.data.success) {
+      Swal.fire({ 
+        icon: 'success', 
+        title: 'Success', 
+        text: newStatus === 'Ordered' 
+          ? `Estimate converted to Order successfully! Status updated to "${newStatus}"` 
+          : `Estimate status updated to "${newStatus}" successfully!`, 
+        timer: 3000, 
+        showConfirmButton: true 
+      });
+      setTimeout(() => fetchData(), 1000);
+    } else {
+      throw new Error(response.data?.message || 'Failed to update status');
+    }
+  } catch (error) {
+    let errorMessage = 'Failed to update estimate status. Please try again.';
+    if (error.response?.data?.message) errorMessage = error.response.data.message;
+    Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
+  } finally {
+    setUpdatingStatus(prev => { 
+      const newState = { ...prev }; 
+      delete newState[rowData.estimate_number]; 
+      return newState; 
+    });
+  }
+}, [data, fetchData]);  // IMPORTANT: Added 'data' dependency back
 
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {

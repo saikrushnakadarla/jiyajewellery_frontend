@@ -77,7 +77,7 @@ function App() {
 
   return (
     <Router>
-      <ScreenshotProtection>
+      {/* <ScreenshotProtection> */}
 
          {/* Add Watermark here - appears on ALL pages automatically */}
         <WaterMark />
@@ -161,7 +161,7 @@ function App() {
           <Route path="/qr-code-printing" element={<QRCodePrinting />} />
 
         </Routes>
-      </ScreenshotProtection>
+      {/* </ScreenshotProtection> */}
     </Router>
   );
 }
