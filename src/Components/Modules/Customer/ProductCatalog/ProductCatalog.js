@@ -145,7 +145,7 @@ const ProductCatalog = () => {
     return `${baseURL}/uploads/products/${imageFilename}`
   }
 
-  // Get button text based on qr_generated status
+  // REVERSED: Get button text based on qr_generated status
   const getAddToCartButtonText = (product) => {
     if (isAddingToCart[product.product_id]) {
       return <>
@@ -157,24 +157,25 @@ const ProductCatalog = () => {
         <FaCheck /> In Cart
       </>
     }
-    // Check qr_generated status
+    // REVERSED LOGIC: If qr_generated === 1, show "Add to Cart", else show "Order Cart"
     if (product.qr_generated === 1) {
       return <>
-        <FaShoppingCart /> Order Cart
+        <FaShoppingCart /> Add to Cart
       </>
     } else {
       return <>
-        <FaShoppingCart /> Add to Cart
+        <FaShoppingCart /> Order Cart
       </>
     }
   }
 
-  // Get Order Now button text based on qr_generated status
+  // REVERSED: Get Order Now button text based on qr_generated status
   const getOrderNowButtonText = (product) => {
+    // REVERSED LOGIC: If qr_generated === 1, show "Buy Now", else show "Order Now"
     if (product.qr_generated === 1) {
-      return "Order Now"
-    } else {
       return "Buy Now"
+    } else {
+      return "Order Now"
     }
   }
 
@@ -231,7 +232,7 @@ const ProductCatalog = () => {
     }
   }
 
-  // Handle Order Now button click
+  // Handle Order Now button click (Buy Now for QR generated, Order Now for regular products)
   const handleOrderNow = async (product) => {
     if (!userData) {
       alert('Please login to place an order');
@@ -275,8 +276,9 @@ const ProductCatalog = () => {
     // Store in localStorage
     localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
     
-    // Show message and navigate
-    alert('Product selected for ordering! Redirecting to estimate form...');
+    // Show message based on product type
+    const actionText = product.qr_generated === 1 ? 'Buy Now' : 'Order Now';
+    alert(`Product selected for ${actionText}! Redirecting to estimate form...`);
     
     navigate('/customer-estimates');
   };
@@ -500,20 +502,20 @@ const ProductCatalog = () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions - REVERSED BUTTON ORDER */}
                   <div className="product-catalog-actions">
+                    <button 
+                      className="product-catalog-buy-now-btn"
+                      onClick={() => handleOrderNow(product)}
+                    >
+                      {getOrderNowButtonText(product)}
+                    </button>
                     <button 
                       className={`product-catalog-add-to-cart-btn ${isInCart ? 'product-catalog-in-cart' : ''}`}
                       onClick={() => handleAddToCart(product.product_id)}
                       disabled={isAdding || isInCart}
                     >
                       {getAddToCartButtonText(product)}
-                    </button>
-                    <button 
-                      className="product-catalog-buy-now-btn"
-                      onClick={() => handleOrderNow(product)}
-                    >
-                      {getOrderNowButtonText(product)}
                     </button>
                   </div>
                 </div>
@@ -523,7 +525,7 @@ const ProductCatalog = () => {
         </div>
       </div>
 
-      {/* Modal Popup for Image Carousel */}
+      {/* Modal Popup for Image Carousel - REVERSED BUTTON ORDER */}
       {isModalOpen && modalProduct && (
         <div className="product-catalog-modal-overlay" onClick={closeModal}>
           <div className="product-catalog-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -580,7 +582,7 @@ const ProductCatalog = () => {
               )}
             </div>
             
-            {/* Product Info in Modal */}
+            {/* Product Info in Modal - REVERSED BUTTON ORDER */}
             <div className="product-catalog-modal-product-info">
               <h3 className="product-catalog-modal-product-name">{modalProduct.product_name}</h3>
               <p className="product-catalog-modal-product-barcode">Barcode: {modalProduct.barcode}</p>
@@ -592,6 +594,15 @@ const ProductCatalog = () => {
                 Total Price: {formatPrice(parseFloat(modalProduct.total_price))}
               </div>
               <div className="product-catalog-modal-actions">
+                <button 
+                  className="product-catalog-modal-order-now"
+                  onClick={() => {
+                    handleOrderNow(modalProduct)
+                    closeModal()
+                  }}
+                >
+                  {modalProduct.qr_generated === 1 ? 'Buy Now' : 'Order Now'}
+                </button>
                 <button 
                   className={`product-catalog-modal-add-to-cart ${inCartProducts[modalProduct.product_id] ? 'product-catalog-modal-in-cart' : ''}`}
                   onClick={() => {
@@ -607,17 +618,8 @@ const ProductCatalog = () => {
                   ) : inCartProducts[modalProduct.product_id] ? (
                     'Already in Cart'
                   ) : (
-                    modalProduct.qr_generated === 1 ? 'Order Cart' : 'Add to Cart'
+                    modalProduct.qr_generated === 1 ? 'Add to Cart' : 'Order Cart'
                   )}
-                </button>
-                <button 
-                  className="product-catalog-modal-order-now"
-                  onClick={() => {
-                    handleOrderNow(modalProduct)
-                    closeModal()
-                  }}
-                >
-                  {modalProduct.qr_generated === 1 ? 'Order Now' : 'Buy Now'}
                 </button>
               </div>
             </div>
