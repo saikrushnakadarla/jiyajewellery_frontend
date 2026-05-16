@@ -462,7 +462,7 @@ function CustomerRegistration() {
   };
 
   // Function to store customer in accounts database
-  const storeInAccountsDB = async (customerData) => {
+  const storeInAccountsDB = async (customerData, customerId) => {
     try {
       const accountsData = {
         account_name: customerData.full_name,
@@ -494,7 +494,8 @@ function CustomerRegistration() {
         religion: "",
         images: null,
         latitude: customerData.latitude || null,
-        longitude: customerData.longitude || null
+        longitude: customerData.longitude || null,
+        customer_id: customerId 
       };
 
       console.log("Sending to accounts API:", accountsData);
@@ -576,6 +577,10 @@ function CustomerRegistration() {
         const result = await response.json();
         console.log("User registration success:", result);
 
+        // Get the generated customer_id from the response
+      const generatedCustomerId = result.customer_id;
+      console.log("Generated Customer ID:", generatedCustomerId);
+
         // Second API call - Store in accounts database
         const customerDataForAccounts = {
           full_name: formData.full_name,
@@ -591,13 +596,13 @@ function CustomerRegistration() {
           longitude: formData.longitude
         };
 
-        await storeInAccountsDB(customerDataForAccounts);
+        await storeInAccountsDB(customerDataForAccounts, generatedCustomerId);
 
         // Show success alert
         Swal.fire({
           icon: 'success',
           title: 'Registration Successful!',
-          text: 'Your account has been created successfully and is pending admin approval.',
+          text: `Your account has been created successfully with Customer ID: ${generatedCustomerId}. Your account is pending admin approval.`,
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
