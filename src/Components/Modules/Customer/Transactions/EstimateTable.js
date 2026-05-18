@@ -55,7 +55,7 @@ const EstimateTable = () => {
           return null;
         }
         const parsedUser = JSON.parse(userDataStr);
-        const custId = parsedUser.customer_id || parsedUser.id || parsedUser.userId || parsedUser.customerId;
+        const custId = parsedUser.id || parsedUser.userId || parsedUser.customerId;
         if (custId) {
           setCustomerId(custId);
           return custId;
@@ -144,6 +144,7 @@ const EstimateTable = () => {
   }, []);
 
 // Create sales entries from estimate when status changes to Ordered
+// Create sales entries from estimate when status changes to Ordered
 const createSalesFromEstimate = async (estimateNumber) => {
   try {
     // Fetch estimate details with products
@@ -154,11 +155,18 @@ const createSalesFromEstimate = async (estimateNumber) => {
       throw new Error('No products found in this estimate');
     }
     
+    // Get current logged-in customer details from localStorage
+    const userDataStr = localStorage.getItem('user');
+    let currentCustomer = null;
+    if (userDataStr) {
+      currentCustomer = JSON.parse(userDataStr);
+    }
+    
     // Get latest invoice number
     const invoiceResponse = await axios.get(`${baseURL2}/lastInvoiceNumber`);
     const latestInvoiceNumber = invoiceResponse.data.lastInvoiceNumber;
     
-    // Prepare repairDetails format similar to handleSave
+    // Prepare repairDetails format with proper customer and product details
     const repairDetails = estimateData.repeatedData.map(product => ({
       id: "",
       product_id: product.product_id || '',
@@ -176,7 +184,27 @@ const createSalesFromEstimate = async (estimateNumber) => {
       tax_percent: product.tax_percent || '0.9% GST',
       tax_amt: parseFloat(product.tax_amt) || 0,
       total_price: parseFloat(product.total_price) || 0,
-      qty: parseInt(product.qty) || 1
+      qty: parseInt(product.qty) || 1,
+      // Customer details (will be added to each product entry)
+      customer_id: estimateData.uniqueData?.customer_id || currentCustomer?.id || currentCustomer?.userId || currentCustomer?.customerId || '',
+      mobile: estimateData.uniqueData?.mobile || currentCustomer?.mobile || '',
+      account_name: estimateData.uniqueData?.customer_name || currentCustomer?.name || currentCustomer?.full_name || '',
+      email: estimateData.uniqueData?.email || currentCustomer?.email || '',
+      address1: estimateData.uniqueData?.address1 || currentCustomer?.address1 || '',
+      address2: estimateData.uniqueData?.address2 || currentCustomer?.address2 || '',
+      city: estimateData.uniqueData?.city || currentCustomer?.city || '',
+      pincode: estimateData.uniqueData?.pincode || currentCustomer?.pincode || '',
+      state: estimateData.uniqueData?.state || currentCustomer?.state || '',
+      state_code: estimateData.uniqueData?.state_code || currentCustomer?.state_code || '',
+      aadhar_card: estimateData.uniqueData?.aadhar_card || currentCustomer?.aadhar_card || '',
+      gst_in: estimateData.uniqueData?.gst_in || currentCustomer?.gst_in || '',
+      pan_card: estimateData.uniqueData?.pan_card || currentCustomer?.pan_card || '',
+      terms: estimateData.uniqueData?.terms || '',
+      cash_amount: 0,
+      card_amt: 0,
+      chq_amt: 0,
+      online_amt: 0,
+      invoice_number: latestInvoiceNumber
     }));
     
     // Calculate totals
@@ -190,29 +218,22 @@ const createSalesFromEstimate = async (estimateNumber) => {
       totalAmount += parseFloat(item.total_price) || 0;
     });
     
-    // Prepare data to save
+    // Get customer details for the main sales record
+    const customerId = repairDetails[0]?.customer_id || '';
+    const customerName = repairDetails[0]?.account_name || '';
+    const customerMobile = repairDetails[0]?.mobile || '';
+    const customerEmail = repairDetails[0]?.email || '';
+    const customerPincode = repairDetails[0]?.pincode || '';
+    
+    // Prepare data to save - each product as separate entry
     const dataToSave = {
       repairDetails: repairDetails.map(item => ({
         ...item,
-        invoice_number: latestInvoiceNumber,
-        customer_id: estimateData.uniqueData?.customer_id || '',
-        mobile: estimateData.uniqueData?.mobile || '',
-        account_name: estimateData.uniqueData?.customer_name || '',
-        email: estimateData.uniqueData?.email || '',
-        address1: estimateData.uniqueData?.address1 || '',
-        address2: estimateData.uniqueData?.address2 || '',
-        city: estimateData.uniqueData?.city || '',
-        pincode: estimateData.uniqueData?.pincode || '',
-        state: estimateData.uniqueData?.state || '',
-        state_code: estimateData.uniqueData?.state_code || '',
-        aadhar_card: estimateData.uniqueData?.aadhar_card || '',
-        gst_in: estimateData.uniqueData?.gst_in || '',
-        pan_card: estimateData.uniqueData?.pan_card || '',
-        terms: estimateData.uniqueData?.terms || '',
-        cash_amount: 0,
-        card_amt: 0,
-        chq_amt: 0,
-        online_amt: 0,
+        customer_id: customerId,
+        account_name: customerName,
+        mobile: customerMobile,
+        email: customerEmail,
+        pincode: customerPincode
       })),
       totalAmount: totalAmount.toFixed(2),
       discountAmt: "0.00",
@@ -237,9 +258,16 @@ const createSalesFromEstimate = async (estimateNumber) => {
     
     if (saveResponse.status === 200 || saveResponse.status === 201) {
       console.log('Sales saved successfully with invoice:', latestInvoiceNumber);
+      console.log('Customer details saved:', {
+        customer_id: customerId,
+        account_name: customerName,
+        mobile: customerMobile,
+        email: customerEmail,
+        pincode: customerPincode
+      });
       
       // Post to ledger API using baseURL2
-      if (estimateData.uniqueData?.customer_id) {
+      if (customerId) {
         try {
           const ledgerData = {
             transaction_date: new Date().toISOString().split('T')[0],
@@ -251,7 +279,7 @@ const createSalesFromEstimate = async (estimateNumber) => {
             net_wt: parseFloat(totalNetWt.toFixed(3)),
             gross_wt: parseFloat(totalGrossWt.toFixed(3)),
             amount: parseFloat(totalAmount.toFixed(2)),
-            account_id: Number(estimateData.uniqueData.customer_id)
+            account_id: Number(customerId)
           };
           
           await axios.post(`${baseURL2}/ledger`, ledgerData);
