@@ -150,151 +150,301 @@ const createSalesFromEstimate = async (estimateNumber) => {
     // Fetch estimate details with products
     const estimateResponse = await axios.get(`${baseURL}/get-estimates/${estimateNumber}`);
     const estimateData = estimateResponse.data;
-    
+
     if (!estimateData || !estimateData.repeatedData || estimateData.repeatedData.length === 0) {
       throw new Error('No products found in this estimate');
     }
-    
+
     // Get current logged-in customer details from localStorage
     const userDataStr = localStorage.getItem('user');
     let currentCustomer = null;
     if (userDataStr) {
       currentCustomer = JSON.parse(userDataStr);
     }
-    
+
     // Get latest invoice number
     const invoiceResponse = await axios.get(`${baseURL2}/lastInvoiceNumber`);
     const latestInvoiceNumber = invoiceResponse.data.lastInvoiceNumber;
-    
-    // Prepare repairDetails format with proper customer and product details
-    const repairDetails = estimateData.repeatedData.map(product => ({
-      id: "",
-      product_id: product.product_id || '',
-      product_name: product.product_name || '',
-      code: product.code || product.barcode || '',
-      metal_type: product.metal_type || '',
-      purity: product.purity || '',
-      gross_weight: parseFloat(product.gross_weight) || 0,
-      stone_weight: parseFloat(product.stone_weight) || 0,
-      weight_bw: parseFloat(product.total_weight_av) || parseFloat(product.net_wt) || 0,
-      stone_price: parseFloat(product.stone_price) || 0,
-      rate: parseFloat(product.rate) || 0,
-      rate_amt: parseFloat(product.rate_amt) || 0,
-      making_charges: parseFloat(product.making_charges) || 0,
-      tax_percent: product.tax_percent || '0.9% GST',
-      tax_amt: parseFloat(product.tax_amt) || 0,
-      total_price: parseFloat(product.total_price) || 0,
-      qty: parseInt(product.qty) || 1,
-      // Customer details (will be added to each product entry)
-      customer_id: estimateData.uniqueData?.customer_id || currentCustomer?.id || currentCustomer?.userId || currentCustomer?.customerId || '',
-      mobile: estimateData.uniqueData?.mobile || currentCustomer?.mobile || '',
-      account_name: estimateData.uniqueData?.customer_name || currentCustomer?.name || currentCustomer?.full_name || '',
-      email: estimateData.uniqueData?.email || currentCustomer?.email || '',
-      address1: estimateData.uniqueData?.address1 || currentCustomer?.address1 || '',
-      address2: estimateData.uniqueData?.address2 || currentCustomer?.address2 || '',
-      city: estimateData.uniqueData?.city || currentCustomer?.city || '',
-      pincode: estimateData.uniqueData?.pincode || currentCustomer?.pincode || '',
-      state: estimateData.uniqueData?.state || currentCustomer?.state || '',
-      state_code: estimateData.uniqueData?.state_code || currentCustomer?.state_code || '',
-      aadhar_card: estimateData.uniqueData?.aadhar_card || currentCustomer?.aadhar_card || '',
-      gst_in: estimateData.uniqueData?.gst_in || currentCustomer?.gst_in || '',
-      pan_card: estimateData.uniqueData?.pan_card || currentCustomer?.pan_card || '',
-      terms: estimateData.uniqueData?.terms || '',
-      cash_amount: 0,
-      card_amt: 0,
-      chq_amt: 0,
-      online_amt: 0,
-      invoice_number: latestInvoiceNumber
-    }));
-    
-    // Calculate totals
-    let totalNetWt = 0;
-    let totalGrossWt = 0;
-    let totalAmount = 0;
-    
-    repairDetails.forEach(item => {
-      totalNetWt += parseFloat(item.weight_bw) || 0;
-      totalGrossWt += parseFloat(item.gross_weight) || 0;
-      totalAmount += parseFloat(item.total_price) || 0;
+
+    // Today's date in YYYY-MM-DD format
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    // Resolve customer details - prefer estimate data, fallback to localStorage
+    const uniqueData = estimateData.uniqueData || {};
+
+    const resolvedCustomerId =
+      uniqueData.customer_id ||
+      currentCustomer?.id ||
+      currentCustomer?.userId ||
+      currentCustomer?.customerId ||
+      '';
+
+    const resolvedMobile =
+      uniqueData.mobile ||
+      currentCustomer?.mobile ||
+      currentCustomer?.phone ||
+      '';
+
+    const resolvedName =
+      uniqueData.customer_name ||
+      currentCustomer?.name ||
+      currentCustomer?.full_name ||
+      currentCustomer?.account_name ||
+      '';
+
+    const resolvedEmail =
+      uniqueData.email || currentCustomer?.email || '';
+
+    const resolvedAddress1 =
+      uniqueData.address1 || currentCustomer?.address1 || '';
+
+    const resolvedAddress2 =
+      uniqueData.address2 || currentCustomer?.address2 || '';
+
+    const resolvedCity =
+      uniqueData.city || currentCustomer?.city || '';
+
+    const resolvedPincode =
+      uniqueData.pincode || currentCustomer?.pincode || '';
+
+    const resolvedState =
+      uniqueData.state || currentCustomer?.state || '';
+
+    const resolvedStateCode =
+      uniqueData.state_code || currentCustomer?.state_code || '';
+
+    const resolvedAadhar =
+      uniqueData.aadhar_card || currentCustomer?.aadhar_card || '';
+
+    const resolvedGstIn =
+      uniqueData.gst_in || currentCustomer?.gst_in || '';
+
+    const resolvedPanCard =
+      uniqueData.pan_card || currentCustomer?.pan_card || '';
+
+    const resolvedTerms =
+      uniqueData.terms || currentCustomer?.terms || '';
+
+    // Build repairDetails array matching the repair_details table columns exactly
+    const repairDetailsList = estimateData.repeatedData.map(product => {
+      const totalPrice  = parseFloat(product.total_price)    || 0;
+      const taxAmt      = parseFloat(product.tax_amt)        || 0;
+      const taxableAmt  = parseFloat(product.taxable_amount) || (totalPrice - taxAmt);
+
+      return {
+        // ── Customer / account info ──────────────────────────
+        customer_id:      resolvedCustomerId,
+        account_id:       resolvedCustomerId,   // same as customer_id
+        mobile:           resolvedMobile,
+        account_name:     resolvedName,
+        email:            resolvedEmail,
+        address1:         resolvedAddress1,
+        address2:         resolvedAddress2,
+        city:             resolvedCity,
+        pincode:          resolvedPincode,
+        state:            resolvedState,
+        state_code:       resolvedStateCode,
+        aadhar_card:      resolvedAadhar,
+        gst_in:           resolvedGstIn,
+        pan_card:         resolvedPanCard,
+        terms:            resolvedTerms,
+
+        // ── Invoice / date ───────────────────────────────────
+        invoice_number:   latestInvoiceNumber,
+        date:             todayDate,
+
+        // ── Product identifiers ──────────────────────────────
+        product_id:       product.product_id    || '',
+        code:             product.code          || product.barcode || '',
+        product_name:     product.product_name  || '',
+        opentag_id:       product.opentag_id    || null,
+
+        // ── Metal / purity ───────────────────────────────────
+        metal:            product.metal_type    || '',
+        metal_type:       product.metal_type    || '',
+        design_name:      product.design_name   || '',
+        purity:           product.purity        || '',
+        selling_purity:   product.selling_purity  || product.purity || '',
+        printing_purity:  product.printing_purity || product.purity || '',
+        custom_purity:    product.custom_purity  || null,
+        pricing:          product.pricing        || '',
+        category:         product.category       || '',
+        sub_category:     product.sub_category   || '',
+
+        // ── Weights ──────────────────────────────────────────
+        gross_weight:     parseFloat(product.gross_weight)    || 0,
+        stone_weight:     parseFloat(product.stone_weight)    || 0,
+        weight_bw:        parseFloat(product.total_weight_av) || parseFloat(product.net_wt) || 0,
+        stone_price:      parseFloat(product.stone_price)     || 0,
+        va_on:            product.va_on                       || '',
+        va_percent:       parseFloat(product.va_percent)      || 0,
+        wastage_weight:   parseFloat(product.wastage_weight)  || 0,
+        total_weight_av:  parseFloat(product.total_weight_av) || 0,
+
+        // ── Making charges ───────────────────────────────────
+        mc_on:            product.mc_on                       || '',
+        mc_per_gram:      parseFloat(product.mc_per_gram)     || 0,
+        making_charges:   parseFloat(product.making_charges)  || 0,
+
+        // ── Discount ─────────────────────────────────────────
+        disscount_percentage: parseFloat(product.disscount_percentage) || 0,
+        disscount:            parseFloat(product.disscount)            || 0,
+
+        // ── Rate / pricing ───────────────────────────────────
+        rate:             parseFloat(product.rate)            || 0,
+        rate_24k:         parseFloat(product.rate_24k)        || 0,
+        rate_amt:         parseFloat(product.rate_amt)        || 0,
+
+        // ── Tax ──────────────────────────────────────────────
+        tax_percent:      product.tax_percent                 || '3.00',
+        tax_amt:          taxAmt,
+        taxable_amount:   taxableAmt,
+        tax_amount:       taxAmt,
+
+        // ── Totals ───────────────────────────────────────────
+        total_price:      totalPrice,
+        net_amount:       totalPrice,
+
+        // ── Net Bill / Paid / Balance (exact DB column names) ─
+        net_bill_amount:      totalPrice,    // Net Payable Amt = Net Amt
+        paid_amt:             0,             // initially 0
+        bal_amt:              totalPrice,    // net_bill_amount - paid_amt = total - 0
+        old_exchange_amt:     0,
+        scheme_amt:           0,
+        sale_return_amt:      0,             // ← must be 0, NOT the total
+        advance_receipt_amt:  0,
+        receipts_amt:         null,
+        bal_after_receipts:   null,
+
+        // ── Payment columns (all 0 on creation) ─────────────
+        cash_amount:      0,
+        card_amount:      0,
+        card_amt:         0,
+        chq:              0,
+        chq_amt:          0,
+        online:           0,
+        online_amt:       0,
+
+        // ── Misc ─────────────────────────────────────────────
+        qty:                parseInt(product.qty) || 1,
+        transaction_status: 'Sales',
+        sale_status:        'active',
+        assigning:          'pending',
+        status:             null,
+        order_status:       null,
+        order_number:       null,
+        invoice:            null,
+        product_image:      null,
+        imagePreview:       null,
+        worker_name:        null,
+        delivery_date:      null,
+        original_total_price:         null,
+        pieace_cost:                  null,
+        mrp_price:                    null,
+        hm_charges:                   parseFloat(product.hm_charges) || null,
+        remarks:                      product.remarks || null,
+        original_piece_taxable_amt:   0,
+        piece_taxable_amt:            0,
+        festival_discount:            null,
+        advance_amt:                  null,
+        customerImage:                null,
+        size:                         null,
+      };
     });
-    
-    // Get customer details for the main sales record
-    const customerId = repairDetails[0]?.customer_id || '';
-    const customerName = repairDetails[0]?.account_name || '';
-    const customerMobile = repairDetails[0]?.mobile || '';
-    const customerEmail = repairDetails[0]?.email || '';
-    const customerPincode = repairDetails[0]?.pincode || '';
-    
-    // Prepare data to save - each product as separate entry
+
+    // ── Totals across all products ───────────────────────────────────
+    let totalNetWt   = 0;
+    let totalGrossWt = 0;
+    let totalAmount  = 0;
+    let totalTaxAmt  = 0;
+
+    repairDetailsList.forEach(item => {
+      totalNetWt   += parseFloat(item.weight_bw)    || 0;
+      totalGrossWt += parseFloat(item.gross_weight)  || 0;
+      totalAmount  += parseFloat(item.total_price)   || 0;
+      totalTaxAmt  += parseFloat(item.tax_amt)       || 0;
+    });
+
+    const netPayableAmt = totalAmount;   // Net Payable = Net Amt
+    const paidAmt       = 0;             // initially 0
+    const balAmt        = netPayableAmt; // balance = netPayable - paid
+
+    // ── Final payload sent to /save-repair-details ───────────────────
     const dataToSave = {
-      repairDetails: repairDetails.map(item => ({
-        ...item,
-        customer_id: customerId,
-        account_name: customerName,
-        mobile: customerMobile,
-        email: customerEmail,
-        pincode: customerPincode
-      })),
-      totalAmount: totalAmount.toFixed(2),
-      discountAmt: "0.00",
-      festivalDiscountAmt: "0.00",
-      taxableAmount: totalAmount.toFixed(2),
-      taxAmount: "0.00",
-      netAmount: totalAmount.toFixed(2),
-      oldItems: [],
-      memberSchemes: [],
-      oldItemsAmount: "0.00",
-      schemeAmount: "0.00",
-      salesNetAmount: totalAmount.toFixed(2),
-      salesTaxableAmount: totalAmount.toFixed(2),
+      repairDetails: repairDetailsList,
+
+      // Summary / header level fields
+      totalAmount:                  totalAmount.toFixed(2),
+      discountAmt:                  "0.00",
+      festivalDiscountAmt:          "0.00",
+      taxableAmount:                (totalAmount - totalTaxAmt).toFixed(2),
+      taxAmount:                    totalTaxAmt.toFixed(2),
+      netAmount:                    totalAmount.toFixed(2),
+
+      // Exact DB column names for bill amounts
+      net_bill_amount:              netPayableAmt.toFixed(2),
+      paid_amt:                     paidAmt.toFixed(2),
+      bal_amt:                      balAmt.toFixed(2),
+      old_exchange_amt:             "0.00",
+      scheme_amt:                   "0.00",
+      sale_return_amt:              "0.00",   // ← must be 0
+      advance_receipt_amt:          "0.00",
+
+      // Aliases the backend may also read
+      salesNetAmount:               totalAmount.toFixed(2),
+      salesTaxableAmount:           (totalAmount - totalTaxAmt).toFixed(2),
       selectedAdvanceReceiptAmount: "0.00",
-      total_net_wt: totalNetWt.toFixed(3),
-      total_gross_wt: totalGrossWt.toFixed(3),
-      total_bal_amt: totalAmount.toFixed(2),
+      total_net_wt:                 totalNetWt.toFixed(3),
+      total_gross_wt:               totalGrossWt.toFixed(3),
+
+      // Top-level customer & date
+      customer_id:    resolvedCustomerId,
+      mobile:         resolvedMobile,
+      account_name:   resolvedName,
+      date:           todayDate,
+      invoice_number: latestInvoiceNumber,
     };
-    
-    // Save sales data using baseURL2
+
+    // ── Save to backend ──────────────────────────────────────────────
     const saveResponse = await axios.post(`${baseURL2}/save-repair-details`, dataToSave);
-    
+
     if (saveResponse.status === 200 || saveResponse.status === 201) {
       console.log('Sales saved successfully with invoice:', latestInvoiceNumber);
       console.log('Customer details saved:', {
-        customer_id: customerId,
-        account_name: customerName,
-        mobile: customerMobile,
-        email: customerEmail,
-        pincode: customerPincode
+        customer_id:  resolvedCustomerId,
+        account_name: resolvedName,
+        mobile:       resolvedMobile,
+        email:        resolvedEmail,
       });
-      
-      // Post to ledger API using baseURL2
-      if (customerId) {
+
+      // ── Ledger entry ─────────────────────────────────────────────
+      if (resolvedCustomerId) {
         try {
-          const ledgerData = {
-            transaction_date: new Date().toISOString().split('T')[0],
+          await axios.post(`${baseURL2}/ledger`, {
+            transaction_date: todayDate,
             transaction_type: "SALE",
-            invoice_number: latestInvoiceNumber,
-            credit: 0,
-            debit: parseFloat(totalAmount.toFixed(2)),
-            balance: parseFloat(totalAmount.toFixed(2)),
-            net_wt: parseFloat(totalNetWt.toFixed(3)),
-            gross_wt: parseFloat(totalGrossWt.toFixed(3)),
-            amount: parseFloat(totalAmount.toFixed(2)),
-            account_id: Number(customerId)
-          };
-          
-          await axios.post(`${baseURL2}/ledger`, ledgerData);
+            invoice_number:   latestInvoiceNumber,
+            credit:           0,
+            debit:            parseFloat(totalAmount.toFixed(2)),
+            balance:          parseFloat(totalAmount.toFixed(2)),
+            net_wt:           parseFloat(totalNetWt.toFixed(3)),
+            gross_wt:         parseFloat(totalGrossWt.toFixed(3)),
+            amount:           parseFloat(totalAmount.toFixed(2)),
+            account_id:       Number(resolvedCustomerId),
+          });
           console.log("Ledger entry created successfully");
         } catch (ledgerError) {
           console.error("Error posting to ledger:", ledgerError);
         }
       }
-      
+
       console.log(`Sales created for estimate ${estimateNumber} with invoice: ${latestInvoiceNumber}`);
       return true;
+
     } else {
       throw new Error('Failed to save sales data');
     }
-    
+
   } catch (error) {
     console.error('Error creating sales from estimate:', error);
     throw error;

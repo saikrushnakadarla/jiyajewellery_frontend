@@ -45,7 +45,7 @@ const EstimateForm = () => {
   const [sharedPacketBarcode, setSharedPacketBarcode] = useState(null);
   const [sharedPacketWt, setSharedPacketWt] = useState(null);
 
-  // ✅ FIX: Refs to hold latest packet values for use inside stale scanner callbacks
+  // Refs for latest values
   const sharedPacketBarcodeRef = useRef(null);
   const sharedPacketWtRef = useRef(null);
   const isPacketScannedRef = useRef(false);
@@ -66,7 +66,7 @@ const EstimateForm = () => {
 
   // Success message state
   const [successMessage, setSuccessMessage] = useState("");
-  const [packetSuccessMessage, setPacketSuccessMessage] = useState(""); // NEW: Packet success message
+  const [packetSuccessMessage, setPacketSuccessMessage] = useState("");
   const [lastAddedProduct, setLastAddedProduct] = useState("");
 
   // Form data
@@ -122,7 +122,6 @@ const EstimateForm = () => {
     }
   }, [successMessage]);
 
-  // Auto-hide packet success message after 3 seconds
   useEffect(() => {
     if (packetSuccessMessage) {
       const timer = setTimeout(() => {
@@ -204,7 +203,6 @@ const EstimateForm = () => {
     }
   }, [showScanner, isScannerInitialized]);
 
-  // Initialize packet scanner when modal opens
   useEffect(() => {
     if (showPacketScanner && !isPacketScannerInitialized) {
       const timer = setTimeout(() => {
@@ -290,7 +288,6 @@ const EstimateForm = () => {
       if (response.data.success && response.data.data) {
         const packet = response.data.data;
 
-        // Update state AND refs
         setPacketDetails(packet);
         setSharedPacketBarcode(packet.qr_code);
         setSharedPacketWt(packet.packet_wt || null);
@@ -300,7 +297,6 @@ const EstimateForm = () => {
         sharedPacketWtRef.current = packet.packet_wt || null;
         isPacketScannedRef.current = true;
 
-        // ✅ KEY FIX: If products were already saved, update them all now
         const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
         if (estimateNum) {
           try {
@@ -308,13 +304,12 @@ const EstimateForm = () => {
               packet_barcode: packet.qr_code,
               packet_wt: packet.packet_wt || null
             });
-            console.log("✅ Updated existing estimate rows with packet barcode:", packet.qr_code);
+            console.log("Updated existing estimate rows with packet barcode:", packet.qr_code);
           } catch (updateErr) {
             console.error("Failed to update existing rows with packet barcode:", updateErr);
           }
         }
 
-        // ✅ Set packet success message (only barcode, no card/packet details)
         setPacketSuccessMessage(`✓ Packet Added Successfully! - Barcode: ${packet.qr_code}`);
 
         Swal.fire({
@@ -332,6 +327,96 @@ const EstimateForm = () => {
       console.error('Error processing packet QR:', error);
       Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
     }
+  };
+
+  // FIXED: Function to calculate all product values
+  const calculateProductTotals = (productDetails) => {
+    // Parse numeric values
+    const grossWeight = parseFloat(productDetails.gross_wt) || 0;
+    const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
+    const stonePrice = parseFloat(productDetails.stone_price) || 0;
+    const rate = parseFloat(productDetails.rate) || 0;
+    const vaPercent = parseFloat(productDetails.va_percent) || 0;
+    const vaOn = productDetails.va_on || "Gross Weight";
+    const mcPerGram = parseFloat(productDetails.mc_per_gram) || 0;
+    const mcOn = productDetails.mc_on || "MC %";
+    const hmCharges = parseFloat(productDetails.hm_charges) || 60.00;
+    const taxPercent = productDetails.tax_percent || "0.9% GST";
+    const pricing = productDetails.pricing || "By Weight";
+    const qty = parseFloat(productDetails.qty) || 1;
+
+    // Calculate Net Weight
+    const netWeight = grossWeight - stoneWeight;
+
+    // Calculate Wastage and Total Weight
+    let wastageWeight = 0;
+    let totalWeight = netWeight;
+
+    if (vaOn === "Gross Weight") {
+      wastageWeight = (grossWeight * vaPercent) / 100;
+      totalWeight = netWeight + wastageWeight;
+    } else if (vaOn === "Weight BW") {
+      wastageWeight = (netWeight * vaPercent) / 100;
+      totalWeight = netWeight + wastageWeight;
+    }
+
+    // Calculate Rate Amount
+    let rateAmount = 0;
+    if (pricing === "By Weight") {
+      rateAmount = rate * totalWeight;
+    } else if (pricing === "By fixed") {
+      rateAmount = rate * qty;
+    }
+
+    // Calculate Making Charges
+    let makingCharges = 0;
+    if (mcOn === "MC / Gram") {
+      makingCharges = mcPerGram * totalWeight;
+    } else if (mcOn === "MC %") {
+      makingCharges = (mcPerGram * rateAmount) / 100;
+    } else if (mcOn === "MC / Piece") {
+      makingCharges = mcPerGram * qty;
+    }
+
+    // Parse tax percentage (remove % sign if present)
+    let taxPercentNum = 0;
+    if (taxPercent) {
+      const taxMatch = taxPercent.match(/(\d+(?:\.\d+)?)/);
+      if (taxMatch) {
+        taxPercentNum = parseFloat(taxMatch[1]);
+      }
+    }
+
+    // Calculate Tax and Total Price
+    const totalBeforeTax = rateAmount + stonePrice + makingCharges + hmCharges;
+    const taxAmount = (totalBeforeTax * taxPercentNum) / 100;
+    const totalPrice = totalBeforeTax + taxAmount;
+
+    // Calculate Weight BW (same as net weight)
+    const weightBW = netWeight;
+
+    return {
+      gross_weight: grossWeight.toFixed(3),
+      stone_weight: stoneWeight.toFixed(3),
+      stone_price: stonePrice.toFixed(2),
+      net_weight: netWeight.toFixed(3),
+      weight_bw: weightBW.toFixed(3),
+      wastage_weight: wastageWeight.toFixed(3),
+      total_weight_av: totalWeight.toFixed(3),
+      rate: rate.toFixed(2),
+      rate_amt: rateAmount.toFixed(2),
+      making_charges: makingCharges.toFixed(2),
+      tax_percent: taxPercent,
+      tax_amt: taxAmount.toFixed(2),
+      total_price: totalPrice.toFixed(2),
+      va_percent: vaPercent,
+      va_on: vaOn,
+      mc_per_gram: mcPerGram,
+      mc_on: mcOn,
+      hm_charges: hmCharges,
+      qty: qty,
+      pricing: pricing
+    };
   };
 
   // Handle product QR scan success
@@ -398,24 +483,19 @@ const EstimateForm = () => {
 
   const extractBarcodeFromQR = (qrData) => {
     try {
-      // Try to parse as JSON first (for TagEntry generated QR codes)
       const parsedData = JSON.parse(qrData);
       return parsedData.barcode || parsedData.PCode_BarCode || parsedData.code || parsedData.BarCode;
     } catch {
-      // If not JSON, try to extract barcode from text format
-      // Handle format: "TAG: GC001\nTOPS 22K\nNT WT: 5.000\nMRP: 5000"
       const barcodeMatch = qrData.match(/TAG:\s*([A-Z0-9]+)/i);
       if (barcodeMatch) {
         return barcodeMatch[1];
       }
-
-      // Fallback to other patterns
       const altMatch = qrData.match(/(barcode|Barcode|PCode|code|prefix)[:\s]*([^\s,]+)/i);
       return altMatch ? altMatch[2] : qrData;
     }
   };
 
-  // ✅ FIX: Read from refs instead of state to avoid stale closure
+  // FIXED: Main function to handle barcode and add entry with all calculated fields
   const handleBarcodeAndAddEntry = async (barcode) => {
     try {
       if (!barcode) {
@@ -423,7 +503,6 @@ const EstimateForm = () => {
         return null;
       }
 
-      // ✅ Read formData from ref (always fresh)
       const currentFormData = formDataRef.current;
 
       if (!currentFormData.customer_name || !currentFormData.customer_id) {
@@ -431,7 +510,6 @@ const EstimateForm = () => {
         return null;
       }
 
-      // ✅ Read allProducts from ref (always fresh)
       const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
 
       if (!selectedProduct) {
@@ -445,23 +523,11 @@ const EstimateForm = () => {
       }
 
       const productDetails = await response.json();
-      const productRate = productDetails.rate || "";
+      
+      // FIXED: Calculate all totals properly
+      const calculatedValues = calculateProductTotals(productDetails);
 
-      const productInfo = {
-        product_id: productDetails.product_id,
-        product_name: productDetails.product_name,
-        barcode: productDetails.barcode,
-        metal_type: productDetails.metal_type,
-        purity: productDetails.purity,
-        gross_weight: productDetails.gross_wt,
-        stone_weight: productDetails.stone_wt,
-        stone_price: productDetails.stone_price,
-        rate: productRate,
-        rate_amt: productDetails.rate_amt,
-        qty: 1
-      };
-
-      // ✅ FIX: Read from REFS not state — always gets the latest value
+      // Get packet values from refs (always latest)
       let finalPacketBarcode = null;
       let finalPacketWt = null;
 
@@ -479,28 +545,87 @@ const EstimateForm = () => {
 
       const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
 
+      // FIXED: Include ALL calculated fields
       const entryData = {
-        ...productInfo,
-        customer_id: currentFormData.customer_id,
-        customer_name: currentFormData.customer_name,
+        // Basic info
         date: currentFormData.date,
         estimate_number: estimateNum,
+        customer_id: currentFormData.customer_id,
+        customer_name: currentFormData.customer_name,
         salesperson_id: salespersonId,
         source_by: sourceBy,
+        
+        // Product info
+        product_id: productDetails.product_id,
+        product_name: productDetails.product_name,
+        barcode: productDetails.barcode,
+        code: productDetails.barcode, // For code field
+        metal_type: productDetails.metal_type,
+        purity: productDetails.purity,
+        design_name: productDetails.design,
+        category: productDetails.category_id,
+        sub_category: productDetails.product_name,
+        
+        // Weight fields
+        gross_weight: calculatedValues.gross_weight,
+        stone_weight: calculatedValues.stone_weight,
+        stone_price: calculatedValues.stone_price,
+        weight_bw: calculatedValues.weight_bw,
+        
+        // Wastage fields
+        va_on: calculatedValues.va_on,
+        va_percent: calculatedValues.va_percent,
+        wastage_weight: calculatedValues.wastage_weight,
+        total_weight_av: calculatedValues.total_weight_av,
+        
+        // Making charges fields
+        mc_on: calculatedValues.mc_on,
+        mc_per_gram: calculatedValues.mc_per_gram,
+        making_charges: calculatedValues.making_charges,
+        
+        // Rate and amount fields
+        rate: calculatedValues.rate,
+        rate_amt: calculatedValues.rate_amt,
+        
+        // Tax and total
+        tax_percent: calculatedValues.tax_percent,
+        tax_amt: calculatedValues.tax_amt,
+        total_price: calculatedValues.total_price,
+        hm_charges: calculatedValues.hm_charges,
+        
+        // Summary fields for the estimate
+        total_amount: calculatedValues.rate_amt,
+        taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
+        tax_amount: calculatedValues.tax_amt,
+        net_amount: calculatedValues.total_price,
+        
+        // Pricing and quantity
+        pricing: calculatedValues.pricing,
+        qty: calculatedValues.qty,
+        
+        // Packet info
         packet_barcode: finalPacketBarcode,
         packet_wt: finalPacketWt,
-        qty: 1,
+        
+        // Other fields
+        opentag_id: 0,
+        pcode: null,
+        original_total_price: calculatedValues.total_price,
+        estimate_status: "Pending",
+        
+        // Force insert flag
         force_insert: true
       };
 
       console.log("=== SENDING TO BACKEND ===");
       console.log("packet_barcode:", entryData.packet_barcode);
       console.log("estimate_number:", entryData.estimate_number);
+      console.log("total_price:", entryData.total_price);
+      console.log("net_amount:", entryData.net_amount);
 
       const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
 
       console.log("Backend response:", saveResponse.data);
-      console.log("Stored packet_barcode:", saveResponse.data.packet_barcode);
 
       if (saveResponse.data.estimate_number) {
         setSavedEstimateNumber(saveResponse.data.estimate_number);
@@ -511,7 +636,13 @@ const EstimateForm = () => {
         }
       }
 
-      return productInfo;
+      // Return product info with calculated values for receipt
+      return {
+        ...productDetails,
+        ...calculatedValues,
+        product_name: productDetails.product_name,
+        barcode: productDetails.barcode
+      };
     } catch (error) {
       console.error('Error adding product:', error);
       Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
@@ -647,10 +778,10 @@ const EstimateForm = () => {
         }
       }
 
+      // Calculate total amount from scanned products
       const totalAmount = scannedProducts.reduce((sum, item) => {
-        const stonePrice = parseFloat(item.stone_price) || 0;
-        const rateAmt = parseFloat(item.rate_amt) || 0;
-        return sum + stonePrice + rateAmt;
+        const totalPrice = parseFloat(item.total_price) || 0;
+        return sum + totalPrice;
       }, 0);
 
       const pdfDoc = pdf(
@@ -694,7 +825,6 @@ const EstimateForm = () => {
     }
   };
 
-  // ✅ FIX: Reset both state AND refs
   const resetForm = () => {
     setScannedProducts([]);
     setTotalQuantity(0);
@@ -710,7 +840,6 @@ const EstimateForm = () => {
     setPacketSuccessMessage("");
     setLastAddedProduct("");
 
-    // ✅ Reset refs too
     sharedPacketBarcodeRef.current = null;
     sharedPacketWtRef.current = null;
     isPacketScannedRef.current = false;
@@ -741,7 +870,6 @@ const EstimateForm = () => {
           return updated;
         });
 
-        // Reset products and packet when customer changes
         setScannedProducts([]);
         setTotalQuantity(0);
         setIsPacketScanned(false);
@@ -755,7 +883,6 @@ const EstimateForm = () => {
         setPacketSuccessMessage("");
         setLastAddedProduct("");
 
-        // ✅ Reset refs too
         sharedPacketBarcodeRef.current = null;
         sharedPacketWtRef.current = null;
         isPacketScannedRef.current = false;
@@ -795,7 +922,6 @@ const EstimateForm = () => {
           <Row className="estimate-form-section">
             <h2>Selections</h2>
 
-            {/* Date and Estimate Number Row */}
             <Row className="d-flex justify-content-end align-items-center mb-3">
               <Col xs={12} md={2}>
                 <InputField
@@ -818,7 +944,6 @@ const EstimateForm = () => {
               </Col>
             </Row>
 
-            {/* Customer Name, Action Buttons, and Total Qty */}
             <Row className="align-items-center mb-4">
               <Col xs={12} md={3}>
                 <InputField
@@ -872,7 +997,6 @@ const EstimateForm = () => {
               </Col>
             </Row>
 
-            {/* Packet Success Message Below Total Quantity */}
             {packetSuccessMessage && (
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
@@ -905,7 +1029,6 @@ const EstimateForm = () => {
               </Row>
             )}
 
-            {/* Product Success Message Below Packet Success Message */}
             {successMessage && (
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
@@ -938,7 +1061,6 @@ const EstimateForm = () => {
               </Row>
             )}
 
-            {/* Packet Images Preview Section */}
             {packetImages.length > 0 && (
               <Row className="mt-2 mb-3">
                 <Col xs={12}>
@@ -963,7 +1085,6 @@ const EstimateForm = () => {
               </Row>
             )}
 
-            {/* Action Buttons */}
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
                 <Button className="cancel-btn me-2" onClick={handleCancel}>Cancel</Button>
