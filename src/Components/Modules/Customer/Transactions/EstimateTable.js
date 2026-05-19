@@ -7,9 +7,11 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FaEye, FaDownload } from 'react-icons/fa';
 import { Button, Row, Col, Modal, Table, Form } from 'react-bootstrap';
+import { pdf } from "@react-pdf/renderer";
 import baseURL from "../../ApiUrl/NodeBaseURL";
 import CustomerNavbar from '../../../Pages/Navbar/CustomerNavbar';
 import InvoicePDF from '../../Admin/Transactions/InvoicePDF';
+import TaxInvoiceA4 from './TaxInvoiceA4PDF';
 import './EstimateTable.css';
 import baseURL2 from '../../ApiUrl/NodeBaseURL2';
 
@@ -38,6 +40,8 @@ const EstimateTable = () => {
   const [customerId, setCustomerId] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState({});
   const [downloadingInvoices, setDownloadingInvoices] = useState({});
+  const [companyData, setCompanyData] = useState(null);
+  const [productsData, setProductsData] = useState([]);
 
   const statusOptions = useMemo(() => [
     { value: 'Pending', label: 'Pending', color: '#ffc107' },
@@ -70,6 +74,37 @@ const EstimateTable = () => {
     };
     getCurrentUser();
   }, [navigate]);
+
+  // Fetch company details
+  const fetchCompanyDetails = useCallback(async () => {
+    try {
+      const response = await axios.get(`${baseURL2}/get/companies`);
+      const company = response.data?.[0] || null;
+      setCompanyData(company);
+      return company;
+    } catch (error) {
+      console.error("Error fetching company details:", error);
+      return null;
+    }
+  }, []);
+
+  // Fetch products
+  const fetchProducts = useCallback(async () => {
+    try {
+      const response = await axios.get(`${baseURL2}/get/products`);
+      setProductsData(response.data || []);
+      return response.data || [];
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      return [];
+    }
+  }, []);
+
+  // Load company and products on mount
+  useEffect(() => {
+    fetchCompanyDetails();
+    fetchProducts();
+  }, [fetchCompanyDetails, fetchProducts]);
 
   const filterEstimatesByCustomerId = useCallback((estimates, custId) => {
     if (!custId || !estimates || !Array.isArray(estimates)) return [];
@@ -143,473 +178,430 @@ const EstimateTable = () => {
     return `${day}/${month}/${year}`;
   }, []);
 
-// Create sales entries from estimate when status changes to Ordered
-// Create sales entries from estimate when status changes to Ordered
-const createSalesFromEstimate = async (estimateNumber) => {
-  try {
-    // Fetch estimate details with products
-    const estimateResponse = await axios.get(`${baseURL}/get-estimates/${estimateNumber}`);
-    const estimateData = estimateResponse.data;
+  // Generate and save Tax Invoice PDF
+  const generateAndSaveTaxInvoicePDF = useCallback(async (invoiceNumber, salesData) => {
+    try {
+      // Use fetched company and products data
+      const company = companyData;
+      const product = productsData;
 
-    if (!estimateData || !estimateData.repeatedData || estimateData.repeatedData.length === 0) {
-      throw new Error('No products found in this estimate');
-    }
+      // Create PDF document
+      const pdfDoc = (
+        <TaxInvoiceA4
+          formData={{
+            invoice_number: invoiceNumber,
+            account_name: salesData.repairDetails[0]?.account_name || '',
+            mobile: salesData.repairDetails[0]?.mobile || '',
+            customer_id: salesData.repairDetails[0]?.customer_id || '',
+            address1: salesData.repairDetails[0]?.address1 || '',
+            address2: salesData.repairDetails[0]?.address2 || '',
+            city: salesData.repairDetails[0]?.city || '',
+            pincode: salesData.repairDetails[0]?.pincode || '',
+            state: salesData.repairDetails[0]?.state || '',
+            gst_in: salesData.repairDetails[0]?.gst_in || '',
+            pan_card: salesData.repairDetails[0]?.pan_card || '',
+            aadhar_card: salesData.repairDetails[0]?.aadhar_card || '',
+            date: salesData.date || new Date().toISOString().split('T')[0],
+          }}
+          repairDetails={salesData.repairDetails}
+          cash_amount={0}
+          card_amt={0}
+          chq_amt={0}
+          online_amt={0}
+          taxableAmount={parseFloat(salesData.taxableAmount) || 0}
+          taxAmount={parseFloat(salesData.taxAmount) || 0}
+          discountAmt={parseFloat(salesData.discountAmt) || 0}
+          festivalDiscountAmt={parseFloat(salesData.festivalDiscountAmt) || 0}
+          oldItemsAmount={parseFloat(salesData.oldItemsAmount) || 0}
+          schemeAmount={parseFloat(salesData.schemeAmount) || 0}
+          salesNetAmount={parseFloat(salesData.salesNetAmount) || 0}
+          salesTaxableAmount={parseFloat(salesData.salesTaxableAmount) || 0}
+          selectedAdvanceReceiptAmount={parseFloat(salesData.selectedAdvanceReceiptAmount) || 0}
+          netAmount={parseFloat(salesData.netAmount) || 0}
+          netPayableAmount={parseFloat(salesData.netAmount) || 0}
+          product={product}
+          company={company}
+        />
+      );
 
-    // Get current logged-in customer details from localStorage
-    const userDataStr = localStorage.getItem('user');
-    let currentCustomer = null;
-    if (userDataStr) {
-      currentCustomer = JSON.parse(userDataStr);
-    }
+      // Convert to blob
+      const pdfBlob = await pdf(pdfDoc).toBlob();
 
-    // Get latest invoice number
-    const invoiceResponse = await axios.get(`${baseURL2}/lastInvoiceNumber`);
-    const latestInvoiceNumber = invoiceResponse.data.lastInvoiceNumber;
+      // Save PDF to server
+      const formData = new FormData();
+      formData.append("invoice", pdfBlob, `${invoiceNumber}.pdf`);
 
-    // Today's date in YYYY-MM-DD format
-    const todayDate = new Date().toISOString().split('T')[0];
-
-    // Resolve customer details - prefer estimate data, fallback to localStorage
-    const uniqueData = estimateData.uniqueData || {};
-
-    const resolvedCustomerId =
-      uniqueData.customer_id ||
-      currentCustomer?.id ||
-      currentCustomer?.userId ||
-      currentCustomer?.customerId ||
-      '';
-
-    const resolvedMobile =
-      uniqueData.mobile ||
-      currentCustomer?.mobile ||
-      currentCustomer?.phone ||
-      '';
-
-    const resolvedName =
-      uniqueData.customer_name ||
-      currentCustomer?.name ||
-      currentCustomer?.full_name ||
-      currentCustomer?.account_name ||
-      '';
-
-    const resolvedEmail =
-      uniqueData.email || currentCustomer?.email || '';
-
-    const resolvedAddress1 =
-      uniqueData.address1 || currentCustomer?.address1 || '';
-
-    const resolvedAddress2 =
-      uniqueData.address2 || currentCustomer?.address2 || '';
-
-    const resolvedCity =
-      uniqueData.city || currentCustomer?.city || '';
-
-    const resolvedPincode =
-      uniqueData.pincode || currentCustomer?.pincode || '';
-
-    const resolvedState =
-      uniqueData.state || currentCustomer?.state || '';
-
-    const resolvedStateCode =
-      uniqueData.state_code || currentCustomer?.state_code || '';
-
-    const resolvedAadhar =
-      uniqueData.aadhar_card || currentCustomer?.aadhar_card || '';
-
-    const resolvedGstIn =
-      uniqueData.gst_in || currentCustomer?.gst_in || '';
-
-    const resolvedPanCard =
-      uniqueData.pan_card || currentCustomer?.pan_card || '';
-
-    const resolvedTerms =
-      uniqueData.terms || currentCustomer?.terms || '';
-
-    // Build repairDetails array matching the repair_details table columns exactly
-    const repairDetailsList = estimateData.repeatedData.map(product => {
-      const totalPrice  = parseFloat(product.total_price)    || 0;
-      const taxAmt      = parseFloat(product.tax_amt)        || 0;
-      const taxableAmt  = parseFloat(product.taxable_amount) || (totalPrice - taxAmt);
-
-      return {
-        // ── Customer / account info ──────────────────────────
-        customer_id:      resolvedCustomerId,
-        account_id:       resolvedCustomerId,   // same as customer_id
-        mobile:           resolvedMobile,
-        account_name:     resolvedName,
-        email:            resolvedEmail,
-        address1:         resolvedAddress1,
-        address2:         resolvedAddress2,
-        city:             resolvedCity,
-        pincode:          resolvedPincode,
-        state:            resolvedState,
-        state_code:       resolvedStateCode,
-        aadhar_card:      resolvedAadhar,
-        gst_in:           resolvedGstIn,
-        pan_card:         resolvedPanCard,
-        terms:            resolvedTerms,
-
-        // ── Invoice / date ───────────────────────────────────
-        invoice_number:   latestInvoiceNumber,
-        date:             todayDate,
-
-        // ── Product identifiers ──────────────────────────────
-        product_id:       product.product_id    || '',
-        code:             product.code          || product.barcode || '',
-        product_name:     product.product_name  || '',
-        opentag_id:       product.opentag_id    || null,
-
-        // ── Metal / purity ───────────────────────────────────
-        metal:            product.metal_type    || '',
-        metal_type:       product.metal_type    || '',
-        design_name:      product.design_name   || '',
-        purity:           product.purity        || '',
-        selling_purity:   product.selling_purity  || product.purity || '',
-        printing_purity:  product.printing_purity || product.purity || '',
-        custom_purity:    product.custom_purity  || null,
-        pricing:          product.pricing        || '',
-        category:         product.category       || '',
-        sub_category:     product.sub_category   || '',
-
-        // ── Weights ──────────────────────────────────────────
-        gross_weight:     parseFloat(product.gross_weight)    || 0,
-        stone_weight:     parseFloat(product.stone_weight)    || 0,
-        weight_bw:        parseFloat(product.total_weight_av) || parseFloat(product.net_wt) || 0,
-        stone_price:      parseFloat(product.stone_price)     || 0,
-        va_on:            product.va_on                       || '',
-        va_percent:       parseFloat(product.va_percent)      || 0,
-        wastage_weight:   parseFloat(product.wastage_weight)  || 0,
-        total_weight_av:  parseFloat(product.total_weight_av) || 0,
-
-        // ── Making charges ───────────────────────────────────
-        mc_on:            product.mc_on                       || '',
-        mc_per_gram:      parseFloat(product.mc_per_gram)     || 0,
-        making_charges:   parseFloat(product.making_charges)  || 0,
-
-        // ── Discount ─────────────────────────────────────────
-        disscount_percentage: parseFloat(product.disscount_percentage) || 0,
-        disscount:            parseFloat(product.disscount)            || 0,
-
-        // ── Rate / pricing ───────────────────────────────────
-        rate:             parseFloat(product.rate)            || 0,
-        rate_24k:         parseFloat(product.rate_24k)        || 0,
-        rate_amt:         parseFloat(product.rate_amt)        || 0,
-
-        // ── Tax ──────────────────────────────────────────────
-        tax_percent:      product.tax_percent                 || '3.00',
-        tax_amt:          taxAmt,
-        taxable_amount:   taxableAmt,
-        tax_amount:       taxAmt,
-
-        // ── Totals ───────────────────────────────────────────
-        total_price:      totalPrice,
-        net_amount:       totalPrice,
-
-        // ── Net Bill / Paid / Balance (exact DB column names) ─
-        net_bill_amount:      totalPrice,    // Net Payable Amt = Net Amt
-        paid_amt:             0,             // initially 0
-        bal_amt:              totalPrice,    // net_bill_amount - paid_amt = total - 0
-        old_exchange_amt:     0,
-        scheme_amt:           0,
-        sale_return_amt:      0,             // ← must be 0, NOT the total
-        advance_receipt_amt:  0,
-        receipts_amt:         null,
-        bal_after_receipts:   null,
-
-        // ── Payment columns (all 0 on creation) ─────────────
-        cash_amount:      0,
-        card_amount:      0,
-        card_amt:         0,
-        chq:              0,
-        chq_amt:          0,
-        online:           0,
-        online_amt:       0,
-
-        // ── Misc ─────────────────────────────────────────────
-        qty:                parseInt(product.qty) || 1,
-        transaction_status: 'Sales',
-        sale_status:        'active',
-        assigning:          'pending',
-        status:             null,
-        order_status:       null,
-        order_number:       null,
-        invoice:            null,
-        product_image:      null,
-        imagePreview:       null,
-        worker_name:        null,
-        delivery_date:      null,
-        original_total_price:         null,
-        pieace_cost:                  null,
-        mrp_price:                    null,
-        hm_charges:                   parseFloat(product.hm_charges) || null,
-        remarks:                      product.remarks || null,
-        original_piece_taxable_amt:   0,
-        piece_taxable_amt:            0,
-        festival_discount:            null,
-        advance_amt:                  null,
-        customerImage:                null,
-        size:                         null,
-      };
-    });
-
-    // ── Totals across all products ───────────────────────────────────
-    let totalNetWt   = 0;
-    let totalGrossWt = 0;
-    let totalAmount  = 0;
-    let totalTaxAmt  = 0;
-
-    repairDetailsList.forEach(item => {
-      totalNetWt   += parseFloat(item.weight_bw)    || 0;
-      totalGrossWt += parseFloat(item.gross_weight)  || 0;
-      totalAmount  += parseFloat(item.total_price)   || 0;
-      totalTaxAmt  += parseFloat(item.tax_amt)       || 0;
-    });
-
-    const netPayableAmt = totalAmount;   // Net Payable = Net Amt
-    const paidAmt       = 0;             // initially 0
-    const balAmt        = netPayableAmt; // balance = netPayable - paid
-
-    // ── Final payload sent to /save-repair-details ───────────────────
-    const dataToSave = {
-      repairDetails: repairDetailsList,
-
-      // Summary / header level fields
-      totalAmount:                  totalAmount.toFixed(2),
-      discountAmt:                  "0.00",
-      festivalDiscountAmt:          "0.00",
-      taxableAmount:                (totalAmount - totalTaxAmt).toFixed(2),
-      taxAmount:                    totalTaxAmt.toFixed(2),
-      netAmount:                    totalAmount.toFixed(2),
-
-      // Exact DB column names for bill amounts
-      net_bill_amount:              netPayableAmt.toFixed(2),
-      paid_amt:                     paidAmt.toFixed(2),
-      bal_amt:                      balAmt.toFixed(2),
-      old_exchange_amt:             "0.00",
-      scheme_amt:                   "0.00",
-      sale_return_amt:              "0.00",   // ← must be 0
-      advance_receipt_amt:          "0.00",
-
-      // Aliases the backend may also read
-      salesNetAmount:               totalAmount.toFixed(2),
-      salesTaxableAmount:           (totalAmount - totalTaxAmt).toFixed(2),
-      selectedAdvanceReceiptAmount: "0.00",
-      total_net_wt:                 totalNetWt.toFixed(3),
-      total_gross_wt:               totalGrossWt.toFixed(3),
-
-      // Top-level customer & date
-      customer_id:    resolvedCustomerId,
-      mobile:         resolvedMobile,
-      account_name:   resolvedName,
-      date:           todayDate,
-      invoice_number: latestInvoiceNumber,
-    };
-
-    // ── Save to backend ──────────────────────────────────────────────
-    const saveResponse = await axios.post(`${baseURL2}/save-repair-details`, dataToSave);
-
-    if (saveResponse.status === 200 || saveResponse.status === 201) {
-      console.log('Sales saved successfully with invoice:', latestInvoiceNumber);
-      console.log('Customer details saved:', {
-        customer_id:  resolvedCustomerId,
-        account_name: resolvedName,
-        mobile:       resolvedMobile,
-        email:        resolvedEmail,
+      const uploadResponse = await fetch(`${baseURL2}/upload-invoice`, {
+        method: "POST",
+        body: formData,
       });
 
-      // ── Ledger entry ─────────────────────────────────────────────
-      if (resolvedCustomerId) {
-        try {
-          await axios.post(`${baseURL2}/ledger`, {
-            transaction_date: todayDate,
-            transaction_type: "SALE",
-            invoice_number:   latestInvoiceNumber,
-            credit:           0,
-            debit:            parseFloat(totalAmount.toFixed(2)),
-            balance:          parseFloat(totalAmount.toFixed(2)),
-            net_wt:           parseFloat(totalNetWt.toFixed(3)),
-            gross_wt:         parseFloat(totalGrossWt.toFixed(3)),
-            amount:           parseFloat(totalAmount.toFixed(2)),
-            account_id:       Number(resolvedCustomerId),
-          });
-          console.log("Ledger entry created successfully");
-        } catch (ledgerError) {
-          console.error("Error posting to ledger:", ledgerError);
-        }
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload invoice");
       }
 
-      console.log(`Sales created for estimate ${estimateNumber} with invoice: ${latestInvoiceNumber}`);
+      console.log(`Tax Invoice PDF ${invoiceNumber} saved on server`);
+      
+      // Update the estimate record to mark PDF as generated
+      await axios.put(`${baseURL}/update-estimate-pdf-status/${invoiceNumber}`, {
+        pdf_generated: 1,
+        invoice_number: invoiceNumber
+      });
+
       return true;
-
-    } else {
-      throw new Error('Failed to save sales data');
+    } catch (error) {
+      console.error("Error generating/saving Tax Invoice PDF:", error);
+      return false;
     }
+  }, [companyData, productsData]);
 
-  } catch (error) {
-    console.error('Error creating sales from estimate:', error);
-    throw error;
-  }
-};
+  // Create sales entries from estimate when status changes to Ordered
+  const createSalesFromEstimate = useCallback(async (estimateNumber) => {
+    try {
+      // Fetch estimate details with products
+      const estimateResponse = await axios.get(`${baseURL}/get-estimates/${estimateNumber}`);
+      const estimateData = estimateResponse.data;
 
-// Generate PDF invoice using the same method as handleSave
-const generateInvoicePDF = async (invoiceNumber, salesData) => {
-  try {
-    // Dynamically import PDF components
-    const { pdf } = await import('@react-pdf/renderer');
-    // Import your PDFLayout component (adjust path as needed)
-    const PDFLayout = (await import('../../Admin/Transactions/PDFLayout')).default;
-    
-    // Get company and product details if needed
-    const company = {}; // Fetch from your context/state
-    const product = {}; // Fetch from your context/state
-    
-    // Create PDF blob
-    const pdfDoc = (
-      <PDFLayout
-        formData={{
-          invoice_number: invoiceNumber,
-          account_name: salesData.repairDetails[0]?.account_name || '',
-          mobile: salesData.repairDetails[0]?.mobile || '',
-          customer_id: salesData.repairDetails[0]?.customer_id || '',
-          address1: salesData.repairDetails[0]?.address1 || '',
-          address2: salesData.repairDetails[0]?.address2 || '',
-          city: salesData.repairDetails[0]?.city || '',
-          pincode: salesData.repairDetails[0]?.pincode || '',
-          state: salesData.repairDetails[0]?.state || '',
-          gst_in: salesData.repairDetails[0]?.gst_in || '',
-        }}
-        repairDetails={salesData.repairDetails}
-        cash_amount={0}
-        card_amt={0}
-        chq_amt={0}
-        online_amt={0}
-        taxableAmount={salesData.taxableAmount}
-        taxAmount={salesData.taxAmount}
-        discountAmt={salesData.discountAmt}
-        festivalDiscountAmt={salesData.festivalDiscountAmt}
-        oldItemsAmount="0.00"
-        schemeAmount="0.00"
-        salesNetAmount={salesData.salesNetAmount}
-        salesTaxableAmount={salesData.salesTaxableAmount}
-        selectedAdvanceReceiptAmount="0.00"
-        netAmount={salesData.netAmount}
-        netPayableAmount={salesData.netAmount}
-        company={company}
-        product={product}
-      />
-    );
-    
-    const pdfBlob = await pdf(pdfDoc).toBlob();
-    
-    // Save PDF to server using the same endpoint
-    const formData = new FormData();
-    formData.append("invoice", pdfBlob, `${invoiceNumber}.pdf`);
-    
-    await fetch(`${baseURL}/upload-invoice`, {
-      method: "POST",
-      body: formData,
-    });
-    
-    console.log(`PDF generated for invoice ${invoiceNumber}`);
-    return true;
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    return false;
-  }
-};
+      if (!estimateData || !estimateData.repeatedData || estimateData.repeatedData.length === 0) {
+        throw new Error('No products found in this estimate');
+      }
 
-// Generate PDF for sales invoice using baseURL2
-const generateSalesPDF = async (invoiceNumber, salesEntries, salesSummary) => {
-  try {
-    const { pdf } = await import('@react-pdf/renderer');
-    
-    // Update PDF generation status using baseURL2
-    await axios.put(`${baseURL2}/update-sales-pdf/${invoiceNumber}`, {
-      pdf_generated: 1
-    });
-    
-    console.log(`PDF status updated for invoice ${invoiceNumber}`);
-    return true;
-  } catch (error) {
-    console.error('Error updating sales PDF status:', error);
-    return false;
-  }
-};
+      // Get current logged-in customer details from localStorage
+      const userDataStr = localStorage.getItem('user');
+      let currentCustomer = null;
+      if (userDataStr) {
+        currentCustomer = JSON.parse(userDataStr);
+      }
 
-const handleStatusChange = useCallback(async (rowData, newStatus) => {
-  try {
-    const sourceBy = rowData.source_by;
-    const currentOrderNumber = rowData.order_number;
-    
-    if (currentOrderNumber && currentOrderNumber.trim() !== '') {
-      Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
-      return;
+      // Get latest invoice number
+      const invoiceResponse = await axios.get(`${baseURL2}/lastInvoiceNumber`);
+      const latestInvoiceNumber = invoiceResponse.data.lastInvoiceNumber;
+
+      // Today's date in YYYY-MM-DD format
+      const todayDate = new Date().toISOString().split('T')[0];
+
+      // Resolve customer details - prefer estimate data, fallback to localStorage
+      const uniqueData = estimateData.uniqueData || {};
+
+      const resolvedCustomerId =
+        uniqueData.customer_id ||
+        currentCustomer?.id ||
+        currentCustomer?.userId ||
+        currentCustomer?.customerId ||
+        '';
+
+      const resolvedMobile =
+        uniqueData.mobile ||
+        currentCustomer?.mobile ||
+        currentCustomer?.phone ||
+        '';
+
+      const resolvedName =
+        uniqueData.customer_name ||
+        currentCustomer?.name ||
+        currentCustomer?.full_name ||
+        currentCustomer?.account_name ||
+        '';
+
+      const resolvedEmail =
+        uniqueData.email || currentCustomer?.email || '';
+
+      const resolvedAddress1 =
+        uniqueData.address1 || currentCustomer?.address1 || '';
+
+      const resolvedAddress2 =
+        uniqueData.address2 || currentCustomer?.address2 || '';
+
+      const resolvedCity =
+        uniqueData.city || currentCustomer?.city || '';
+
+      const resolvedPincode =
+        uniqueData.pincode || currentCustomer?.pincode || '';
+
+      const resolvedState =
+        uniqueData.state || currentCustomer?.state || '';
+
+      const resolvedStateCode =
+        uniqueData.state_code || currentCustomer?.state_code || '';
+
+      const resolvedAadhar =
+        uniqueData.aadhar_card || currentCustomer?.aadhar_card || '';
+
+      const resolvedGstIn =
+        uniqueData.gst_in || currentCustomer?.gst_in || '';
+
+      const resolvedPanCard =
+        uniqueData.pan_card || currentCustomer?.pan_card || '';
+
+      const resolvedTerms =
+        uniqueData.terms || currentCustomer?.terms || '';
+
+      // Build repairDetails array
+      const repairDetailsList = estimateData.repeatedData.map(product => {
+        const totalPrice = parseFloat(product.total_price) || 0;
+        const taxAmt = parseFloat(product.tax_amt) || 0;
+        const taxableAmt = parseFloat(product.taxable_amount) || (totalPrice - taxAmt);
+
+        return {
+          customer_id: resolvedCustomerId,
+          account_id: resolvedCustomerId,
+          mobile: resolvedMobile,
+          account_name: resolvedName,
+          email: resolvedEmail,
+          address1: resolvedAddress1,
+          address2: resolvedAddress2,
+          city: resolvedCity,
+          pincode: resolvedPincode,
+          state: resolvedState,
+          state_code: resolvedStateCode,
+          aadhar_card: resolvedAadhar,
+          gst_in: resolvedGstIn,
+          pan_card: resolvedPanCard,
+          terms: resolvedTerms,
+          invoice_number: latestInvoiceNumber,
+          date: todayDate,
+          product_id: product.product_id || '',
+          code: product.code || product.barcode || '',
+          product_name: product.product_name || '',
+          opentag_id: product.opentag_id || null,
+          metal: product.metal_type || '',
+          metal_type: product.metal_type || '',
+          design_name: product.design_name || '',
+          purity: product.purity || '',
+          selling_purity: product.selling_purity || product.purity || '',
+          printing_purity: product.printing_purity || product.purity || '',
+          custom_purity: product.custom_purity || null,
+          pricing: product.pricing || '',
+          category: product.category || '',
+          sub_category: product.sub_category || '',
+          gross_weight: parseFloat(product.gross_weight) || 0,
+          stone_weight: parseFloat(product.stone_weight) || 0,
+          weight_bw: parseFloat(product.total_weight_av) || parseFloat(product.net_wt) || 0,
+          stone_price: parseFloat(product.stone_price) || 0,
+          va_on: product.va_on || '',
+          va_percent: parseFloat(product.va_percent) || 0,
+          wastage_weight: parseFloat(product.wastage_weight) || 0,
+          total_weight_av: parseFloat(product.total_weight_av) || 0,
+          mc_on: product.mc_on || '',
+          mc_per_gram: parseFloat(product.mc_per_gram) || 0,
+          making_charges: parseFloat(product.making_charges) || 0,
+          disscount_percentage: parseFloat(product.disscount_percentage) || 0,
+          disscount: parseFloat(product.disscount) || 0,
+          rate: parseFloat(product.rate) || 0,
+          rate_24k: parseFloat(product.rate_24k) || 0,
+          rate_amt: parseFloat(product.rate_amt) || 0,
+          tax_percent: product.tax_percent || '3.00',
+          tax_amt: taxAmt,
+          taxable_amount: taxableAmt,
+          tax_amount: taxAmt,
+          total_price: totalPrice,
+          net_amount: totalPrice,
+          net_bill_amount: totalPrice,
+          paid_amt: 0,
+          bal_amt: totalPrice,
+          old_exchange_amt: 0,
+          scheme_amt: 0,
+          sale_return_amt: 0,
+          advance_receipt_amt: 0,
+          receipts_amt: null,
+          bal_after_receipts: null,
+          cash_amount: 0,
+          card_amount: 0,
+          card_amt: 0,
+          chq: 0,
+          chq_amt: 0,
+          online: 0,
+          online_amt: 0,
+          qty: parseInt(product.qty) || 1,
+          transaction_status: 'Sales',
+          sale_status: 'active',
+          assigning: 'pending',
+          status: null,
+          order_status: null,
+          order_number: null,
+          invoice: null,
+          product_image: null,
+          imagePreview: null,
+          worker_name: null,
+          delivery_date: null,
+          original_total_price: null,
+          pieace_cost: null,
+          mrp_price: null,
+          hm_charges: parseFloat(product.hm_charges) || null,
+          remarks: product.remarks || null,
+          original_piece_taxable_amt: 0,
+          piece_taxable_amt: 0,
+          festival_discount: null,
+          advance_amt: null,
+          customerImage: null,
+          size: null,
+        };
+      });
+
+      // Calculate totals
+      let totalNetWt = 0;
+      let totalGrossWt = 0;
+      let totalAmount = 0;
+      let totalTaxAmt = 0;
+
+      repairDetailsList.forEach(item => {
+        totalNetWt += parseFloat(item.weight_bw) || 0;
+        totalGrossWt += parseFloat(item.gross_weight) || 0;
+        totalAmount += parseFloat(item.total_price) || 0;
+        totalTaxAmt += parseFloat(item.tax_amt) || 0;
+      });
+
+      // Prepare payload
+      const dataToSave = {
+        repairDetails: repairDetailsList,
+        totalAmount: totalAmount.toFixed(2),
+        discountAmt: "0.00",
+        festivalDiscountAmt: "0.00",
+        taxableAmount: (totalAmount - totalTaxAmt).toFixed(2),
+        taxAmount: totalTaxAmt.toFixed(2),
+        netAmount: totalAmount.toFixed(2),
+        net_bill_amount: totalAmount.toFixed(2),
+        paid_amt: "0.00",
+        bal_amt: totalAmount.toFixed(2),
+        old_exchange_amt: "0.00",
+        scheme_amt: "0.00",
+        sale_return_amt: "0.00",
+        advance_receipt_amt: "0.00",
+        salesNetAmount: totalAmount.toFixed(2),
+        salesTaxableAmount: (totalAmount - totalTaxAmt).toFixed(2),
+        selectedAdvanceReceiptAmount: "0.00",
+        total_net_wt: totalNetWt.toFixed(3),
+        total_gross_wt: totalGrossWt.toFixed(3),
+        customer_id: resolvedCustomerId,
+        mobile: resolvedMobile,
+        account_name: resolvedName,
+        date: todayDate,
+        invoice_number: latestInvoiceNumber,
+      };
+
+      // Save to backend
+      const saveResponse = await axios.post(`${baseURL2}/save-repair-details`, dataToSave);
+
+      if (saveResponse.status === 200 || saveResponse.status === 201) {
+        console.log('Sales saved successfully with invoice:', latestInvoiceNumber);
+
+        // Ledger entry
+        if (resolvedCustomerId) {
+          try {
+            await axios.post(`${baseURL2}/ledger`, {
+              transaction_date: todayDate,
+              transaction_type: "SALE",
+              invoice_number: latestInvoiceNumber,
+              credit: 0,
+              debit: parseFloat(totalAmount.toFixed(2)),
+              balance: parseFloat(totalAmount.toFixed(2)),
+              net_wt: parseFloat(totalNetWt.toFixed(3)),
+              gross_wt: parseFloat(totalGrossWt.toFixed(3)),
+              amount: parseFloat(totalAmount.toFixed(2)),
+              account_id: Number(resolvedCustomerId),
+            });
+            console.log("Ledger entry created successfully");
+          } catch (ledgerError) {
+            console.error("Error posting to ledger:", ledgerError);
+          }
+        }
+
+        // Generate and save Tax Invoice PDF
+        try {
+          await generateAndSaveTaxInvoicePDF(latestInvoiceNumber, dataToSave);
+          console.log(`Tax Invoice PDF generated for invoice ${latestInvoiceNumber}`);
+        } catch (pdfError) {
+          console.error("Error generating Tax Invoice PDF:", pdfError);
+        }
+
+        console.log(`Sales created for estimate ${estimateNumber} with invoice: ${latestInvoiceNumber}`);
+        return { success: true, invoiceNumber: latestInvoiceNumber };
+      } else {
+        throw new Error('Failed to save sales data');
+      }
+    } catch (error) {
+      console.error('Error creating sales from estimate:', error);
+      throw error;
     }
-    
-    if (sourceBy === "customer") {
-      Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
-      return;
-    }
-    
-    const identifier = rowData.estimate_number;
-    if (!identifier) { 
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' }); 
-      return; 
-    }
-    
-    setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
-    
-    // If status is changing to "Ordered", create sales entries first
-    if (newStatus === 'Ordered') {
-      try {
-        await createSalesFromEstimate(identifier);
-      } catch (salesError) {
-        console.error('Error creating sales:', salesError);
-        Swal.fire({ 
-          icon: 'error', 
-          title: 'Sales Creation Failed', 
-          text: 'Failed to create sales entries. Status not updated.' 
-        });
-        setUpdatingStatus(prev => { 
-          const newState = { ...prev }; 
-          delete newState[identifier]; 
-          return newState; 
-        });
+  }, [generateAndSaveTaxInvoicePDF]);
+
+  const handleStatusChange = useCallback(async (rowData, newStatus) => {
+    try {
+      const sourceBy = rowData.source_by;
+      const currentOrderNumber = rowData.order_number;
+      
+      if (currentOrderNumber && currentOrderNumber.trim() !== '') {
+        Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
         return;
       }
-    }
-    
-    // Update estimate status - using the same endpoint as old working code
-    const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, { 
-      estimate_status: newStatus 
-    });
-    
-    if (response.data && response.data.success) {
-      Swal.fire({ 
-        icon: 'success', 
-        title: 'Success', 
-        text: newStatus === 'Ordered' 
-          ? `Estimate converted to Order successfully! Status updated to "${newStatus}"` 
-          : `Estimate status updated to "${newStatus}" successfully!`, 
-        timer: 3000, 
-        showConfirmButton: true 
+      
+      if (sourceBy === "customer") {
+        Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
+        return;
+      }
+      
+      const identifier = rowData.estimate_number;
+      if (!identifier) { 
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' }); 
+        return; 
+      }
+      
+      setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
+      
+      // If status is changing to "Ordered", create sales entries first
+      if (newStatus === 'Ordered') {
+        try {
+          const result = await createSalesFromEstimate(identifier);
+          if (!result.success) {
+            throw new Error('Failed to create sales entries');
+          }
+        } catch (salesError) {
+          console.error('Error creating sales:', salesError);
+          Swal.fire({ 
+            icon: 'error', 
+            title: 'Sales Creation Failed', 
+            text: 'Failed to create sales entries. Status not updated.' 
+          });
+          setUpdatingStatus(prev => { 
+            const newState = { ...prev }; 
+            delete newState[identifier]; 
+            return newState; 
+          });
+          return;
+        }
+      }
+      
+      // Update estimate status
+      const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, { 
+        estimate_status: newStatus 
       });
-      setTimeout(() => fetchData(), 1000);
-    } else {
-      throw new Error(response.data?.message || 'Failed to update status');
+      
+      if (response.data && response.data.success) {
+        Swal.fire({ 
+          icon: 'success', 
+          title: 'Success', 
+          text: newStatus === 'Ordered' 
+            ? `Estimate converted to Order successfully! Status updated to "${newStatus}"` 
+            : `Estimate status updated to "${newStatus}" successfully!`, 
+          timer: 3000, 
+          showConfirmButton: true 
+        });
+        setTimeout(() => fetchData(), 1000);
+      } else {
+        throw new Error(response.data?.message || 'Failed to update status');
+      }
+    } catch (error) {
+      let errorMessage = 'Failed to update estimate status. Please try again.';
+      if (error.response?.data?.message) errorMessage = error.response.data.message;
+      Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
+    } finally {
+      setUpdatingStatus(prev => { 
+        const newState = { ...prev }; 
+        delete newState[rowData.estimate_number]; 
+        return newState; 
+      });
     }
-  } catch (error) {
-    let errorMessage = 'Failed to update estimate status. Please try again.';
-    if (error.response?.data?.message) errorMessage = error.response.data.message;
-    Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
-  } finally {
-    setUpdatingStatus(prev => { 
-      const newState = { ...prev }; 
-      delete newState[rowData.estimate_number]; 
-      return newState; 
-    });
-  }
-}, [data, fetchData]);  // IMPORTANT: Added 'data' dependency back
+  }, [createSalesFromEstimate, fetchData]);
 
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
@@ -638,108 +630,49 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
   const handleCloseModal = useCallback(() => { setShowModal(false); setRepairDetails(null); }, []);
   const handleCreate = useCallback(() => navigate('/customer-estimates'), [navigate]);
 
-  // ============================================================
-  // DOWNLOAD PDF - Client-side generation and download
-  // ============================================================
-  const handleDownloadInvoice = useCallback(async (estimate_number) => {
+  // Download PDF from server
+  const handleDownloadInvoice = useCallback(async (estimate_number, invoiceNumber) => {
     try {
-      // Set downloading state
       setDownloadingInvoices(prev => ({ ...prev, [estimate_number]: true }));
 
-      // Fetch invoice data from backend
-      const response = await axios.get(`${baseURL}/get-invoice/${estimate_number}`, {
-        params: { customer_id: customerId } // Pass customer ID for authorization
-      });
+      // Try to download from server first
+      const pdfUrl = `${baseURL2}/invoices/${invoiceNumber}.pdf`;
       
-      const data = response.data;
-      
-      if (!data || !data.uniqueData) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Invoice data not found' });
-        setDownloadingInvoices(prev => ({ ...prev, [estimate_number]: false }));
-        return;
-      }
-
-      // Fetch customer name from localStorage if not in estimate data
-      let customerName = data.uniqueData.customer_name;
-      let customerMobile = data.uniqueData.mobile || '';
-      
-      if (!customerName) {
-        try {
-          const userDataStr = localStorage.getItem('user');
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            customerName = userData.name || userData.customer_name || 'N/A';
-            customerMobile = userData.mobile || '';
-          }
-        } catch (e) {
-          console.error('Error parsing user data:', e);
-        }
-      }
-
-      // Dynamically import react-pdf renderer
-      const { pdf } = await import('@react-pdf/renderer');
-      
-      // Create the PDF blob
-      const blob = await pdf(
-        <InvoicePDF 
-          estimateData={data.uniqueData}
-          products={data.repeatedData}
-          customerDetails={{
-            customer_name: customerName,
-            mobile: customerMobile,
-          }}
-        />
-      ).toBlob();
-      
-      // Create download link and trigger download
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Invoice_${data.uniqueData.order_number || estimate_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      // Show success message
-      Swal.fire({
-        icon: 'success',
-        title: 'Downloaded',
-        text: 'Invoice downloaded successfully!',
-        timer: 2000,
-        showConfirmButton: false
-      });
-
-    } catch (error) {
-      console.error('Error downloading invoice:', error);
-      
-      if (error.response?.status === 403) {
-        Swal.fire({ 
-          icon: 'error', 
-          title: 'Access Denied', 
-          text: 'You do not have permission to download this invoice.' 
-        });
-      } else if (error.response?.status === 404) {
-        Swal.fire({ 
-          icon: 'error', 
-          title: 'Not Found', 
-          text: 'Invoice data not found for this estimate.' 
+      const response = await fetch(pdfUrl);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Invoice_${invoiceNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Downloaded',
+          text: 'Invoice downloaded successfully!',
+          timer: 2000,
+          showConfirmButton: false
         });
       } else {
-        Swal.fire({ 
-          icon: 'error', 
-          title: 'Download Failed', 
-          text: 'Failed to download invoice. Please try again.' 
-        });
+        throw new Error('PDF not found on server');
       }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      Swal.fire({ 
+        icon: 'error', 
+        title: 'Download Failed', 
+        text: 'Failed to download invoice. Please try again later.' 
+      });
     } finally {
       setDownloadingInvoices(prev => ({ ...prev, [estimate_number]: false }));
     }
-  }, [customerId]);
+  }, []);
 
-  // ============================================================
   // Columns Definition
-  // ============================================================
   const columns = useMemo(() => [
     {
       Header: 'Sr. No.',
@@ -766,6 +699,18 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
         const estimateStatus = row.original.estimate_status;
         if (estimateStatus === 'Ordered') {
           return value ? <strong style={{ color: '#17a2b8' }}>{value}</strong> : <span className="text-muted" style={{ fontStyle: 'italic' }}>Generating...</span>;
+        }
+        return <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>;
+      },
+    },
+    {
+      Header: 'Invoice No',
+      accessor: 'invoice_number',
+      width: 110,
+      Cell: ({ value, row }) => {
+        const estimateStatus = row.original.estimate_status;
+        if (estimateStatus === 'Ordered' && value) {
+          return <strong style={{ color: '#28a745' }}>{value}</strong>;
         }
         return <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>;
       },
@@ -812,14 +757,10 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
     {
       Header: 'Actions',
       id: 'actions',
-      width: 120,
+      width: 140,
       Cell: ({ row }) => {
         const estimateNumber = row.original.estimate_number;
-        
-        // ============================================================
-        // KEY FIX: Check pdf_generated from database (0 or 1)
-        // Only show download if pdf_generated === 1 AND status is Ordered
-        // ============================================================
+        const invoiceNumber = row.original.invoice_number;
         const pdfGenerated = row.original.pdf_generated === 1 || row.original.pdf_generated === true;
         const isOrdered = row.original.estimate_status === 'Ordered';
         const isDownloading = downloadingInvoices[estimateNumber];
@@ -836,10 +777,10 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
               <div className="spinner-border spinner-border-sm text-primary" role="status" title="Downloading...">
                 <span className="visually-hidden">Downloading...</span>
               </div>
-            ) : pdfGenerated && isOrdered ? (
+            ) : pdfGenerated && isOrdered && invoiceNumber ? (
               <FaDownload 
                 style={{ cursor: 'pointer', color: '#a36e29', fontSize: '16px' }} 
-                onClick={() => handleDownloadInvoice(estimateNumber)} 
+                onClick={() => handleDownloadInvoice(estimateNumber, invoiceNumber)} 
                 title="Download Invoice PDF" 
               />
             ) : isOrdered && !pdfGenerated ? (
@@ -984,6 +925,7 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
                     <tr><td>Date</td><td>{formatDate(repairDetails.uniqueData?.date)}</td></tr>
                     <tr><td>Estimate Number</td><td>{repairDetails.uniqueData?.estimate_number}</td></tr>
                     <tr><td>Order Number</td><td>{repairDetails.uniqueData?.order_number ? <strong>{repairDetails.uniqueData.order_number}</strong> : <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>}</td></tr>
+                    <tr><td>Invoice Number</td><td>{repairDetails.uniqueData?.invoice_number ? <strong style={{ color: '#28a745' }}>{repairDetails.uniqueData.invoice_number}</strong> : <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>}</td></tr>
                     <tr><td>Order Date</td><td>{repairDetails.uniqueData?.order_date ? formatDate(repairDetails.uniqueData.order_date) : <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>}</td></tr>
                     <tr><td>Status</td><td><span className="badge px-3 py-2" style={{ backgroundColor: repairDetails.uniqueData?.estimate_status === 'Ordered' ? '#17a2b8' : repairDetails.uniqueData?.estimate_status === 'Rejected' ? '#dc3545' : '#ffc107', color: 'white', fontSize: '0.9em' }}>{repairDetails.uniqueData?.estimate_status ?? 'Pending'}</span></td></tr>
                     <tr><td>Total Amount</td><td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td></tr>
@@ -992,12 +934,34 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
                 <h5 className="mt-4 mb-3">Products</h5>
                 <div className="table-responsive">
                   <Table bordered>
-                    <thead style={{ whiteSpace: 'nowrap' }}><tr><th>BarCode</th><th>Product Name</th><th>Metal Type</th><th>Purity</th><th>Gross Wt</th><th>Stone Wt</th><th>W.Wt</th><th>Total Wt</th><th>MC</th><th>Rate</th><th>Tax Amt</th><th>Total Price</th></tr></thead>
+                    <thead style={{ whiteSpace: 'nowrap' }}>
+                      <tr>
+                        <th>BarCode</th><th>Product Name</th><th>Metal Type</th><th>Purity</th>
+                        <th>Gross Wt</th><th>Stone Wt</th><th>W.Wt</th><th>Total Wt</th>
+                        <th>MC</th><th>Rate</th><th>Tax Amt</th><th>Total Price</th>
+                      </tr>
+                    </thead>
                     <tbody style={{ whiteSpace: 'nowrap' }}>
                       {repairDetails.repeatedData?.map((product, index) => (
-                        <tr key={index}><td>{product.code}</td><td>{product.product_name}</td><td>{product.metal_type}</td><td>{product.purity}</td><td>{product.gross_weight}</td><td>{product.stone_weight}</td><td>{product.wastage_weight}</td><td>{product.total_weight_av}</td><td>{product.making_charges}</td><td>{product.rate}</td><td>{product.tax_amt}</td><td>{product.total_price}</td></tr>
+                        <tr key={index}>
+                          <td>{product.code}</td>
+                          <td>{product.product_name}</td>
+                          <td>{product.metal_type}</td>
+                          <td>{product.purity}</td>
+                          <td>{product.gross_weight}</td>
+                          <td>{product.stone_weight}</td>
+                          <td>{product.wastage_weight}</td>
+                          <td>{product.total_weight_av}</td>
+                          <td>{product.making_charges}</td>
+                          <td>{product.rate}</td>
+                          <td>{product.tax_amt}</td>
+                          <td>{product.total_price}</td>
+                        </tr>
                       ))}
-                      <tr style={{ fontWeight: "bold" }}><td colSpan="11" className="text-end">Total Amount</td><td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td></tr>
+                      <tr style={{ fontWeight: "bold" }}>
+                        <td colSpan="11" className="text-end">Total Amount</td>
+                        <td>{repairDetails.uniqueData?.total_amount || repairDetails.uniqueData?.net_amount}</td>
+                      </tr>
                     </tbody>
                   </Table>
                 </div>
