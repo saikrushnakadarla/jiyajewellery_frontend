@@ -181,11 +181,9 @@ const EstimateTable = () => {
   // Generate and save Tax Invoice PDF
   const generateAndSaveTaxInvoicePDF = useCallback(async (invoiceNumber, salesData) => {
     try {
-      // Use fetched company and products data
       const company = companyData;
       const product = productsData;
 
-      // Create PDF document
       const pdfDoc = (
         <TaxInvoiceA4
           formData={{
@@ -214,7 +212,7 @@ const EstimateTable = () => {
           festivalDiscountAmt={parseFloat(salesData.festivalDiscountAmt) || 0}
           oldItemsAmount={parseFloat(salesData.oldItemsAmount) || 0}
           schemeAmount={parseFloat(salesData.schemeAmount) || 0}
-          salesNetAmount={parseFloat(salesData.salesNetAmount) || 0}
+          salesNetAmount={0}
           salesTaxableAmount={parseFloat(salesData.salesTaxableAmount) || 0}
           selectedAdvanceReceiptAmount={parseFloat(salesData.selectedAdvanceReceiptAmount) || 0}
           netAmount={parseFloat(salesData.netAmount) || 0}
@@ -224,10 +222,8 @@ const EstimateTable = () => {
         />
       );
 
-      // Convert to blob
       const pdfBlob = await pdf(pdfDoc).toBlob();
 
-      // Save PDF to server
       const formData = new FormData();
       formData.append("invoice", pdfBlob, `${invoiceNumber}.pdf`);
 
@@ -241,8 +237,7 @@ const EstimateTable = () => {
       }
 
       console.log(`Tax Invoice PDF ${invoiceNumber} saved on server`);
-      
-      // Update the estimate record to mark PDF as generated
+
       await axios.put(`${baseURL}/update-estimate-pdf-status/${invoiceNumber}`, {
         pdf_generated: 1,
         invoice_number: invoiceNumber
@@ -337,6 +332,7 @@ const EstimateTable = () => {
         uniqueData.terms || currentCustomer?.terms || '';
 
       // Build repairDetails array
+      // Each item: sale_return_amt = 0, bal_amt = net_amount (total_price)
       const repairDetailsList = estimateData.repeatedData.map(product => {
         const totalPrice = parseFloat(product.total_price) || 0;
         const taxAmt = parseFloat(product.tax_amt) || 0;
@@ -398,10 +394,12 @@ const EstimateTable = () => {
           net_amount: totalPrice,
           net_bill_amount: totalPrice,
           paid_amt: 0,
+          // ✅ FIX: sale_return_amt must always be 0
+          sale_return_amt: 0,
+          // ✅ FIX: bal_amt must equal net_amount (total_price) since nothing is paid
           bal_amt: totalPrice,
           old_exchange_amt: 0,
           scheme_amt: 0,
-          sale_return_amt: 0,
           advance_receipt_amt: 0,
           receipts_amt: null,
           bal_after_receipts: null,
@@ -435,6 +433,8 @@ const EstimateTable = () => {
           advance_amt: null,
           customerImage: null,
           size: null,
+          finalReceiptsAmt: null,
+          finalBalAfterReceipts: null,
         };
       });
 
@@ -451,7 +451,20 @@ const EstimateTable = () => {
         totalTaxAmt += parseFloat(item.tax_amt) || 0;
       });
 
-      // Prepare payload
+      // ✅ FIX: salesNetAmount must be "0.00" so the model does NOT
+      //    write a non-zero value into the sale_return_amt column.
+      //    In the model insert order:
+      //      parsedNetAmount       → net_amount
+      //      totalOldAmount        → old_exchange_amt   (0, no old items)
+      //      schemesTotalAmount    → scheme_amt         (0, no schemes)
+      //      parsedSalesNetAmount  → sale_return_amt    ← must be 0
+      //      parsedSelectedAdvanceReceiptAmount → advance_receipt_amt (0)
+      //
+      //    bal_amt is computed in model as:
+      //      netBillAmount = parsedNetAmount - (schemesTotalAmount + parsedSalesNetAmount + parsedSelectedAdvanceReceiptAmount)
+      //                    = totalAmount - (0 + 0 + 0) = totalAmount  ✅
+      //      balAmt = netBillAmount - paidAmt = totalAmount - 0 = totalAmount ✅
+
       const dataToSave = {
         repairDetails: repairDetailsList,
         totalAmount: totalAmount.toFixed(2),
@@ -465,9 +478,12 @@ const EstimateTable = () => {
         bal_amt: totalAmount.toFixed(2),
         old_exchange_amt: "0.00",
         scheme_amt: "0.00",
+        // ✅ FIX: pass 0 so model saves 0 into sale_return_amt column
         sale_return_amt: "0.00",
         advance_receipt_amt: "0.00",
-        salesNetAmount: totalAmount.toFixed(2),
+        // ✅ FIX: salesNetAmount = "0.00" (not totalAmount)
+        //    This maps to parsedSalesNetAmount in model → sale_return_amt column
+        salesNetAmount: "0.00",
         salesTaxableAmount: (totalAmount - totalTaxAmt).toFixed(2),
         selectedAdvanceReceiptAmount: "0.00",
         total_net_wt: totalNetWt.toFixed(3),
@@ -529,25 +545,25 @@ const EstimateTable = () => {
     try {
       const sourceBy = rowData.source_by;
       const currentOrderNumber = rowData.order_number;
-      
+
       if (currentOrderNumber && currentOrderNumber.trim() !== '') {
         Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
         return;
       }
-      
+
       if (sourceBy === "customer") {
         Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
         return;
       }
-      
+
       const identifier = rowData.estimate_number;
-      if (!identifier) { 
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' }); 
-        return; 
+      if (!identifier) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' });
+        return;
       }
-      
+
       setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
-      
+
       // If status is changing to "Ordered", create sales entries first
       if (newStatus === 'Ordered') {
         try {
@@ -557,34 +573,34 @@ const EstimateTable = () => {
           }
         } catch (salesError) {
           console.error('Error creating sales:', salesError);
-          Swal.fire({ 
-            icon: 'error', 
-            title: 'Sales Creation Failed', 
-            text: 'Failed to create sales entries. Status not updated.' 
+          Swal.fire({
+            icon: 'error',
+            title: 'Sales Creation Failed',
+            text: 'Failed to create sales entries. Status not updated.'
           });
-          setUpdatingStatus(prev => { 
-            const newState = { ...prev }; 
-            delete newState[identifier]; 
-            return newState; 
+          setUpdatingStatus(prev => {
+            const newState = { ...prev };
+            delete newState[identifier];
+            return newState;
           });
           return;
         }
       }
-      
+
       // Update estimate status
-      const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, { 
-        estimate_status: newStatus 
+      const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, {
+        estimate_status: newStatus
       });
-      
+
       if (response.data && response.data.success) {
-        Swal.fire({ 
-          icon: 'success', 
-          title: 'Success', 
-          text: newStatus === 'Ordered' 
-            ? `Estimate converted to Order successfully! Status updated to "${newStatus}"` 
-            : `Estimate status updated to "${newStatus}" successfully!`, 
-          timer: 3000, 
-          showConfirmButton: true 
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: newStatus === 'Ordered'
+            ? `Estimate converted to Order successfully! Status updated to "${newStatus}"`
+            : `Estimate status updated to "${newStatus}" successfully!`,
+          timer: 3000,
+          showConfirmButton: true
         });
         setTimeout(() => fetchData(), 1000);
       } else {
@@ -595,10 +611,10 @@ const EstimateTable = () => {
       if (error.response?.data?.message) errorMessage = error.response.data.message;
       Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
     } finally {
-      setUpdatingStatus(prev => { 
-        const newState = { ...prev }; 
-        delete newState[rowData.estimate_number]; 
-        return newState; 
+      setUpdatingStatus(prev => {
+        const newState = { ...prev };
+        delete newState[rowData.estimate_number];
+        return newState;
       });
     }
   }, [createSalesFromEstimate, fetchData]);
@@ -635,9 +651,8 @@ const EstimateTable = () => {
     try {
       setDownloadingInvoices(prev => ({ ...prev, [estimate_number]: true }));
 
-      // Try to download from server first
       const pdfUrl = `${baseURL2}/invoices/${invoiceNumber}.pdf`;
-      
+
       const response = await fetch(pdfUrl);
       if (response.ok) {
         const blob = await response.blob();
@@ -649,7 +664,7 @@ const EstimateTable = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
+
         Swal.fire({
           icon: 'success',
           title: 'Downloaded',
@@ -662,10 +677,10 @@ const EstimateTable = () => {
       }
     } catch (error) {
       console.error('Error downloading invoice:', error);
-      Swal.fire({ 
-        icon: 'error', 
-        title: 'Download Failed', 
-        text: 'Failed to download invoice. Please try again later.' 
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: 'Failed to download invoice. Please try again later.'
       });
     } finally {
       setDownloadingInvoices(prev => ({ ...prev, [estimate_number]: false }));
@@ -767,25 +782,25 @@ const EstimateTable = () => {
 
         return (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <FaEye 
-              style={{ cursor: 'pointer', color: 'green', fontSize: '16px' }} 
-              onClick={() => handleViewDetails(estimateNumber)} 
-              title="View Details" 
+            <FaEye
+              style={{ cursor: 'pointer', color: 'green', fontSize: '16px' }}
+              onClick={() => handleViewDetails(estimateNumber)}
+              title="View Details"
             />
-            
+
             {isDownloading ? (
               <div className="spinner-border spinner-border-sm text-primary" role="status" title="Downloading...">
                 <span className="visually-hidden">Downloading...</span>
               </div>
             ) : pdfGenerated && isOrdered && invoiceNumber ? (
-              <FaDownload 
-                style={{ cursor: 'pointer', color: '#a36e29', fontSize: '16px' }} 
-                onClick={() => handleDownloadInvoice(estimateNumber, invoiceNumber)} 
-                title="Download Invoice PDF" 
+              <FaDownload
+                style={{ cursor: 'pointer', color: '#a36e29', fontSize: '16px' }}
+                onClick={() => handleDownloadInvoice(estimateNumber, invoiceNumber)}
+                title="Download Invoice PDF"
               />
             ) : isOrdered && !pdfGenerated ? (
-              <span 
-                style={{ fontSize: '11px', color: '#6c757d', fontStyle: 'italic', cursor: 'help' }} 
+              <span
+                style={{ fontSize: '11px', color: '#6c757d', fontStyle: 'italic', cursor: 'help' }}
                 title="PDF not yet generated by store"
               >
                 Awaiting PDF
