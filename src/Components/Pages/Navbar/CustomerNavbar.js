@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaShoppingCart, FaChevronDown, FaChevronUp, FaSignOutAlt } from 'react-icons/fa';
+import { FaShoppingCart, FaSignOutAlt, FaClipboardList } from 'react-icons/fa';
 import logo from '../images/jiya_logo.png';
 import './CustomerNavbar.css';
 import Swal from 'sweetalert2';
@@ -8,9 +8,8 @@ import baseURL from '../../Modules/ApiUrl/NodeBaseURL';
 
 function CustomerNavbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [transactionsDropdownOpen, setTransactionsDropdownOpen] = useState(false);
-  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [orderCount, setOrderCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -34,26 +33,53 @@ function CustomerNavbar() {
     }
   }
 
+  const fetchOrderCount = async () => {
+    try {
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        // Fetch orders count from estimate table where source_by is 'customer' and estimate_status is 'Ordered'
+        const response = await fetch(`${baseURL}/get/customer-orders-count/${user.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            const count = data.count || 0
+            localStorage.setItem('orderCount', count.toString())
+            setOrderCount(count)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching order count:', error)
+    }
+  }
+
   useEffect(() => {
-    // Fetch cart count on component mount
     fetchCartCount()
+    fetchOrderCount()
     
-    // Listen for cart count changes
     const handleCartCountChange = () => {
       const newCount = parseInt(localStorage.getItem('cartCount') || '0')
       setCartCount(newCount)
     };
 
+    const handleOrderCountChange = () => {
+      const newCount = parseInt(localStorage.getItem('orderCount') || '0')
+      setOrderCount(newCount)
+    };
+
     window.addEventListener('cartCountChanged', handleCartCountChange)
+    window.addEventListener('orderCountChanged', handleOrderCountChange)
     
-    // Also fetch cart count when user data might be available
     const userString = localStorage.getItem('user')
     if (userString) {
       fetchCartCount()
+      fetchOrderCount()
     }
     
     return () => {
       window.removeEventListener('cartCountChanged', handleCartCountChange)
+      window.removeEventListener('orderCountChanged', handleOrderCountChange)
     }
   }, [])
 
@@ -67,6 +93,7 @@ function CustomerNavbar() {
     }).then((result) => {
       if (result.isConfirmed) {
         localStorage.removeItem('cartCount')
+        localStorage.removeItem('orderCount')
         localStorage.removeItem('user')
         navigate('/')
       }
@@ -89,49 +116,26 @@ function CustomerNavbar() {
           DASHBOARD
         </Link>
 
-        <div
-          className="navbar-dropdown"
-          onMouseEnter={() => setTransactionsDropdownOpen(true)}
-          onMouseLeave={() => setTransactionsDropdownOpen(false)}
+        <Link
+          to="/customer-estimation"
+          className={location.pathname === '/customer-estimation' ? 'active' : ''}
         >
-          <span className="navbar-dropdown-title">
-            TRANSACTIONS
-            {transactionsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
-          </span>
+          SELECTIONS
+        </Link>
 
-          {transactionsDropdownOpen && (
-            <div className="navbar-dropdown-content">
-              <Link to="/customer-estimation">Estimation</Link>
-              <Link to="/product-catalog">Product Catalog</Link>
-              <Link to="/purchase">Purchase History</Link>
-            </div>
-          )}
-        </div>
-
-          {/* <Link
-            to="/customer-transactions"
-            className={location.pathname === '/customer-transactions' ? 'active' : ''}
-          >
-            TRANSACTIONS
-          </Link> */}
-
-        {/* <div
-          className="navbar-dropdown"
-          onMouseEnter={() => setReportsDropdownOpen(true)}
-          onMouseLeave={() => setReportsDropdownOpen(false)}
+        <Link
+          to="/product-catalog"
+          className={location.pathname === '/product-catalog' ? 'active' : ''}
         >
-          <span className="navbar-dropdown-title">
-            REPORTS
-            {reportsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
-          </span>
-          
-          {/* You can add report links here when needed */}
-          {/* {reportsDropdownOpen && (
-            <div className="navbar-dropdown-content"> */}
-              {/* Add report links here in the future */}
-            {/* </div>
-          )}
-        </div> */}
+          PRODUCT
+        </Link>
+
+        <Link
+          to="/purchase"
+          className={location.pathname === '/purchase' ? 'active' : ''}
+        >
+          PURCHASE
+        </Link>
 
         <Link
           to="/customerreports"
@@ -143,6 +147,18 @@ function CustomerNavbar() {
 
       {/* Right Section */}
       <div className="navbar-right-section">
+        {/* ORDERS / BUY NOW ICON */}
+        <div
+          className="navbar-orders-container"
+          onClick={() => navigate('/customer-orders')}
+          title={`${orderCount} active orders`}
+        >
+          <FaClipboardList className="navbar-orders-icon" />
+          {orderCount > 0 && (
+            <span className="orders-badge">{orderCount > 99 ? '99+' : orderCount}</span>
+          )}
+        </div>
+
         {/* CART */}
         <div
           className="navbar-cart-container"

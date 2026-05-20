@@ -295,3 +295,163 @@
     align-items: center;
     gap: 32px;
 }
+
+
+
+/* Orders Container - Similar to Cart Container */
+.navbar-orders-container {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  margin-right: 15px;
+}
+
+.navbar-orders-container:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+.navbar-orders-icon {
+  font-size: 22px;
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.navbar-orders-container:hover .navbar-orders-icon {
+  color: #a36e29;
+}
+
+/* Orders Badge - Similar to Cart Badge */
+.orders-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  animation: badge-pulse 1s ease-in-out;
+}
+
+/* Cart Container Styles */
+.navbar-cart-container {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  margin-right: 15px;
+}
+
+.navbar-cart-container:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+.navbar-cart-icon {
+  font-size: 22px;
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.navbar-cart-container:hover .navbar-cart-icon {
+  color: #a36e29;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  animation: badge-pulse 1s ease-in-out;
+}
+
+/* Badge Pulse Animation */
+@keyframes badge-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Right Section Layout */
+.navbar-right-section {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Logout Button Styles */
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  background-color: #c82333;
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar-orders-icon,
+  .navbar-cart-icon {
+    font-size: 18px;
+  }
+  
+  .orders-badge,
+  .cart-badge {
+    font-size: 9px;
+    min-width: 16px;
+    height: 16px;
+    top: -3px;
+    right: -3px;
+  }
+  
+  .logout-button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}

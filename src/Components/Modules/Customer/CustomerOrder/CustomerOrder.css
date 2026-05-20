@@ -1,0 +1,251 @@
+/* CustomerOrders.css */
+
+.customer-orders-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.customer-orders-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.customer-orders-title {
+  font-size: 24px;
+  margin-bottom: 30px;
+  color: #333;
+  text-align: center;
+  font-weight: 600;
+}
+
+.customer-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.customer-order-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.customer-order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.customer-order-header {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.customer-order-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-order-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.customer-order-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+}
+
+.customer-order-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.customer-order-status.ordered,
+.customer-order-status.completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.customer-order-status.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.customer-order-status.cancelled {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.customer-order-body {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.customer-order-items-preview {
+  flex: 1;
+}
+
+.customer-order-total {
+  text-align: right;
+}
+
+.customer-order-amount {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2ecc71;
+}
+
+.customer-order-actions {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #eaeaea;
+}
+
+.customer-order-view-btn,
+.customer-order-download-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.customer-order-view-btn {
+  background-color: #a36e29;
+  color: white;
+}
+
+.customer-order-view-btn:hover {
+  background-color: #8a5822;
+  transform: translateY(-1px);
+}
+
+.customer-order-download-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.customer-order-download-btn:hover {
+  background-color: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* Loading State */
+.customer-orders-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 20px;
+}
+
+.customer-orders-loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #a36e29;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.customer-orders-error-container {
+  text-align: center;
+  padding: 60px 20px;
+  min-height: 400px;
+}
+
+.customer-orders-error-container button {
+  background-color: #a36e29;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+/* Empty State */
+.customer-orders-empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 10px;
+}
+
+.customer-orders-shop-btn {
+  background-color: #a36e29;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+}
+
+.customer-orders-shop-btn:hover {
+  background-color: #8a5822;
+  transform: translateY(-2px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .customer-orders-container {
+    padding: 15px;
+  }
+  
+  .customer-order-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .customer-order-body {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .customer-order-total {
+    text-align: center;
+  }
+  
+  .customer-order-actions {
+    flex-direction: column;
+  }
+  
+  .customer-order-view-btn,
+  .customer-order-download-btn {
+    justify-content: center;
+  }
+}

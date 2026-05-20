@@ -38,6 +38,10 @@ import RatesForm from './Components/Modules/Admin/Masters/RatesMaster/RatesForm'
 import CartCatalog from './Components/Modules/Customer/CartCatalog/CartCatalog';
 import Attendance from './Components/Modules/SalesPerson/Attendance/Attendance';
 
+
+import CustomerOrders from './Components/Modules/Customer/CustomerOrder/CustomerOrder';
+import CustomerOrderDetails from './Components/Modules/Customer/CustomerOrderDetails/CustomerOrderDetails';
+
 import CompanyInfo from "./Components/Modules/Admin/CompanyInfo/CompanyInfo"
 import CompanyInfoEditForm from './Components/Modules/Admin/CompanyInfo/CompanyInfoEditForm';
 import LoanAmount from "./Components/Modules/Admin/LoanAmount/LoanAmount"
@@ -135,6 +139,10 @@ const AppContent = () => {
         <Route path='/cart-catalog' element={<CartCatalog />} />
         <Route path='/purchase' element={<Purchase />} />
         <Route path='/admin-visit-logs' element={<AdminVisitLogs />} />
+
+        <Route path="/customer-orders" element={<CustomerOrders />} />
+        <Route path="/customer-order-details/:estimateNumber" element={<CustomerOrderDetails />} />
+
 
         <Route path='/attendance' element={<Attendance />} />
         <Route path='/company-info' element={<CompanyInfo />} />
