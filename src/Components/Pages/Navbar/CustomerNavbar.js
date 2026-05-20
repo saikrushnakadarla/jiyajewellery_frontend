@@ -89,7 +89,7 @@ function CustomerNavbar() {
           DASHBOARD
         </Link>
 
-        {/* <div
+        <div
           className="navbar-dropdown"
           onMouseEnter={() => setTransactionsDropdownOpen(true)}
           onMouseLeave={() => setTransactionsDropdownOpen(false)}
@@ -106,14 +106,14 @@ function CustomerNavbar() {
               <Link to="/purchase">Purchase History</Link>
             </div>
           )}
-        </div> */}
+        </div>
 
-          <Link
+          {/* <Link
             to="/customer-transactions"
             className={location.pathname === '/customer-transactions' ? 'active' : ''}
           >
             TRANSACTIONS
-          </Link>
+          </Link> */}
 
         {/* <div
           className="navbar-dropdown"

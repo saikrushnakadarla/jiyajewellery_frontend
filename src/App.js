@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
 import CustomerRegistration from './Components/Modules/CustomerRegistration/CustomerRegistration';
 import Login from './Components/Pages/Login/Login'
@@ -73,102 +73,110 @@ import QRCodePrinting from './Components/Modules/Admin/QRCodePrinting/QRCodePrin
 
 import EmailVerification from './Components/Pages/EmailVerification/EmailVerification';
 
+// Create a wrapper component to conditionally show watermark
+const AppContent = () => {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/';
+  
+  return (
+    <>
+      {/* Only show watermark if NOT on login page */}
+      {!isLoginPage && <WaterMark />}
+      
+      <Routes>
+        <Route path="/customerregistration" element={<CustomerRegistration />} />
+        <Route path="/" element={<Login />} />
+        <Route path='/salepersonregister' element={<SalespersonRegister />} />
+        <Route path='/adminhome' element={<AdminHome />} />
+        <Route path='/customers' element={<Customers />} />
+        <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/dashboard-pie' element={<DashboardPie />} />
 
+        <Route path="/customer-dashboard" element={<CustomerDashboard />} />
+        <Route 
+          path="/salesperson-dashboard" 
+          element={
+            <ProtectedSalesRoute>
+              <SalesPersonDashboard />
+            </ProtectedSalesRoute>
+          } 
+        />
+        <Route path='/salespersontable' element={<SalesPersonTable />} />
 
+        <Route path='/purity' element={<Purity />} />
+        <Route path='/purityform' element={<PurityForm />} />
+        <Route path='/rates' element={<Rates />} />
+        <Route path='/ratesform' element={<RatesForm />} />
+        <Route path='/metaltype' element={<Metaltype />} />
+        <Route path='/metaltypeform' element={<Metaltypeform />} />
+        <Route path='/designmaster' element={<Designmaster />} />
+        <Route path='/designmasterform' element={<Designmasterform />} />
+        <Route path='/c-products' element={<CategoryProducts />} />
+        <Route path='/categoryform' element={<CategoryForm />} />
+        <Route path='/productmaster' element={<ProductMaster />} />
+        <Route path='/productform' element={<ProductForm />} />
+
+        <Route path='/estimation' element={<EstimateTable />} />
+        <Route path='/transactions' element={<Transactions />} />
+
+        <Route path='/estimates' element={<EstimateForm />} />
+
+        <Route path='/customer-transactions' element={<CustomerTransactions />}>
+          <Route index element={<CustomerEstimateTable />} />
+          <Route path="estimation" element={<CustomerEstimateTable />} />
+          <Route path="catalog" element={<ProductCatalog />} />
+          <Route path="purchase" element={<Purchase />} />
+        </Route>
+
+       
+        <Route path='/customer-estimation' element={<CustomerEstimateTable />} />
+        <Route path='/customer-estimates' element={<CustomerEstimateForm />} />
+        <Route path='/product-catalog' element={<ProductCatalog />} />
+        <Route path='/cart-catalog' element={<CartCatalog />} />
+        <Route path='/purchase' element={<Purchase />} />
+        <Route path='/admin-visit-logs' element={<AdminVisitLogs />} />
+
+        <Route path='/attendance' element={<Attendance />} />
+        <Route path='/company-info' element={<CompanyInfo />} />
+        <Route path="/company-info/edit" element={<CompanyInfoEditForm />} />
+        <Route path="/loan-amount" element={<LoanAmount />} /> 
+        <Route path="/add-loan-amount" element={<AddLoanAmountForm />} />
+        <Route path="/loan-details/:id" element={<LoanDetails />} />
+        <Route path='/salesperson-attendance' element={<AllAttendance />} />
+        <Route path='/visit-logs' element={<VisitLogs />} />
+        <Route path='/reports' element={<Reports />} />
+        
+        <Route path='/salesperson-transactions' element={<SalespersonTransactions />} />    
+        <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
+        <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />
+        <Route path='/customerreports' element={<CustomerReports />} />
+        <Route path='/salespersonreports' element={<SalespersonReports />} />
+
+        <Route path="/leave-management" element={<LeaveManagement />} />
+        <Route path="/add-leave-request" element={<AddLeaveRequest />} />
+
+        <Route path="/leaves-approval" element={<LeavesApproval />} />
+
+        <Route path="/customer-invoice/:estimateNumber" element={<CustomerInvoice />} />
+
+        <Route path="/watermark" element={<WaterMark />} />
+
+        <Route path='/visit-logs-schedule' element={<VisitLogsSchedule />} />
+
+        <Route path="/qr-code-printing" element={<QRCodePrinting />} />
+      
+        <Route path="/email-verification" element={<EmailVerification />} />
+      </Routes>
+    </>
+  );
+};
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
     <Router>
-      {/* <ScreenshotProtection> */}
-
-         {/* Add Watermark here - appears on ALL pages automatically */}
-        <WaterMark />
-
-
-        <Routes>
-          <Route path="/customerregistration" element={<CustomerRegistration />} />
-          <Route path="/" element={<Login />} />
-          <Route path='/salepersonregister' element={<SalespersonRegister />} />
-          <Route path='/adminhome' element={<AdminHome />} />
-          <Route path='/customers' element={<Customers />} />
-          <Route path='/dashboard' element={<Dashboard />} />
-          <Route path='/dashboard-pie' element={<DashboardPie />} />
-
-          <Route path="/customer-dashboard" element={<CustomerDashboard />} />
-          <Route 
-            path="/salesperson-dashboard" 
-            element={
-              <ProtectedSalesRoute>
-                <SalesPersonDashboard />
-              </ProtectedSalesRoute>
-            } 
-          />
-          <Route path='/salespersontable' element={<SalesPersonTable />} />
-
-          <Route path='/purity' element={<Purity />} />
-          <Route path='/purityform' element={<PurityForm />} />
-          <Route path='/rates' element={<Rates />} />
-          <Route path='/ratesform' element={<RatesForm />} />
-          <Route path='/metaltype' element={<Metaltype />} />
-          <Route path='/metaltypeform' element={<Metaltypeform />} />
-          <Route path='/designmaster' element={<Designmaster />} />
-          <Route path='/designmasterform' element={<Designmasterform />} />
-          <Route path='/c-products' element={<CategoryProducts />} />
-          <Route path='/categoryform' element={<CategoryForm />} />
-          <Route path='/productmaster' element={<ProductMaster />} />
-          <Route path='/productform' element={<ProductForm />} />
-
-          <Route path='/estimation' element={<EstimateTable />} />
-          <Route path='/transactions' element={<Transactions />} />
-
-          <Route path='/estimates' element={<EstimateForm />} />
-
-          <Route path='/customer-transactions' element={<CustomerTransactions />} />
-          <Route path='/customer-estimation' element={<CustomerEstimateTable />} />
-          <Route path='/customer-estimates' element={<CustomerEstimateForm />} />
-          <Route path='/product-catalog' element={<ProductCatalog />} />
-          <Route path='/cart-catalog' element={<CartCatalog />} />
-          <Route path='/purchase' element={<Purchase />} />
-          <Route path='/admin-visit-logs' element={<AdminVisitLogs />} />
-
-          <Route path='/attendance' element={<Attendance />} />
-          <Route path='/company-info' element={<CompanyInfo />} />
-          <Route path="/company-info/edit" element={<CompanyInfoEditForm />} />
-          <Route path="/loan-amount" element={<LoanAmount />} /> 
-          <Route path="/add-loan-amount" element={<AddLoanAmountForm />} />
-          <Route path="/loan-details/:id" element={<LoanDetails />} />
-          <Route path='/salesperson-attendance' element={<AllAttendance />} />
-          <Route path='/visit-logs' element={<VisitLogs />} />
-          <Route path='/reports' element={<Reports />} />
-          
-          <Route path='/salesperson-transactions' element={<SalespersonTransactions />} />    
-          <Route path='/salesperson-estimation' element={<SalesPersonEstimateTable />} />
-          <Route path='/salesperson-estimates' element={<SalesPersonEstimateForm />} />
-          <Route path='/customerreports' element={<CustomerReports />} />
-          <Route path='/salespersonreports' element={<SalespersonReports />} />
-
-          <Route path="/leave-management" element={<LeaveManagement />} />
-          <Route path="/add-leave-request" element={<AddLeaveRequest />} />
-
-          <Route path="/leaves-approval" element={<LeavesApproval />} />
-
-          <Route path="/customer-invoice/:estimateNumber" element={<CustomerInvoice />} />
-
-          <Route path="/watermark" element={<WaterMark />} />
-
-
-          <Route path='/visit-logs-schedule' element={<VisitLogsSchedule />} />
-
-
-          <Route path="/qr-code-printing" element={<QRCodePrinting />} />
-
-        
-          <Route path="/email-verification" element={<EmailVerification />} />
-
-        </Routes>
-      {/* </ScreenshotProtection> */}
+      <AppContent />
     </Router>
   );
 }
