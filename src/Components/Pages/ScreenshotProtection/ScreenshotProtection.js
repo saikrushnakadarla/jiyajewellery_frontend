@@ -1,12 +1,130 @@
-// src/Components/ScreenshotProtection.js
-import React, { useEffect, useRef } from 'react';
+// src/Components/Pages/ScreenshotProtection/ScreenshotProtection.js
+import React, { useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
+import baseURL from '../../Modules/ApiUrl/NodeBaseURL';
 
 const ScreenshotProtection = ({ children }) => {
   const containerRef = useRef(null);
+  const [user, setUser] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
-    // Advanced Anti-Screenshot Protection
+    // Get logged in user from localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        
+        // Check if user is blocked
+        if (userData.account_status === 'inactive') {
+          setIsBlocked(true);
+        } else {
+          // Check current screenshot status
+          checkScreenshotStatus(userData.id);
+        }
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+  }, []);
+
+  const checkScreenshotStatus = async (userId) => {
+    try {
+      const response = await fetch(`${baseURL}/api/screenshot/status/${userId}`);
+      const data = await response.json();
+      
+      if (data.success && data.is_blocked) {
+        setIsBlocked(true);
+        // Show warning if account is blocked
+        Swal.fire({
+          icon: "error",
+          title: "Account Blocked!",
+          text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
+          confirmButtonText: "OK",
+          allowOutsideClick: false
+        }).then(() => {
+          // Redirect to login or show logout
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        });
+      }
+    } catch (error) {
+      console.error('Error checking screenshot status:', error);
+    }
+  };
+
+  const recordScreenshotAttempt = async () => {
+    if (!user || user.role !== 'salesman') {
+      return; // Only track for salesperson accounts
+    }
+    
+    if (isBlocked) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${baseURL}/api/screenshot/record`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          device_info: navigator.userAgent,
+          user_agent: navigator.userAgent,
+          ip_address: '' // IP will be captured on server side
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.account_blocked) {
+        setIsBlocked(true);
+        // Update local user data
+        const updatedUser = { ...user, account_status: 'inactive' };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        
+        Swal.fire({
+          icon: "error",
+          title: "Account Blocked!",
+          text: data.message,
+          confirmButtonText: "OK",
+          allowOutsideClick: false
+        }).then(() => {
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        });
+      } else {
+        // Show warning with remaining attempts
+        Swal.fire({
+          icon: "warning",
+          title: "⚠️ Screenshot Detected!",
+          html: `Screenshots are prohibited.<br/><br/>
+                 <strong>Attempt: ${data.screenshot_count}/3</strong><br/>
+                 ${data.remaining_attempts > 0 ? `Your account will be blocked after ${data.remaining_attempts} more attempt(s).` : ''}`,
+          timer: 3000,
+          showConfirmButton: false,
+          background: '#000',
+          color: '#fff'
+        });
+      }
+    } catch (error) {
+      console.error('Error recording screenshot:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Don't add protection for non-salesman users
+    if (!user || user.role !== 'salesman') {
+      return;
+    }
+
+    if (isBlocked) {
+      return;
+    }
+
     let blurTimeout;
     let resizeTimeout;
     let devtoolsOpen = false;
@@ -17,7 +135,7 @@ const ScreenshotProtection = ({ children }) => {
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -46,7 +164,7 @@ const ScreenshotProtection = ({ children }) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -54,7 +172,7 @@ const ScreenshotProtection = ({ children }) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -62,7 +180,7 @@ const ScreenshotProtection = ({ children }) => {
       if ((e.metaKey) && e.shiftKey && (e.key === '3' || e.key === '4')) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -70,7 +188,7 @@ const ScreenshotProtection = ({ children }) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S')) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -78,7 +196,7 @@ const ScreenshotProtection = ({ children }) => {
       if (e.altKey && (e.key === 'PrintScreen' || e.keyCode === 44)) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
 
@@ -86,7 +204,7 @@ const ScreenshotProtection = ({ children }) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'S')) {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
     };
@@ -98,12 +216,12 @@ const ScreenshotProtection = ({ children }) => {
       return false;
     };
 
-    // 3. Block copy, cut, paste
+    // 3. Block copy, cut, paste for security
     const blockCopyCutPaste = (e) => {
       if (e.type === 'copy' || e.type === 'cut') {
         e.preventDefault();
         e.stopPropagation();
-        showScreenshotWarning();
+        recordScreenshotAttempt();
         return false;
       }
       // Allow paste for password fields only
@@ -186,20 +304,7 @@ const ScreenshotProtection = ({ children }) => {
       }
     };
 
-    // 9. Show warning message
-    const showScreenshotWarning = () => {
-      Swal.fire({
-        icon: "error",
-        title: "⛔ Screenshot Blocked!",
-        text: "Screenshots are disabled on this page for security reasons.",
-        timer: 2000,
-        showConfirmButton: false,
-        background: '#000',
-        color: '#fff'
-      });
-    };
-
-    // 10. Try to clear clipboard periodically (removes screenshot data)
+    // 9. Try to clear clipboard periodically (removes screenshot data)
     const clearClipboard = () => {
       try {
         navigator.clipboard.readText().then(() => {
@@ -208,7 +313,7 @@ const ScreenshotProtection = ({ children }) => {
       } catch (e) {}
     };
 
-    // 11. Detect if DevTools is open (common for screenshot tools)
+    // 10. Detect if DevTools is open (common for screenshot tools)
     const checkDevTools = () => {
       const threshold = 160;
       const widthThreshold = window.outerWidth - window.innerWidth > threshold;
@@ -232,12 +337,12 @@ const ScreenshotProtection = ({ children }) => {
       }
     };
 
-    // 12. Monitor for screenshot software (like Lightshot, Greenshot)
+    // 11. Monitor for screenshot software (like Lightshot, Greenshot)
     const checkForScreenshotSoftware = () => {
       const checkHotkey = (e) => {
         if (e.key === 'PrintScreen' || e.keyCode === 44) {
           e.preventDefault();
-          showScreenshotWarning();
+          recordScreenshotAttempt();
           return false;
         }
       };
@@ -284,7 +389,42 @@ const ScreenshotProtection = ({ children }) => {
       const overlay = document.getElementById('screenshot-overlay');
       if (overlay) overlay.remove();
     };
-  }, []);
+  }, [user, isBlocked]);
+
+  // Don't render children if blocked (for salesman)
+  if (user && user.role === 'salesman' && isBlocked) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        flexDirection: 'column',
+        textAlign: 'center',
+        padding: '20px'
+      }}>
+        <h1 style={{ color: 'red' }}>Account Blocked</h1>
+        <p>Your account has been blocked due to multiple screenshot attempts.</p>
+        <p>Please contact the administrator to reactivate your account.</p>
+        <button 
+          onClick={() => {
+            localStorage.removeItem('user');
+            window.location.href = '/';
+          }}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="screenshot-protection-container" ref={containerRef}>

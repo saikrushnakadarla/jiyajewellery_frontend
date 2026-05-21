@@ -84,6 +84,8 @@ const AppContent = () => {
   
   return (
     <>
+
+    <ScreenshotProtection>
       {/* Only show watermark if NOT on login page */}
       {!isLoginPage && <WaterMark />}
       
@@ -175,6 +177,7 @@ const AppContent = () => {
       
         <Route path="/email-verification" element={<EmailVerification />} />
       </Routes>
+      </ScreenshotProtection>
     </>
   );
 };

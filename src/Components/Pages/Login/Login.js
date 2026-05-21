@@ -291,25 +291,23 @@ const Login = () => {
     };
   }, []);
 
-
   const checkEmailVerification = async (userId) => {
-  try {
-    const response = await fetch(`${baseURL}/api/users/check-verification/${userId}`);
-    const data = await response.json();
-    
-    if (response.ok && data.needs_verification) {
-      // Store that verification is needed
-      localStorage.setItem('needsEmailVerification', 'true');
-      return true;
+    try {
+      const response = await fetch(`${baseURL}/api/users/check-verification/${userId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.needs_verification) {
+        localStorage.setItem('needsEmailVerification', 'true');
+        return true;
+      }
+      
+      localStorage.removeItem('needsEmailVerification');
+      return false;
+    } catch (error) {
+      console.error('Error checking verification:', error);
+      return false;
     }
-    
-    localStorage.removeItem('needsEmailVerification');
-    return false;
-  } catch (error) {
-    console.error('Error checking verification:', error);
-    return false;
-  }
-};
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -363,6 +361,27 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
+        const userRole = data.user?.role?.toLowerCase();
+        
+        // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
+        if (userRole === "salesman") {
+          // Check if account is blocked due to screenshot attempts
+          if (data.user.account_status === 'inactive') {
+            Swal.fire({
+              icon: "error",
+              title: "Account Blocked!",
+              text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            }).then(() => {
+              localStorage.removeItem('user');
+              setIsLoading(false);
+            });
+            return;
+          }
+        }
+        
+        // If account is not blocked, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -372,13 +391,11 @@ const Login = () => {
           showConfirmButton: false
         });
 
-        const userRole = data.user?.role?.toLowerCase();
-
         if (userRole === "admin") {
-          navigate("/dashboard");
+          setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
-          if (data.user.status === "approved") {
-              // Check if email verification is needed
+          setTimeout(async () => {
+            if (data.user.status === "approved") {
               const needsVerification = await checkEmailVerification(data.user.id);
               if (needsVerification) {
                 navigate("/email-verification");
@@ -395,28 +412,23 @@ const Login = () => {
                 navigate("/customer-dashboard");
               });
             }
+          }, 1500);
         } else if (userRole === "salesman") {
-          const today = new Date().toDateString();
-          const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+          setTimeout(() => {
+            const today = new Date().toDateString();
+            const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
 
-          if (lastCheckInDate !== today) {
-            sessionStorage.removeItem('attendanceChecked');
-            sessionStorage.removeItem('visitLogCompleted');
-            sessionStorage.removeItem('visitLogSkipped');
-            sessionStorage.removeItem('lastCheckInDate');
-          }
+            if (lastCheckInDate !== today) {
+              sessionStorage.removeItem('attendanceChecked');
+              sessionStorage.removeItem('visitLogCompleted');
+              sessionStorage.removeItem('visitLogSkipped');
+              sessionStorage.removeItem('lastCheckInDate');
+            }
 
-          Swal.fire({
-            icon: 'success',
-            title: 'Welcome!',
-            text: 'Login successful',
-            timer: 1500,
-            showConfirmButton: false
-          }).then(() => {
             navigate("/salesperson-dashboard");
-          });
+          }, 1500);
         } else {
-          navigate("/dashboard");
+          setTimeout(() => navigate("/dashboard"), 1500);
         }
 
       } else {
@@ -455,6 +467,28 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        const userRole = data.user?.role?.toLowerCase();
+        
+        // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
+        if (userRole === "salesman") {
+          // Check if account is blocked due to screenshot attempts
+          if (data.user.account_status === 'inactive') {
+            Swal.fire({
+              icon: "error",
+              title: "Account Blocked!",
+              text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            }).then(() => {
+              localStorage.removeItem('user');
+              setIsLoading(false);
+              setShowFaceLogin(false);
+            });
+            return;
+          }
+        }
+        
+        // If account is not blocked, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -465,30 +499,32 @@ const Login = () => {
           showConfirmButton: false
         });
 
-        const userRole = data.user?.role?.toLowerCase();
-
         if (userRole === "admin") {
-          navigate("/dashboard");
+          setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
-          if (data.user.status === "approved") {
-            navigate("/customer-dashboard");
-          } else {
-            navigate("/customer-dashboard");
-          }
+          setTimeout(() => {
+            if (data.user.status === "approved") {
+              navigate("/customer-dashboard");
+            } else {
+              navigate("/customer-dashboard");
+            }
+          }, 1500);
         } else if (userRole === "salesman") {
-          const today = new Date().toDateString();
-          const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+          setTimeout(() => {
+            const today = new Date().toDateString();
+            const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
 
-          if (lastCheckInDate !== today) {
-            sessionStorage.removeItem('attendanceChecked');
-            sessionStorage.removeItem('visitLogCompleted');
-            sessionStorage.removeItem('visitLogSkipped');
-            sessionStorage.removeItem('lastCheckInDate');
-          }
+            if (lastCheckInDate !== today) {
+              sessionStorage.removeItem('attendanceChecked');
+              sessionStorage.removeItem('visitLogCompleted');
+              sessionStorage.removeItem('visitLogSkipped');
+              sessionStorage.removeItem('lastCheckInDate');
+            }
 
-          navigate("/salesperson-dashboard");
+            navigate("/salesperson-dashboard");
+          }, 1500);
         } else {
-          navigate("/dashboard");
+          setTimeout(() => navigate("/dashboard"), 1500);
         }
       } else {
         Swal.fire({
@@ -511,7 +547,7 @@ const Login = () => {
   };
 
   return (
-    <div >
+    <div>
       <div className="saleslogin-container container-fluid">
         <div className="row vh-100 d-flex align-items-center justify-content-center">
           <div className="col-12 col-md-6 d-flex justify-content-center align-items-center saleslogin-left">
