@@ -541,83 +541,97 @@ const EstimateTable = () => {
     }
   }, [generateAndSaveTaxInvoicePDF]);
 
-  const handleStatusChange = useCallback(async (rowData, newStatus) => {
-    try {
-      const sourceBy = rowData.source_by;
-      const currentOrderNumber = rowData.order_number;
+ const handleStatusChange = useCallback(async (rowData, newStatus) => {
+  try {
+    const sourceBy = rowData.source_by;
+    const currentOrderNumber = rowData.order_number;
 
-      if (currentOrderNumber && currentOrderNumber.trim() !== '') {
-        Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
-        return;
-      }
-
-      if (sourceBy === "customer") {
-        Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
-        return;
-      }
-
-      const identifier = rowData.estimate_number;
-      if (!identifier) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' });
-        return;
-      }
-
-      setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
-
-      // If status is changing to "Ordered", create sales entries first
-      if (newStatus === 'Ordered') {
-        try {
-          const result = await createSalesFromEstimate(identifier);
-          if (!result.success) {
-            throw new Error('Failed to create sales entries');
-          }
-        } catch (salesError) {
-          console.error('Error creating sales:', salesError);
-          Swal.fire({
-            icon: 'error',
-            title: 'Sales Creation Failed',
-            text: 'Failed to create sales entries. Status not updated.'
-          });
-          setUpdatingStatus(prev => {
-            const newState = { ...prev };
-            delete newState[identifier];
-            return newState;
-          });
-          return;
-        }
-      }
-
-      // Update estimate status
-      const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, {
-        estimate_status: newStatus
-      });
-
-      if (response.data && response.data.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: newStatus === 'Ordered'
-            ? `Estimate converted to Order successfully! Status updated to "${newStatus}"`
-            : `Estimate status updated to "${newStatus}" successfully!`,
-          timer: 3000,
-          showConfirmButton: true
-        });
-        setTimeout(() => fetchData(), 1000);
-      } else {
-        throw new Error(response.data?.message || 'Failed to update status');
-      }
-    } catch (error) {
-      let errorMessage = 'Failed to update estimate status. Please try again.';
-      if (error.response?.data?.message) errorMessage = error.response.data.message;
-      Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
-    } finally {
-      setUpdatingStatus(prev => {
-        const newState = { ...prev };
-        delete newState[rowData.estimate_number];
-        return newState;
-      });
+    if (currentOrderNumber && currentOrderNumber.trim() !== '') {
+      Swal.fire({ icon: 'error', title: 'Cannot Change Status', text: 'Cannot change status once order number is generated' });
+      return;
     }
-  }, [createSalesFromEstimate, fetchData]);
+
+    if (sourceBy === "customer") {
+      Swal.fire({ icon: 'error', title: 'Not Allowed', text: 'Customer-created estimates cannot be modified from here' });
+      return;
+    }
+
+    const identifier = rowData.estimate_number;
+    if (!identifier) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Could not identify the estimate.' });
+      return;
+    }
+
+    setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
+
+    // If status is changing to "Ordered", create sales entries first
+    if (newStatus === 'Ordered') {
+      try {
+        const result = await createSalesFromEstimate(identifier);
+        if (!result.success) {
+          throw new Error('Failed to create sales entries');
+        }
+        
+        // *** NEW CODE: Update product status from Selected to Ordered ***
+        try {
+          const productStatusResponse = await axios.post(`${baseURL}/update-products-status-to-ordered/${identifier}`);
+          if (productStatusResponse.data.success) {
+            console.log(`✅ Updated ${productStatusResponse.data.updated_count} products status to Ordered`);
+          } else {
+            console.warn('Failed to update product status:', productStatusResponse.data.message);
+          }
+        } catch (productStatusError) {
+          console.error('Error updating product status:', productStatusError);
+          // Don't block the flow if product status update fails
+        }
+        
+      } catch (salesError) {
+        console.error('Error creating sales:', salesError);
+        Swal.fire({
+          icon: 'error',
+          title: 'Sales Creation Failed',
+          text: 'Failed to create sales entries. Status not updated.'
+        });
+        setUpdatingStatus(prev => {
+          const newState = { ...prev };
+          delete newState[identifier];
+          return newState;
+        });
+        return;
+      }
+    }
+
+    // Update estimate status
+    const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, {
+      estimate_status: newStatus
+    });
+
+    if (response.data && response.data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: newStatus === 'Ordered'
+          ? `Estimate converted to Order successfully! Status updated to "${newStatus}"`
+          : `Estimate status updated to "${newStatus}" successfully!`,
+        timer: 3000,
+        showConfirmButton: true
+      });
+      setTimeout(() => fetchData(), 1000);
+    } else {
+      throw new Error(response.data?.message || 'Failed to update status');
+    }
+  } catch (error) {
+    let errorMessage = 'Failed to update estimate status. Please try again.';
+    if (error.response?.data?.message) errorMessage = error.response.data.message;
+    Swal.fire({ icon: 'error', title: 'Update Failed', text: errorMessage });
+  } finally {
+    setUpdatingStatus(prev => {
+      const newState = { ...prev };
+      delete newState[rowData.estimate_number];
+      return newState;
+    });
+  }
+}, [createSalesFromEstimate, fetchData]);
 
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {

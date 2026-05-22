@@ -132,21 +132,24 @@ const EstimateForm = () => {
   }, [packetSuccessMessage]);
 
   // Fetch all products
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch(`${baseURL}/get/products`);
-        if (response.ok) {
-          const result = await response.json();
-          setAllProducts(result);
-          allProductsRef.current = result;
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
+ // Replace your existing fetchProducts useEffect with this:
+useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      // Change from /get/products to /get/products/available
+      const response = await fetch(`${baseURL}/get/products/available`);
+      if (response.ok) {
+        const result = await response.json();
+        setAllProducts(result);
+        allProductsRef.current = result;
+        console.log("Fetched available products:", result.length);
       }
-    };
-    fetchProducts();
-  }, []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+  fetchProducts();
+}, []);
 
   // Fetch customers
   useEffect(() => {
@@ -496,159 +499,198 @@ const EstimateForm = () => {
   };
 
   // FIXED: Main function to handle barcode and add entry with all calculated fields
-  const handleBarcodeAndAddEntry = async (barcode) => {
-    try {
-      if (!barcode) {
-        alert("Invalid barcode");
-        return null;
-      }
-
-      const currentFormData = formDataRef.current;
-
-      if (!currentFormData.customer_name || !currentFormData.customer_id) {
-        alert("Please select a customer first");
-        return null;
-      }
-
-      const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
-
-      if (!selectedProduct) {
-        alert("Product not found with this barcode");
-        return null;
-      }
-
-      const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch product details');
-      }
-
-      const productDetails = await response.json();
-      
-      // FIXED: Calculate all totals properly
-      const calculatedValues = calculateProductTotals(productDetails);
-
-      // Get packet values from refs (always latest)
-      let finalPacketBarcode = null;
-      let finalPacketWt = null;
-
-      console.log("=== PACKET REF VALUES ===");
-      console.log("isPacketScannedRef.current:", isPacketScannedRef.current);
-      console.log("sharedPacketBarcodeRef.current:", sharedPacketBarcodeRef.current);
-
-      if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
-        finalPacketBarcode = sharedPacketBarcodeRef.current;
-        finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
-        console.log("✅ Using packet barcode from ref:", finalPacketBarcode);
-      } else {
-        console.log("ℹ️ No packet scanned - setting packet_barcode to NULL");
-      }
-
-      const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
-
-      // FIXED: Include ALL calculated fields
-      const entryData = {
-        // Basic info
-        date: currentFormData.date,
-        estimate_number: estimateNum,
-        customer_id: currentFormData.customer_id,
-        customer_name: currentFormData.customer_name,
-        salesperson_id: salespersonId,
-        source_by: sourceBy,
-        
-        // Product info
-        product_id: productDetails.product_id,
-        product_name: productDetails.product_name,
-        barcode: productDetails.barcode,
-        code: productDetails.barcode, // For code field
-        metal_type: productDetails.metal_type,
-        purity: productDetails.purity,
-        design_name: productDetails.design,
-        category: productDetails.category_id,
-        sub_category: productDetails.product_name,
-        
-        // Weight fields
-        gross_weight: calculatedValues.gross_weight,
-        stone_weight: calculatedValues.stone_weight,
-        stone_price: calculatedValues.stone_price,
-        weight_bw: calculatedValues.weight_bw,
-        
-        // Wastage fields
-        va_on: calculatedValues.va_on,
-        va_percent: calculatedValues.va_percent,
-        wastage_weight: calculatedValues.wastage_weight,
-        total_weight_av: calculatedValues.total_weight_av,
-        
-        // Making charges fields
-        mc_on: calculatedValues.mc_on,
-        mc_per_gram: calculatedValues.mc_per_gram,
-        making_charges: calculatedValues.making_charges,
-        
-        // Rate and amount fields
-        rate: calculatedValues.rate,
-        rate_amt: calculatedValues.rate_amt,
-        
-        // Tax and total
-        tax_percent: calculatedValues.tax_percent,
-        tax_amt: calculatedValues.tax_amt,
-        total_price: calculatedValues.total_price,
-        hm_charges: calculatedValues.hm_charges,
-        
-        // Summary fields for the estimate
-        total_amount: calculatedValues.rate_amt,
-        taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
-        tax_amount: calculatedValues.tax_amt,
-        net_amount: calculatedValues.total_price,
-        
-        // Pricing and quantity
-        pricing: calculatedValues.pricing,
-        qty: calculatedValues.qty,
-        
-        // Packet info
-        packet_barcode: finalPacketBarcode,
-        packet_wt: finalPacketWt,
-        
-        // Other fields
-        opentag_id: 0,
-        pcode: null,
-        original_total_price: calculatedValues.total_price,
-        estimate_status: "Pending",
-        
-        // Force insert flag
-        force_insert: true
-      };
-
-      console.log("=== SENDING TO BACKEND ===");
-      console.log("packet_barcode:", entryData.packet_barcode);
-      console.log("estimate_number:", entryData.estimate_number);
-      console.log("total_price:", entryData.total_price);
-      console.log("net_amount:", entryData.net_amount);
-
-      const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
-
-      console.log("Backend response:", saveResponse.data);
-
-      if (saveResponse.data.estimate_number) {
-        setSavedEstimateNumber(saveResponse.data.estimate_number);
-        setIsEstimateSaved(true);
-        if (!currentEstimateNumberRef.current) {
-          currentEstimateNumberRef.current = saveResponse.data.estimate_number;
-          setCurrentEstimateNumber(saveResponse.data.estimate_number);
-        }
-      }
-
-      // Return product info with calculated values for receipt
-      return {
-        ...productDetails,
-        ...calculatedValues,
-        product_name: productDetails.product_name,
-        barcode: productDetails.barcode
-      };
-    } catch (error) {
-      console.error('Error adding product:', error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
+ // Update the handleBarcodeAndAddEntry function
+const handleBarcodeAndAddEntry = async (barcode) => {
+  try {
+    if (!barcode) {
+      alert("Invalid barcode");
       return null;
     }
-  };
+
+    const currentFormData = formDataRef.current;
+
+    if (!currentFormData.customer_name || !currentFormData.customer_id) {
+      alert("Please select a customer first");
+      return null;
+    }
+
+    const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
+
+    if (!selectedProduct) {
+      alert("Product not found with this barcode");
+      return null;
+    }
+
+    // *** ADD THIS CHECK - Prevent scanning already selected products ***
+    if (selectedProduct.status !== 'Available') {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Product Already Selected',
+        text: `Product "${selectedProduct.product_name}" has already been selected and cannot be scanned again.`,
+        confirmButtonText: 'OK'
+      });
+      return null;
+    }
+
+    const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch product details');
+    }
+
+    const productDetails = await response.json();
+    
+    // Calculate all totals properly
+    const calculatedValues = calculateProductTotals(productDetails);
+
+    // Get packet values from refs (always latest)
+    let finalPacketBarcode = null;
+    let finalPacketWt = null;
+
+    console.log("=== PACKET REF VALUES ===");
+    console.log("isPacketScannedRef.current:", isPacketScannedRef.current);
+    console.log("sharedPacketBarcodeRef.current:", sharedPacketBarcodeRef.current);
+
+    if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
+      finalPacketBarcode = sharedPacketBarcodeRef.current;
+      finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
+      console.log("✅ Using packet barcode from ref:", finalPacketBarcode);
+    } else {
+      console.log("ℹ️ No packet scanned - setting packet_barcode to NULL");
+    }
+
+    const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
+
+    const entryData = {
+      // Basic info
+      date: currentFormData.date,
+      estimate_number: estimateNum,
+      customer_id: currentFormData.customer_id,
+      customer_name: currentFormData.customer_name,
+      salesperson_id: salespersonId,
+      source_by: sourceBy,
+      
+      // Product info
+      product_id: productDetails.product_id,
+      product_name: productDetails.product_name,
+      barcode: productDetails.barcode,
+      code: productDetails.barcode,
+      metal_type: productDetails.metal_type,
+      purity: productDetails.purity,
+      design_name: productDetails.design,
+      category: productDetails.category_id,
+      sub_category: productDetails.product_name,
+      
+      // Weight fields
+      gross_weight: calculatedValues.gross_weight,
+      stone_weight: calculatedValues.stone_weight,
+      stone_price: calculatedValues.stone_price,
+      weight_bw: calculatedValues.weight_bw,
+      
+      // Wastage fields
+      va_on: calculatedValues.va_on,
+      va_percent: calculatedValues.va_percent,
+      wastage_weight: calculatedValues.wastage_weight,
+      total_weight_av: calculatedValues.total_weight_av,
+      
+      // Making charges fields
+      mc_on: calculatedValues.mc_on,
+      mc_per_gram: calculatedValues.mc_per_gram,
+      making_charges: calculatedValues.making_charges,
+      
+      // Rate and amount fields
+      rate: calculatedValues.rate,
+      rate_amt: calculatedValues.rate_amt,
+      
+      // Tax and total
+      tax_percent: calculatedValues.tax_percent,
+      tax_amt: calculatedValues.tax_amt,
+      total_price: calculatedValues.total_price,
+      hm_charges: calculatedValues.hm_charges,
+      
+      // Summary fields for the estimate
+      total_amount: calculatedValues.rate_amt,
+      taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
+      tax_amount: calculatedValues.tax_amt,
+      net_amount: calculatedValues.total_price,
+      
+      // Pricing and quantity
+      pricing: calculatedValues.pricing,
+      qty: calculatedValues.qty,
+      
+      // Packet info
+      packet_barcode: finalPacketBarcode,
+      packet_wt: finalPacketWt,
+      
+      // Other fields
+      opentag_id: 0,
+      pcode: null,
+      original_total_price: calculatedValues.total_price,
+      estimate_status: "Pending",
+      
+      // Force insert flag
+      force_insert: true
+    };
+
+    console.log("=== SENDING TO BACKEND ===");
+    console.log("packet_barcode:", entryData.packet_barcode);
+    console.log("estimate_number:", entryData.estimate_number);
+    console.log("total_price:", entryData.total_price);
+    console.log("net_amount:", entryData.net_amount);
+
+    // Save estimate
+    const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
+
+    console.log("Backend response:", saveResponse.data);
+
+    // *** UPDATE: Change product status to "Selected" and remove from available list ***
+    try {
+      const statusResponse = await axios.post(`${baseURL}/update-product-status-on-estimate`, {
+        product_id: productDetails.product_id,
+        status: "Selected"
+      });
+      
+      if (statusResponse.data.success) {
+        console.log(`✅ Product ${productDetails.product_name} status updated to Selected`);
+        
+        // Remove the product from available products list completely
+        setAllProducts(prevProducts => 
+          prevProducts.filter(product => product.product_id !== productDetails.product_id)
+        );
+        
+        // Also update the ref to keep it in sync
+        allProductsRef.current = allProductsRef.current.filter(
+          product => product.product_id !== productDetails.product_id
+        );
+      } else {
+        console.warn(`⚠️ Failed to update product status:`, statusResponse.data.message);
+      }
+    } catch (statusError) {
+      console.error("Error updating product status:", statusError);
+      // Don't block estimate creation if status update fails
+    }
+
+    if (saveResponse.data.estimate_number) {
+      setSavedEstimateNumber(saveResponse.data.estimate_number);
+      setIsEstimateSaved(true);
+      if (!currentEstimateNumberRef.current) {
+        currentEstimateNumberRef.current = saveResponse.data.estimate_number;
+        setCurrentEstimateNumber(saveResponse.data.estimate_number);
+      }
+    }
+
+    // Return product info with calculated values for receipt
+    return {
+      ...productDetails,
+      ...calculatedValues,
+      product_name: productDetails.product_name,
+      barcode: productDetails.barcode
+    };
+  } catch (error) {
+    console.error('Error adding product:', error);
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
+    return null;
+  }
+};
 
   const stopScanner = () => {
     if (scannerRef.current) {

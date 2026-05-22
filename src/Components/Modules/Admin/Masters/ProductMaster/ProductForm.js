@@ -67,7 +67,8 @@ function ProductForm() {
     disscount_percentage: "",
     disscount: "",
     qty: "1",
-    source: "Order Management"
+    source: "Order Management",
+    status: "Available"
   });
 
   const [productImages, setProductImages] = useState([]);
@@ -122,7 +123,8 @@ function ProductForm() {
         disscount_percentage: editingRecord.disscount_percentage || "",
         disscount: editingRecord.disscount || "",
         qty: editingRecord.qty?.toString() || "1",
-        source: editingRecord.source || "Order Management"
+        source: editingRecord.source || "Order Management",
+        status: editingRecord.status || "Available"
       };
       
       setFormData(formattedData);
