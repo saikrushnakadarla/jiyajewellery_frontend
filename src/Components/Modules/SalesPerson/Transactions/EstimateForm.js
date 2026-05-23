@@ -1058,9 +1058,9 @@ const handleInputChange = (e) => {
                     <FaCamera /> Capture Image
                   </Button>
 
-                  <Button onClick={triggerFileUpload} className="action-btn upload-btn">
+                  {/* <Button onClick={triggerFileUpload} className="action-btn upload-btn">
                     <FaUpload /> Upload Image
-                  </Button>
+                  </Button> */}
 
                   <input
                     ref={fileInputRef}
