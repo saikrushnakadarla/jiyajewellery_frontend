@@ -541,7 +541,74 @@ const EstimateTable = () => {
     }
   }, [generateAndSaveTaxInvoicePDF]);
 
- const handleStatusChange = useCallback(async (rowData, newStatus) => {
+ // Add this function before handleStatusChange
+const updateERPProductStatus = useCallback(async (estimateNumber) => {
+  try {
+    // First, fetch the estimate details to get the products
+    const estimateResponse = await axios.get(`${baseURL}/get-estimates/${estimateNumber}`);
+    const estimateData = estimateResponse.data;
+    
+    if (!estimateData || !estimateData.repeatedData || estimateData.repeatedData.length === 0) {
+      console.log('No products found in estimate');
+      return { success: false, message: 'No products found' };
+    }
+    
+    // Extract all unique opentag_ids from the products
+    const opentagIds = estimateData.repeatedData
+      .map(product => product.opentag_id)
+      .filter(id => id && id !== null && id !== '');
+    
+    if (opentagIds.length === 0) {
+      console.log('No opentag_ids found in products');
+      return { success: false, message: 'No opentag_ids found' };
+    }
+    
+    console.log(`Updating ${opentagIds.length} products in ERP with status "Sold"`);
+    
+    // Update each product's status in opening_tags_entry table via ERP API
+    const updatePromises = opentagIds.map(async (opentagId) => {
+      try {
+        // First, get the current product data to preserve other fields
+        const getProductResponse = await axios.get(`${baseURL2}/get/opening-tags-entry`);
+        const allProducts = getProductResponse.data.result || [];
+        const productToUpdate = allProducts.find(p => p.opentag_id == opentagId);
+        
+        if (!productToUpdate) {
+          console.log(`Product with opentag_id ${opentagId} not found in ERP`);
+          return null;
+        }
+        
+        // Update only the status field to "Sold"
+        const updateResponse = await axios.put(`${baseURL2}/update/opening-tags-entry/${opentagId}`, {
+          ...productToUpdate,
+          Status: "Sold"
+        });
+        
+        return updateResponse.data;
+      } catch (error) {
+        console.error(`Error updating product ${opentagId} in ERP:`, error);
+        return null;
+      }
+    });
+    
+    const results = await Promise.all(updatePromises);
+    const successfulUpdates = results.filter(r => r !== null);
+    
+    console.log(`Successfully updated ${successfulUpdates.length} products in ERP`);
+    
+    return { 
+      success: successfulUpdates.length > 0, 
+      updatedCount: successfulUpdates.length,
+      totalCount: opentagIds.length
+    };
+  } catch (error) {
+    console.error('Error updating ERP product status:', error);
+    return { success: false, message: error.message };
+  }
+}, []);
+
+// Then modify your handleStatusChange function
+const handleStatusChange = useCallback(async (rowData, newStatus) => {
   try {
     const sourceBy = rowData.source_by;
     const currentOrderNumber = rowData.order_number;
@@ -564,24 +631,42 @@ const EstimateTable = () => {
 
     setUpdatingStatus(prev => ({ ...prev, [identifier]: true }));
 
-    // If status is changing to "Ordered", create sales entries first
+    // If status is changing to "Ordered", create sales entries first and update ERP
     if (newStatus === 'Ordered') {
       try {
+        // Step 1: Create sales entries (Jiya Jewellery application)
         const result = await createSalesFromEstimate(identifier);
         if (!result.success) {
           throw new Error('Failed to create sales entries');
         }
         
-        // *** NEW CODE: Update product status from Selected to Ordered ***
+        // Step 2: Update product status in ERP application (opening_tags_entry table)
+        const erpUpdateResult = await updateERPProductStatus(identifier);
+        
+        if (!erpUpdateResult.success) {
+          console.warn('ERP update warning:', erpUpdateResult.message);
+          // Don't throw error here, continue with status update
+          Swal.fire({
+            icon: 'warning',
+            title: 'Partial Success',
+            text: `Sales created successfully, but ERP product status update had issues: ${erpUpdateResult.message || 'Unknown error'}`,
+            timer: 3000,
+            showConfirmButton: true
+          });
+        } else {
+          console.log(`✅ Updated ${erpUpdateResult.updatedCount} products status to "Sold" in ERP`);
+        }
+        
+        // Step 3: Update product status in Jiya Jewellery's estimate products (from Selected to Ordered)
         try {
           const productStatusResponse = await axios.post(`${baseURL}/update-products-status-to-ordered/${identifier}`);
           if (productStatusResponse.data.success) {
-            console.log(`✅ Updated ${productStatusResponse.data.updated_count} products status to Ordered`);
+            console.log(`✅ Updated ${productStatusResponse.data.updated_count} products status to Ordered in Jiya Jewellery`);
           } else {
-            console.warn('Failed to update product status:', productStatusResponse.data.message);
+            console.warn('Failed to update product status in Jiya Jewellery:', productStatusResponse.data.message);
           }
         } catch (productStatusError) {
-          console.error('Error updating product status:', productStatusError);
+          console.error('Error updating product status in Jiya Jewellery:', productStatusError);
           // Don't block the flow if product status update fails
         }
         
@@ -601,7 +686,7 @@ const EstimateTable = () => {
       }
     }
 
-    // Update estimate status
+    // Update estimate status in Jiya Jewellery application
     const response = await axios.put(`${baseURL}/update-estimate-status/${identifier}`, {
       estimate_status: newStatus
     });
@@ -631,7 +716,7 @@ const EstimateTable = () => {
       return newState;
     });
   }
-}, [createSalesFromEstimate, fetchData]);
+}, [createSalesFromEstimate, updateERPProductStatus, fetchData]);
 
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {

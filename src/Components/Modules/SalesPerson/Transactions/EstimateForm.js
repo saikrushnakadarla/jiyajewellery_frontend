@@ -27,6 +27,11 @@ const EstimateForm = () => {
   const [isPacketScannerInitialized, setIsPacketScannerInitialized] = useState(false);
   const packetScannerRef = useRef(null);
 
+  // Add to existing useState declarations
+const [packetStatus, setPacketStatus] = useState(null);
+const [isPacketUsed, setIsPacketUsed] = useState(false);
+const packetIdRef = useRef(null);
+
   // Camera capture states
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
@@ -280,57 +285,74 @@ useEffect(() => {
   };
 
   // Handle Packet QR scan success
-  const handlePacketQRScanSuccess = async (decodedText) => {
-    try {
-      stopPacketScanner();
-      Swal.fire({ title: 'Scanning Packet...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+ const handlePacketQRScanSuccess = async (decodedText) => {
+  try {
+    stopPacketScanner();
+    Swal.fire({ title: 'Scanning Packet...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
-      Swal.close();
+    const response = await axios.get(`${baseURL}/api/qr-packets/search/${encodeURIComponent(decodedText)}`);
+    Swal.close();
 
-      if (response.data.success && response.data.data) {
-        const packet = response.data.data;
-
-        setPacketDetails(packet);
-        setSharedPacketBarcode(packet.qr_code);
-        setSharedPacketWt(packet.packet_wt || null);
-        setIsPacketScanned(true);
-
-        sharedPacketBarcodeRef.current = packet.qr_code;
-        sharedPacketWtRef.current = packet.packet_wt || null;
-        isPacketScannedRef.current = true;
-
-        const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
-        if (estimateNum) {
-          try {
-            await axios.put(`${baseURL}/update/estimate-packet/${estimateNum}`, {
-              packet_barcode: packet.qr_code,
-              packet_wt: packet.packet_wt || null
-            });
-            console.log("Updated existing estimate rows with packet barcode:", packet.qr_code);
-          } catch (updateErr) {
-            console.error("Failed to update existing rows with packet barcode:", updateErr);
-          }
-        }
-
-        setPacketSuccessMessage(`✓ Packet Added Successfully! - Barcode: ${packet.qr_code}`);
-
+    if (response.data.success && response.data.data) {
+      const packet = response.data.data;
+      
+      // Check if packet is already used
+      if (packet.status === 'Used') {
         Swal.fire({
-          icon: 'success',
-          title: 'Packet Attached!',
-          text: `Packet barcode ${packet.qr_code} has been applied to ALL products in this estimate`,
-          timer: 2000,
-          showConfirmButton: false
+          icon: 'warning',
+          title: 'Packet Already Used!',
+          text: `This packet ${packet.qr_code} has already been used in another estimate and cannot be used again.`,
+          confirmButtonText: 'OK'
         });
-      } else {
-        Swal.fire({ icon: 'warning', title: 'Packet Not Found', text: `No packet found for: ${decodedText}` });
+        return;
       }
-    } catch (error) {
-      Swal.close();
-      console.error('Error processing packet QR:', error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
+
+      setPacketDetails(packet);
+      setSharedPacketBarcode(packet.qr_code);
+      setSharedPacketWt(packet.packet_wt || null);
+      setIsPacketScanned(true);
+      setIsPacketUsed(false); // Reset used flag
+      packetIdRef.current = packet.id; // Store packet ID for later status update
+
+      sharedPacketBarcodeRef.current = packet.qr_code;
+      sharedPacketWtRef.current = packet.packet_wt || null;
+      isPacketScannedRef.current = true;
+
+      const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
+      if (estimateNum) {
+        try {
+          await axios.put(`${baseURL}/update/estimate-packet/${estimateNum}`, {
+            packet_barcode: packet.qr_code,
+            packet_wt: packet.packet_wt || null
+          });
+          console.log("Updated existing estimate rows with packet barcode:", packet.qr_code);
+        } catch (updateErr) {
+          console.error("Failed to update existing rows with packet barcode:", updateErr);
+        }
+      }
+
+      setPacketSuccessMessage(`✓ Packet Added Successfully! - Barcode: ${packet.qr_code}`);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Packet Attached!',
+        text: `Packet barcode ${packet.qr_code} has been applied to ALL products in this estimate`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Packet Not Available', 
+        text: response.data.message || `No available packet found for: ${decodedText}` 
+      });
     }
-  };
+  } catch (error) {
+    Swal.close();
+    console.error('Error processing packet QR:', error);
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch packet details.' });
+  }
+};
 
   // FIXED: Function to calculate all product values
   const calculateProductTotals = (productDetails) => {
@@ -771,173 +793,193 @@ const handleBarcodeAndAddEntry = async (barcode) => {
 
   // Handle Save & Print
   const handleSaveAndPrint = async () => {
-    try {
-      if (scannedProducts.length === 0 && totalQuantity === 0) {
-        alert("Please scan at least one product before saving");
-        return;
-      }
-
-      if (!formData.customer_name || !formData.customer_id) {
-        alert("Please select a customer first");
-        return;
-      }
-
-      Swal.fire({
-        title: 'Generating Receipt...',
-        text: 'Please wait while we generate your receipt',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      let uploadedFilenames = [];
-      const imageFiles = packetImages.filter(img => img.file).map(img => img.file);
-      if (imageFiles.length > 0) {
-        const formDataObj = new FormData();
-        imageFiles.forEach((file) => {
-          formDataObj.append('images', file);
-        });
-
-        try {
-          const uploadResponse = await axios.post(`${baseURL}/upload/pack-images`, formDataObj, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          uploadedFilenames = uploadResponse.data.filenames || [];
-        } catch (uploadError) {
-          console.error('Error uploading images:', uploadError);
-        }
-      }
-
-      const resolvedEstimateNumber = currentEstimateNumberRef.current || currentEstimateNumber || formData.estimate_number;
-
-      if (uploadedFilenames.length > 0 && resolvedEstimateNumber) {
-        try {
-          await axios.post(`${baseURL}/update/estimate-images`, {
-            estimate_number: resolvedEstimateNumber,
-            pack_images: uploadedFilenames
-          });
-        } catch (err) {
-          console.error('Error updating images:', err);
-        }
-      }
-
-      // Calculate total amount from scanned products
-      const totalAmount = scannedProducts.reduce((sum, item) => {
-        const totalPrice = parseFloat(item.total_price) || 0;
-        return sum + totalPrice;
-      }, 0);
-
-      const pdfDoc = pdf(
-        <PDFContent
-          entries={scannedProducts}
-          totalAmount={totalAmount.toFixed(2)}
-          taxableAmount={totalAmount.toFixed(2)}
-          taxAmount="0.00"
-          netAmount={totalAmount.toFixed(2)}
-          date={today}
-          estimateNumber={resolvedEstimateNumber}
-          sellerName="JYAA JEWELERS"
-          customerName={formData.customer_name}
-          packetImages={uploadedFilenames}
-          packetBarcode={sharedPacketBarcodeRef.current}
-        />
-      );
-
-      const blob = await pdfDoc.toBlob();
-      saveAs(blob, `estimate_${resolvedEstimateNumber}.pdf`);
-
-      Swal.close();
-      Swal.fire({
-        icon: 'success',
-        title: 'Receipt Saved!',
-        text: `Estimate #${resolvedEstimateNumber} has been saved successfully`,
-        timer: 2000,
-        showConfirmButton: false
-      });
-
-      resetForm();
-
-      setTimeout(() => {
-        navigate("/salesperson-transactions");
-      }, 2000);
-
-    } catch (error) {
-      Swal.close();
-      console.error("Error in handleSaveAndPrint:", error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to generate receipt. Please try again.' });
+  try {
+    if (scannedProducts.length === 0 && totalQuantity === 0) {
+      alert("Please scan at least one product before saving");
+      return;
     }
-  };
+
+    if (!formData.customer_name || !formData.customer_id) {
+      alert("Please select a customer first");
+      return;
+    }
+
+    Swal.fire({
+      title: 'Generating Receipt...',
+      text: 'Please wait while we generate your receipt',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    let uploadedFilenames = [];
+    const imageFiles = packetImages.filter(img => img.file).map(img => img.file);
+    if (imageFiles.length > 0) {
+      const formDataObj = new FormData();
+      imageFiles.forEach((file) => {
+        formDataObj.append('images', file);
+      });
+
+      try {
+        const uploadResponse = await axios.post(`${baseURL}/upload/pack-images`, formDataObj, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        uploadedFilenames = uploadResponse.data.filenames || [];
+      } catch (uploadError) {
+        console.error('Error uploading images:', uploadError);
+      }
+    }
+
+    const resolvedEstimateNumber = currentEstimateNumberRef.current || currentEstimateNumber || formData.estimate_number;
+
+    if (uploadedFilenames.length > 0 && resolvedEstimateNumber) {
+      try {
+        await axios.post(`${baseURL}/update/estimate-images`, {
+          estimate_number: resolvedEstimateNumber,
+          pack_images: uploadedFilenames
+        });
+      } catch (err) {
+        console.error('Error updating images:', err);
+      }
+    }
+
+    // ========== NEW: Mark packet as USED if it was scanned ==========
+    if (isPacketScannedRef.current && packetIdRef.current && !isPacketUsed) {
+      try {
+        await axios.put(`${baseURL}/api/qr-packets/update-status/${packetIdRef.current}`, {
+          status: 'Used'
+        });
+        console.log(`✅ Packet ${sharedPacketBarcodeRef.current} marked as USED`);
+        setIsPacketUsed(true);
+      } catch (packetError) {
+        console.error('Error marking packet as used:', packetError);
+        // Continue with receipt generation even if packet status update fails
+      }
+    }
+
+    // Calculate total amount from scanned products
+    const totalAmount = scannedProducts.reduce((sum, item) => {
+      const totalPrice = parseFloat(item.total_price) || 0;
+      return sum + totalPrice;
+    }, 0);
+
+    const pdfDoc = pdf(
+      <PDFContent
+        entries={scannedProducts}
+        totalAmount={totalAmount.toFixed(2)}
+        taxableAmount={totalAmount.toFixed(2)}
+        taxAmount="0.00"
+        netAmount={totalAmount.toFixed(2)}
+        date={today}
+        estimateNumber={resolvedEstimateNumber}
+        sellerName="JYAA JEWELERS"
+        customerName={formData.customer_name}
+        packetImages={uploadedFilenames}
+        packetBarcode={sharedPacketBarcodeRef.current}
+      />
+    );
+
+    const blob = await pdfDoc.toBlob();
+    saveAs(blob, `estimate_${resolvedEstimateNumber}.pdf`);
+
+    Swal.close();
+    Swal.fire({
+      icon: 'success',
+      title: 'Receipt Saved!',
+      text: `Estimate #${resolvedEstimateNumber} has been saved successfully`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+
+    resetForm();
+
+    setTimeout(() => {
+      navigate("/salesperson-transactions");
+    }, 2000);
+
+  } catch (error) {
+    Swal.close();
+    console.error("Error in handleSaveAndPrint:", error);
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to generate receipt. Please try again.' });
+  }
+};
 
   const resetForm = () => {
-    setScannedProducts([]);
-    setTotalQuantity(0);
-    setPacketImages([]);
-    setIsPacketScanned(false);
-    setPacketDetails(null);
-    setSharedPacketBarcode(null);
-    setSharedPacketWt(null);
-    setCurrentEstimateNumber("");
-    setIsEstimateSaved(false);
-    setSavedEstimateNumber("");
-    setSuccessMessage("");
-    setPacketSuccessMessage("");
-    setLastAddedProduct("");
+  setScannedProducts([]);
+  setTotalQuantity(0);
+  setPacketImages([]);
+  setIsPacketScanned(false);
+  setPacketDetails(null);
+  setSharedPacketBarcode(null);
+  setSharedPacketWt(null);
+  setCurrentEstimateNumber("");
+  setIsEstimateSaved(false);
+  setSavedEstimateNumber("");
+  setSuccessMessage("");
+  setPacketSuccessMessage("");
+  setLastAddedProduct("");
+  setPacketStatus(null);
+  setIsPacketUsed(false);
+  packetIdRef.current = null;
 
-    sharedPacketBarcodeRef.current = null;
-    sharedPacketWtRef.current = null;
-    isPacketScannedRef.current = false;
-    currentEstimateNumberRef.current = "";
+  sharedPacketBarcodeRef.current = null;
+  sharedPacketWtRef.current = null;
+  isPacketScannedRef.current = false;
+  currentEstimateNumberRef.current = "";
 
-    axios.get(`${baseURL}/lastEstimateNumber`).then(response => {
-      setFormData(prev => {
-        const updated = { ...prev, estimate_number: response.data.lastEstimateNumber };
-        formDataRef.current = updated;
-        return updated;
-      });
+  axios.get(`${baseURL}/lastEstimateNumber`).then(response => {
+    setFormData(prev => {
+      const updated = { ...prev, estimate_number: response.data.lastEstimateNumber };
+      formDataRef.current = updated;
+      return updated;
     });
-  };
+  });
+};
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
 
-    if (name === "customer_name") {
-      const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
-      if (selectedCustomerOption) {
-        setFormData(prev => {
-          const updated = {
-            ...prev,
-            customer_name: selectedCustomerOption.value,
-            customer_id: selectedCustomerOption.customerId
-          };
-          formDataRef.current = updated;
-          return updated;
-        });
-
-        setScannedProducts([]);
-        setTotalQuantity(0);
-        setIsPacketScanned(false);
-        setPacketDetails(null);
-        setSharedPacketBarcode(null);
-        setSharedPacketWt(null);
-        setCurrentEstimateNumber("");
-        setIsEstimateSaved(false);
-        setSavedEstimateNumber("");
-        setSuccessMessage("");
-        setPacketSuccessMessage("");
-        setLastAddedProduct("");
-
-        sharedPacketBarcodeRef.current = null;
-        sharedPacketWtRef.current = null;
-        isPacketScannedRef.current = false;
-        currentEstimateNumberRef.current = "";
-      }
-    } else {
+  if (name === "customer_name") {
+    const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
+    if (selectedCustomerOption) {
       setFormData(prev => {
-        const updated = { ...prev, [name]: value };
+        const updated = {
+          ...prev,
+          customer_name: selectedCustomerOption.value,
+          customer_id: selectedCustomerOption.customerId
+        };
         formDataRef.current = updated;
         return updated;
       });
+
+      setScannedProducts([]);
+      setTotalQuantity(0);
+      setIsPacketScanned(false);
+      setPacketDetails(null);
+      setSharedPacketBarcode(null);
+      setSharedPacketWt(null);
+      setCurrentEstimateNumber("");
+      setIsEstimateSaved(false);
+      setSavedEstimateNumber("");
+      setSuccessMessage("");
+      setPacketSuccessMessage("");
+      setLastAddedProduct("");
+      setPacketStatus(null);
+      setIsPacketUsed(false);
+      packetIdRef.current = null;
+
+      sharedPacketBarcodeRef.current = null;
+      sharedPacketWtRef.current = null;
+      isPacketScannedRef.current = false;
+      currentEstimateNumberRef.current = "";
     }
-  };
+  } else {
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      formDataRef.current = updated;
+      return updated;
+    });
+  }
+};
 
   const handleCancel = () => {
     Swal.fire({

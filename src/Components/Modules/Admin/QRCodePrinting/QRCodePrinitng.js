@@ -711,73 +711,70 @@ const QRCodePrinting = () => {
                         <th>QR Number</th>
                         <th>Date</th>
                         <th>Packet Weight</th>
+                        <th>Status</th>  {/* Add this column */}
                         <th>Created At</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan="8" className="text-center">Loading...</td>
-                        </tr>
-                      ) : filteredRecords.length > 0 ? (
-                        filteredRecords.map((record, index) => (
-                          <tr key={record.id}>
-                            <td>{index + 1}</td>
-                            <td>
-                              <span className="qr-code-badge">
-                                {record.prefix}{record.qr_number}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="prefix-badge">{record.prefix}</span>
-                            </td>
-                            <td>
-                              <span className="qr-number-badge">{record.qr_number}</span>
-                            </td>
-                            <td>{formatDate(record.packet_date)}</td>
-                            <td>{record.packet_wt ? `${record.packet_wt} g` : '-'}</td>
-                            <td>{formatDate(record.created_at)}</td>
-                            <td>
-                              <div className="action-buttons">
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => handlePrintQR(record)}
-                                  title="Print QR Code"
-                                  className="action-btn"
-                                >
-                                  <FaPrint />
-                                </Button>
-                                <Button
-                                  variant="outline-success"
-                                  size="sm"
-                                  onClick={() => handleEdit(record)}
-                                  title="Edit"
-                                  className="action-btn"
-                                >
-                                  <FaEdit />
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  size="sm"
-                                  onClick={() => handleDelete(record.id)}
-                                  title="Delete"
-                                  className="action-btn"
-                                >
-                                  <FaTrash />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="8" className="text-center no-records">
-                            No packet records found
+                      {filteredRecords.map((record, index) => (
+                        <tr key={record.id}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <span className="qr-code-badge">
+                              {record.prefix}{record.qr_number}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="prefix-badge">{record.prefix}</span>
+                          </td>
+                          <td>
+                            <span className="qr-number-badge">{record.qr_number}</span>
+                          </td>
+                          <td>{formatDate(record.packet_date)}</td>
+                          <td>{record.packet_wt ? `${record.packet_wt} g` : '-'}</td>
+                          <td>
+                            <span className={`status-badge status-${record.status?.toLowerCase()}`}>
+                              {record.status || 'Active'}
+                            </span>
+                          </td>
+                          <td>{formatDate(record.created_at)}</td>
+                          <td>
+                            <div className="action-buttons">
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => handlePrintQR(record)}
+                                title="Print QR Code"
+                                className="action-btn"
+                                disabled={record.status === 'Used'}  // Disable for used packets
+                              >
+                                <FaPrint />
+                              </Button>
+                              <Button
+                                variant="outline-success"
+                                size="sm"
+                                onClick={() => handleEdit(record)}
+                                title="Edit"
+                                className="action-btn"
+                                disabled={record.status === 'Used'}  // Disable edit for used packets
+                              >
+                                <FaEdit />
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleDelete(record.id)}
+                                title="Delete"
+                                className="action-btn"
+                                disabled={record.status === 'Used'}  // Disable delete for used packets
+                              >
+                                <FaTrash />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
-                      )}
+                      ))}
                     </tbody>
                   </Table>
                 </div>

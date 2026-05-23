@@ -402,3 +402,110 @@
   color: #dc3545;
   margin-left: 2px;
 }
+
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.status-active {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-used {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+
+
+/* ==================== ACTION BUTTONS FIX ==================== */
+
+/* Option 1: Using outline variants with solid backgrounds */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  border: none !important;
+}
+
+/* Override outline variants to have solid backgrounds */
+.action-btn.btn-outline-primary {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.action-btn.btn-outline-primary:hover:not(:disabled) {
+  background-color: #2563eb !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.action-btn.btn-outline-success {
+  background-color: #10b981 !important;
+  color: white !important;
+}
+
+.action-btn.btn-outline-success:hover:not(:disabled) {
+  background-color: #059669 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.action-btn.btn-outline-danger {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+.action-btn.btn-outline-danger:hover:not(:disabled) {
+  background-color: #dc2626 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Disabled state */
+.action-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.action-btn:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Optional: Add icons spacing */
+.action-btn svg {
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
