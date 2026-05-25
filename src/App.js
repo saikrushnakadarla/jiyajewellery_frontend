@@ -77,6 +77,9 @@ import QRCodePrinting from './Components/Modules/Admin/QRCodePrinting/QRCodePrin
 
 import EmailVerification from './Components/Pages/EmailVerification/EmailVerification';
 
+import OrderCartCatalog from './Components/Modules/Customer/OrderCatalog/OrderCartCatalog';
+
+
 // Create a wrapper component to conditionally show watermark
 const AppContent = () => {
   const location = useLocation();
@@ -176,6 +179,11 @@ const AppContent = () => {
         <Route path="/qr-code-printing" element={<QRCodePrinting />} />
       
         <Route path="/email-verification" element={<EmailVerification />} />
+
+   
+        <Route path="/customer-order-cart" element={<OrderCartCatalog />} />
+
+
       </Routes>
       {/* </ScreenshotProtection> */}
     </>

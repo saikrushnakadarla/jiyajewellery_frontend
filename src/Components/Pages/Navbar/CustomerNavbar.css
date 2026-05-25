@@ -19,13 +19,12 @@
 .navbar-brand {
     display: flex;
     align-items: center;
-    margin-right: auto; /* Pushes other content to the right */
+    margin-right: auto;
 }
 
 .navbar-logo {
     width: 135px;
     height: 80px;
-    /* object-fit: contain; */
 }
 
 .navbar-logo-placeholder {
@@ -54,11 +53,6 @@
 
 .active {
     color: #a36e29 !important;
-
-}
-
-.navbar-logout {
-    margin-left: auto; /* Pushes logout to the right */
 }
 
 .logout-button {
@@ -175,6 +169,120 @@
     color: rgb(163, 110, 41);
 }
 
+/* ========== ORDER CART CONTAINER STYLES ========== */
+.navbar-order-cart-container {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.navbar-order-cart-container:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+}
+
+.navbar-order-cart-icon {
+    font-size: 22px;
+    color: #333;
+    transition: color 0.3s ease;
+}
+
+.navbar-order-cart-container:hover .navbar-order-cart-icon {
+    color: #a36e29;
+}
+
+/* Order Cart Badge */
+.order-cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ff4444;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    animation: badge-pulse 1s ease-in-out;
+}
+
+/* ========== REGULAR CART CONTAINER STYLES ========== */
+.navbar-cart-container {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.navbar-cart-container:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+}
+
+.navbar-cart-icon {
+    font-size: 22px;
+    color: #333;
+    transition: color 0.3s ease;
+}
+
+.navbar-cart-container:hover .navbar-cart-icon {
+    color: #a36e29;
+}
+
+.cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ff4444;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    animation: badge-pulse 1s ease-in-out;
+}
+
+/* Badge Pulse Animation */
+@keyframes badge-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Right Section Layout */
+.navbar-right-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
     .navbar-header {
         padding: 1rem;
@@ -233,225 +341,29 @@
     .navbar-hamburger {
         display: flex;
         z-index: 1000;
-        order: 3; /* Hamburger on the right */
+        order: 3;
     }
 
-    .navbar-logout {
-        display: none; /* Hide logout button on mobile - will be in menu */
-    }
-
-    .navbar-links.open + .navbar-logout-mobile {
-        display: block;
-        position: absolute;
-        top: calc(100% + 10px);
-        right: 1rem;
-    }
-
-    .username {
-        margin-right: 0;
+    .navbar-order-cart-icon,
+    .navbar-cart-icon {
         font-size: 18px;
     }
-}
+    
+    .order-cart-badge,
+    .cart-badge {
+        font-size: 9px;
+        min-width: 16px;
+        height: 16px;
+        top: -3px;
+        right: -3px;
+    }
+    
+    .logout-button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
 
-.navbar-cart-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 9px 11px;
-    border-radius: 10px;
-    cursor: pointer;
-    background: rgba(163, 110, 41, 0.12);
-}
-
-.navbar-cart-icon {
-    font-size: 22px;
-    color: #a36e29; /* GOLD */
-}
-
-.navbar-cart-container:hover .navbar-cart-icon {
-    color: #864c1a;
-    transform: scale(1.08);
-}
-
-.cart-badge {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    background: #dc3545;
-    color: white;
-    font-size: 11px;
-    font-weight: bold;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.navbar-right-section {
-    display: flex;
-    align-items: center;
-    gap: 32px;
-}
-
-
-
-/* Orders Container - Similar to Cart Container */
-.navbar-orders-container {
-  position: relative;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  margin-right: 15px;
-}
-
-.navbar-orders-container:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  transform: scale(1.05);
-}
-
-.navbar-orders-icon {
-  font-size: 22px;
-  color: #333;
-  transition: color 0.3s ease;
-}
-
-.navbar-orders-container:hover .navbar-orders-icon {
-  color: #a36e29;
-}
-
-/* Orders Badge - Similar to Cart Badge */
-.orders-badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background-color: #ff4444;
-  color: white;
-  border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: bold;
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  animation: badge-pulse 1s ease-in-out;
-}
-
-/* Cart Container Styles */
-.navbar-cart-container {
-  position: relative;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  margin-right: 15px;
-}
-
-.navbar-cart-container:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  transform: scale(1.05);
-}
-
-.navbar-cart-icon {
-  font-size: 22px;
-  color: #333;
-  transition: color 0.3s ease;
-}
-
-.navbar-cart-container:hover .navbar-cart-icon {
-  color: #a36e29;
-}
-
-.cart-badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background-color: #ff4444;
-  color: white;
-  border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: bold;
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  animation: badge-pulse 1s ease-in-out;
-}
-
-/* Badge Pulse Animation */
-@keyframes badge-pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Right Section Layout */
-.navbar-right-section {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* Logout Button Styles */
-.logout-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.logout-button:hover {
-  background-color: #c82333;
-  transform: translateY(-1px);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .navbar-orders-icon,
-  .navbar-cart-icon {
-    font-size: 18px;
-  }
-  
-  .orders-badge,
-  .cart-badge {
-    font-size: 9px;
-    min-width: 16px;
-    height: 16px;
-    top: -3px;
-    right: -3px;
-  }
-  
-  .logout-button {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
+    .navbar-right-section {
+        gap: 10px;
+    }
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EstimateTable from './EstimateTable';
+import OrdersTable from './OrderTable'; // New component for Orders
 import AdminVisitLogs from '../VisitLogs/VisitLogs';
 import Navbar from '../../../Pages/Navbar/Navbar';
 import './Transactions.css';
@@ -33,6 +34,12 @@ const Transactions = () => {
               Selections
             </button>
             <button
+              className={`transactions-tab ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => handleTabChange('orders')}
+            >
+              Orders
+            </button>
+            <button
               className={`transactions-tab ${activeTab === 'visit-logs' ? 'active' : ''}`}
               onClick={() => handleTabChange('visit-logs')}
             >
@@ -44,6 +51,7 @@ const Transactions = () => {
         {/* Tab Content */}
         <div className="transactions-content">
           {activeTab === 'estimation' && <EstimateTable />}
+          {activeTab === 'orders' && <OrdersTable />}
           {activeTab === 'visit-logs' && <AdminVisitLogs />}
         </div>
       </div>

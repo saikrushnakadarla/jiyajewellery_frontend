@@ -10,78 +10,122 @@ function CustomerNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
+  const [orderCartCount, setOrderCartCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Fetch regular cart count
   const fetchCartCount = async () => {
     try {
-      const userString = localStorage.getItem('user')
+      const userString = localStorage.getItem('user');
       if (userString) {
-        const user = JSON.parse(userString)
-        const response = await fetch(`${baseURL}/api/cart/summary/${user.id}`)
+        const user = JSON.parse(userString);
+        const response = await fetch(`${baseURL}/api/cart/summary/${user.id}`);
         if (response.ok) {
-          const data = await response.json()
+          const data = await response.json();
           if (data.success) {
-            const count = data.summary.total_quantity || 0
-            localStorage.setItem('cartCount', count.toString())
-            setCartCount(count)
+            const count = data.summary.total_quantity || 0;
+            localStorage.setItem('cartCount', count.toString());
+            setCartCount(count);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching cart count:', error)
+      console.error('Error fetching cart count:', error);
     }
-  }
+  };
 
+  // Fetch order cart count (for Selected/Ordered products)
+  const fetchOrderCartCount = async () => {
+    try {
+      const userString = localStorage.getItem('user');
+      if (userString) {
+        const user = JSON.parse(userString);
+        const response = await fetch(`${baseURL}/api/order-cart/summary/${user.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const count = data.summary.total_quantity || 0;
+            localStorage.setItem('orderCartCount', count.toString());
+            setOrderCartCount(count);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching order cart count:', error);
+    }
+  };
+
+  // Fetch completed orders count
   const fetchOrderCount = async () => {
     try {
-      const userString = localStorage.getItem('user')
+      const userString = localStorage.getItem('user');
       if (userString) {
-        const user = JSON.parse(userString)
-        // Fetch orders count from estimate table where source_by is 'customer' and estimate_status is 'Ordered'
-        const response = await fetch(`${baseURL}/get/customer-orders-count/${user.id}`)
+        const user = JSON.parse(userString);
+        const response = await fetch(`${baseURL}/get/customer-orders-count/${user.id}`);
         if (response.ok) {
-          const data = await response.json()
+          const data = await response.json();
           if (data.success) {
-            const count = data.count || 0
-            localStorage.setItem('orderCount', count.toString())
-            setOrderCount(count)
+            const count = data.count || 0;
+            localStorage.setItem('orderCount', count.toString());
+            setOrderCount(count);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching order count:', error)
+      console.error('Error fetching order count:', error);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchCartCount()
-    fetchOrderCount()
+    // Initial fetch
+    fetchCartCount();
+    fetchOrderCartCount();
+    fetchOrderCount();
     
+    // Event handlers for cart count changes
     const handleCartCountChange = () => {
-      const newCount = parseInt(localStorage.getItem('cartCount') || '0')
-      setCartCount(newCount)
+      const newCount = parseInt(localStorage.getItem('cartCount') || '0');
+      setCartCount(newCount);
+    };
+
+    const handleOrderCartCountChange = () => {
+      const newCount = parseInt(localStorage.getItem('orderCartCount') || '0');
+      setOrderCartCount(newCount);
     };
 
     const handleOrderCountChange = () => {
-      const newCount = parseInt(localStorage.getItem('orderCount') || '0')
-      setOrderCount(newCount)
+      const newCount = parseInt(localStorage.getItem('orderCount') || '0');
+      setOrderCount(newCount);
     };
 
-    window.addEventListener('cartCountChanged', handleCartCountChange)
-    window.addEventListener('orderCountChanged', handleOrderCountChange)
+    const handleOrderPlaced = () => {
+      fetchOrderCount(); // Refresh order count when a new order is placed
+      fetchOrderCartCount(); // Also refresh order cart count
+    };
+
+    // Add event listeners
+    window.addEventListener('cartCountChanged', handleCartCountChange);
+    window.addEventListener('orderCartCountChanged', handleOrderCartCountChange);
+    window.addEventListener('orderCountChanged', handleOrderCountChange);
+    window.addEventListener('orderPlaced', handleOrderPlaced);
     
-    const userString = localStorage.getItem('user')
+    // Refresh counts when user is logged in
+    const userString = localStorage.getItem('user');
     if (userString) {
-      fetchCartCount()
-      fetchOrderCount()
+      fetchCartCount();
+      fetchOrderCartCount();
+      fetchOrderCount();
     }
     
+    // Cleanup event listeners
     return () => {
-      window.removeEventListener('cartCountChanged', handleCartCountChange)
-      window.removeEventListener('orderCountChanged', handleOrderCountChange)
-    }
-  }, [])
+      window.removeEventListener('cartCountChanged', handleCartCountChange);
+      window.removeEventListener('orderCartCountChanged', handleOrderCartCountChange);
+      window.removeEventListener('orderCountChanged', handleOrderCountChange);
+      window.removeEventListener('orderPlaced', handleOrderPlaced);
+    };
+  }, []);
 
   const handleLogout = () => {
     Swal.fire({
@@ -92,13 +136,14 @@ function CustomerNavbar() {
       confirmButtonText: 'Yes, log out!',
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.removeItem('cartCount')
-        localStorage.removeItem('orderCount')
-        localStorage.removeItem('user')
-        navigate('/')
+        localStorage.removeItem('cartCount');
+        localStorage.removeItem('orderCartCount');
+        localStorage.removeItem('orderCount');
+        localStorage.removeItem('user');
+        navigate('/');
       }
-    })
-  }
+    });
+  };
 
   return (
     <header className="navbar-header">
@@ -127,7 +172,7 @@ function CustomerNavbar() {
           to="/product-catalog"
           className={location.pathname === '/product-catalog' ? 'active' : ''}
         >
-          PRODUCT
+          PRODUCT CATALOG
         </Link>
 
         <Link
@@ -147,23 +192,23 @@ function CustomerNavbar() {
 
       {/* Right Section */}
       <div className="navbar-right-section">
-        {/* ORDERS / BUY NOW ICON */}
+        {/* ORDER CART (Selected/Ordered products) */}
         <div
-          className="navbar-orders-container"
-          onClick={() => navigate('/customer-orders')}
-          title={`${orderCount} active orders`}
+          className="navbar-order-cart-container"
+          onClick={() => navigate('/customer-order-cart')}
+          title={`${orderCartCount} ${orderCartCount === 1 ? 'item' : 'items'} in order cart`}
         >
-          <FaClipboardList className="navbar-orders-icon" />
-          {orderCount > 0 && (
-            <span className="orders-badge">{orderCount > 99 ? '99+' : orderCount}</span>
+          <FaClipboardList className="navbar-order-cart-icon" />
+          {orderCartCount > 0 && (
+            <span className="order-cart-badge">{orderCartCount > 99 ? '99+' : orderCartCount}</span>
           )}
         </div>
 
-        {/* CART */}
+        {/* REGULAR CART */}
         <div
           className="navbar-cart-container"
           onClick={() => navigate('/cart-catalog')}
-          title={`${cartCount} items in cart`}
+          title={`${cartCount} ${cartCount === 1 ? 'item' : 'items'} in cart`}
         >
           <FaShoppingCart className="navbar-cart-icon" />
           {cartCount > 0 && (
@@ -177,7 +222,7 @@ function CustomerNavbar() {
         </button>
       </div>
     </header>
-  )
+  );
 }
 
-export default CustomerNavbar
+export default CustomerNavbar;

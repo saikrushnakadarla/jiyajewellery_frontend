@@ -18,7 +18,10 @@ const ProductCatalog = () => {
   
   // Cart state
   const [isAddingToCart, setIsAddingToCart] = useState({})
-  const [inCartProducts, setInCartProducts] = useState({}) // Track which products are in cart
+  const [isAddingToOrderCart, setIsAddingToOrderCart] = useState({})
+  const [isOrdering, setIsOrdering] = useState({})
+  const [inCartProducts, setInCartProducts] = useState({})
+  const [inOrderCartProducts, setInOrderCartProducts] = useState({})
   const [userData, setUserData] = useState(null)
   const [checkingCartStatus, setCheckingCartStatus] = useState(false)
   
@@ -39,6 +42,7 @@ const ProductCatalog = () => {
         
         // After setting user data, check cart status
         await checkCartStatus(user.id)
+        await checkOrderCartStatus(user.id)
       } else {
         console.warn('No user data found in localStorage')
       }
@@ -47,18 +51,16 @@ const ProductCatalog = () => {
     }
   }
 
-  // Check cart status for all products
+  // Check regular cart status for all products
   const checkCartStatus = async (userId) => {
     if (!userId) return
     
     setCheckingCartStatus(true)
     try {
-      // First, fetch current cart items
       const response = await fetch(`${baseURL}/api/cart/user/${userId}`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
-          // Create a map of product IDs that are in cart
           const inCartMap = {}
           data.cart_items.forEach(item => {
             inCartMap[item.product_id] = true
@@ -73,20 +75,25 @@ const ProductCatalog = () => {
     }
   }
 
-  // Check if a specific product is in cart
-  const checkProductInCart = async (productId) => {
-    if (!userData) return false
+  // Check order cart status for all products
+  const checkOrderCartStatus = async (userId) => {
+    if (!userId) return
     
     try {
-      const response = await fetch(`${baseURL}/api/cart/check/${userData.id}/${productId}`)
+      const response = await fetch(`${baseURL}/api/order-cart/user/${userId}`)
       if (response.ok) {
         const data = await response.json()
-        return data.success && data.inCart
+        if (data.success) {
+          const inOrderCartMap = {}
+          data.order_cart_items.forEach(item => {
+            inOrderCartMap[item.product_id] = true
+          })
+          setInOrderCartProducts(inOrderCartMap)
+        }
       }
     } catch (error) {
-      console.error('Error checking product in cart:', error)
+      console.error('Error checking order cart status:', error)
     }
-    return false
   }
 
   const fetchCartCount = async () => {
@@ -108,6 +115,25 @@ const ProductCatalog = () => {
     }
   }
 
+  const fetchOrderCartCount = async () => {
+    try {
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        const response = await fetch(`${baseURL}/api/order-cart/summary/${user.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            localStorage.setItem('orderCartCount', data.summary.total_quantity.toString())
+            window.dispatchEvent(new Event('orderCartCountChanged'))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching order cart count:', error)
+    }
+  }
+
   const fetchProducts = async () => {
     try {
       const response = await fetch(`${baseURL}/get/products`)
@@ -117,7 +143,6 @@ const ProductCatalog = () => {
       const data = await response.json()
       console.log('Products data:', data)
       
-      // Initialize current image index for each product with images
       const initialIndexes = {}
       data.forEach(product => {
         if (product.images && product.images.length > 0) {
@@ -158,7 +183,6 @@ const ProductCatalog = () => {
       </>
     }
     
-    // Based on status field
     if (product.status === "Available") {
       return <>
         <FaShoppingCart /> Add to Cart
@@ -169,22 +193,35 @@ const ProductCatalog = () => {
       </>
     }
     
-    // Default fallback
     return <>
       <FaShoppingCart /> Add to Cart
     </>
   }
 
+  // Get Order Cart button text (for Selected/Ordered products)
+  const getOrderCartButtonText = (product) => {
+    if (isAddingToOrderCart[product.product_id]) {
+      return <>
+        <FaSpinner className="product-catalog-spinner" /> Adding...
+      </>
+    }
+    if (inOrderCartProducts[product.product_id]) {
+      return <>
+        <FaCheck /> In Order Cart
+      </>
+    }
+    return <>
+      <FaShoppingCart /> Order Cart
+    </>
+  }
+
   // Get Order Now button text based on status
   const getOrderNowButtonText = (product) => {
-    // Based on status field
     if (product.status === "Available") {
       return "Buy Now"
     } else if (product.status === "Selected" || product.status === "Ordered") {
       return "Order Now"
     }
-    
-    // Default fallback
     return "Buy Now"
   }
 
@@ -195,16 +232,16 @@ const ProductCatalog = () => {
            product.status === "Ordered"
   }
 
-  // Add to cart function
+  // Add to regular cart - Navigates to /cart-catalog
   const handleAddToCart = async (productId) => {
     if (!userData) {
       alert('Please login to add items to cart')
       return
     }
 
-    // Check if already in cart
     if (inCartProducts[productId]) {
       alert('This product is already in your cart')
+      navigate('/cart-catalog')
       return
     }
 
@@ -226,17 +263,14 @@ const ProductCatalog = () => {
       const data = await response.json()
 
       if (data.success) {
-        // Update local state to mark product as in cart
         setInCartProducts(prev => ({
           ...prev,
           [productId]: true
         }))
         
-        // Update cart count
         await fetchCartCount()
-        
-        // Show success message
         alert('Product added to cart successfully!')
+        navigate('/cart-catalog')
       } else {
         alert(data.message || 'Failed to add to cart')
       }
@@ -248,7 +282,175 @@ const ProductCatalog = () => {
     }
   }
 
-  // Handle Order Now button click
+  // Add to order cart - Navigates to /customer-order-cart (NOT /customer-orders)
+  const handleAddToOrderCart = async (productId) => {
+    if (!userData) {
+      alert('Please login to add items to order cart')
+      return
+    }
+
+    if (inOrderCartProducts[productId]) {
+      alert('This product is already in your order cart')
+      navigate('/customer-order-cart')
+      return
+    }
+
+    setIsAddingToOrderCart(prev => ({ ...prev, [productId]: true }))
+
+    try {
+      const response = await fetch(`${baseURL}/api/order-cart/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userData.id,
+          product_id: productId,
+          quantity: 1
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setInOrderCartProducts(prev => ({
+          ...prev,
+          [productId]: true
+        }))
+        
+        await fetchOrderCartCount()
+        alert('Product added to order cart successfully!')
+        // Navigate to order cart page (not orders history)
+        navigate('/customer-order-cart')
+      } else {
+        alert(data.message || 'Failed to add to order cart')
+      }
+    } catch (error) {
+      console.error('Error adding to order cart:', error)
+      alert('Error adding product to order cart. Please try again.')
+    } finally {
+      setIsAddingToOrderCart(prev => ({ ...prev, [productId]: false }))
+    }
+  }
+
+  // Handle Order Cart button click (for Selected/Ordered products) - Adds to order cart
+  const handleOrderCartClick = async (product) => {
+    await handleAddToOrderCart(product.product_id)
+  }
+
+  // Handle Buy Now button click (for Available products) - Creates order directly
+  const handleBuyNow = async (product) => {
+    if (!userData) {
+      alert('Please login to place an order');
+      return;
+    }
+    
+    if (userData.role !== 'Customer') {
+      alert('Only customers can place orders');
+      return;
+    }
+
+    setIsOrdering(prev => ({ ...prev, [product.product_id]: true }));
+
+    try {
+      const productData = {
+        product_id: product.product_id,
+        product_name: product.product_name,
+        barcode: product.barcode || '',
+        metal_type: product.metal_type || 'Gold',
+        design: product.design || '',
+        design_name: product.design || product.design_name || '',
+        purity: product.purity || '22K',
+        gross_weight: parseFloat(product.gross_wt) || 0,
+        net_wt: parseFloat(product.net_wt) || 0,
+        stone_weight: parseFloat(product.stone_wt) || 0,
+        stone_price: parseFloat(product.stone_price) || 0,
+        making_charges: parseFloat(product.making_charges) || 0,
+        tax_percent: parseFloat(product.tax_percent) || 0,
+        tax_amt: parseFloat(product.tax_amt) || 0,
+        rate: parseFloat(product.rate) || 0,
+        total_price: parseFloat(product.total_price) || 0,
+        images: product.images || [],
+        customer_id: userData.id,
+        customer_name: userData.name,
+        quantity: 1,
+        estimate_status: 'Ordered',
+        source_by: 'customer',
+        date: new Date().toISOString().split('T')[0],
+        order_date: new Date().toISOString().split('T')[0],
+        pcode: product.pcode || '',
+        category: product.category || '',
+        sub_category: product.sub_category || '',
+        salesperson_id: '',
+        weight_bw: 0,
+        va_on: '',
+        va_percent: 0,
+        wastage_weight: 0,
+        msp_va_percent: 0,
+        msp_wastage_weight: 0,
+        total_weight_av: parseFloat(product.gross_wt) || 0,
+        mc_on: '',
+        mc_per_gram: 0,
+        rate_amt: parseFloat(product.total_price) || 0,
+        pricing: 'standard',
+        pieace_cost: parseFloat(product.total_price) || 0,
+        disscount_percentage: 0,
+        disscount: 0,
+        hm_charges: 0,
+        total_amount: parseFloat(product.total_price) || 0,
+        taxable_amount: parseFloat(product.total_price) || 0,
+        tax_amount: 0,
+        net_amount: parseFloat(product.total_price) || 0,
+        original_total_price: parseFloat(product.total_price) || 0,
+        opentag_id: 0,
+        qty: 1
+      };
+
+      const response = await fetch(`${baseURL}/create-estimate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uniqueData: {
+            customer_id: userData.id,
+            customer_name: userData.name,
+            order_date: new Date().toISOString().split('T')[0],
+            estimate_status: 'Ordered',
+            source_by: 'customer',
+            total_amount: productData.total_amount,
+            taxable_amount: productData.taxable_amount,
+            tax_amount: productData.tax_amount,
+            net_amount: productData.net_amount,
+            disscount: 0,
+            disscount_percentage: 0,
+            hm_charges: 0
+          },
+          repeatedData: [productData]
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
+        localStorage.setItem('orderCount', (currentCount + 1).toString());
+        window.dispatchEvent(new Event('orderCountChanged'));
+        localStorage.setItem('lastEstimateNumber', data.estimate_number);
+        alert('Order created successfully! Redirecting to estimates page...');
+        navigate('/customer-estimates');
+      } else {
+        alert(data.message || 'Failed to create order');
+      }
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Error creating order. Please try again.');
+    } finally {
+      setIsOrdering(prev => ({ ...prev, [product.product_id]: false }));
+    }
+  };
+
+  // Handle Order Now click (for Selected/Ordered products) - Creates order directly
   const handleOrderNow = async (product) => {
     if (!userData) {
       alert('Please login to place an order');
@@ -260,46 +462,124 @@ const ProductCatalog = () => {
       return;
     }
 
-    // Store product data
-    const productData = {
-      product_id: product.product_id,
-      product_name: product.product_name,
-      barcode: product.barcode || '',
-      metal_type: product.metal_type || 'Gold',
-      design: product.design || '',
-      purity: product.purity || '22K',
-      gross_wt: parseFloat(product.gross_wt) || 0,
-      net_wt: parseFloat(product.net_wt) || 0,
-      stone_wt: parseFloat(product.stone_wt) || 0,
-      stone_price: parseFloat(product.stone_price) || 0,
-      making_charges: parseFloat(product.making_charges) || 0,
-      tax_percent: parseFloat(product.tax_percent) || 0,
-      tax_amt: parseFloat(product.tax_amt) || 0,
-      rate: parseFloat(product.rate) || 0,
-      total_price: parseFloat(product.total_price) || 0,
-      images: product.images || [],
-      customer_id: userData.id,
-      customer_name: userData.name,
-      
-      // Add these new fields for direct ordering
-      estimate_status: 'Ordered',
-      source_by: 'customer',
-      date: new Date().toISOString().split('T')[0] // Today's date
-    };
+    setIsOrdering(prev => ({ ...prev, [product.product_id]: true }));
 
-    console.log('Storing product data for estimate form:', productData);
+    try {
+      const productData = {
+        product_id: product.product_id,
+        product_name: product.product_name,
+        barcode: product.barcode || '',
+        metal_type: product.metal_type || 'Gold',
+        design: product.design || '',
+        design_name: product.design || product.design_name || '',
+        purity: product.purity || '22K',
+        gross_weight: parseFloat(product.gross_wt) || 0,
+        net_wt: parseFloat(product.net_wt) || 0,
+        stone_weight: parseFloat(product.stone_wt) || 0,
+        stone_price: parseFloat(product.stone_price) || 0,
+        making_charges: parseFloat(product.making_charges) || 0,
+        tax_percent: parseFloat(product.tax_percent) || 0,
+        tax_amt: parseFloat(product.tax_amt) || 0,
+        rate: parseFloat(product.rate) || 0,
+        total_price: parseFloat(product.total_price) || 0,
+        images: product.images || [],
+        customer_id: userData.id,
+        customer_name: userData.name,
+        quantity: 1,
+        estimate_status: 'Ordered',
+        source_by: 'customer',
+        date: new Date().toISOString().split('T')[0],
+        order_date: new Date().toISOString().split('T')[0],
+        pcode: product.pcode || '',
+        category: product.category || '',
+        sub_category: product.sub_category || '',
+        salesperson_id: '',
+        weight_bw: 0,
+        va_on: '',
+        va_percent: 0,
+        wastage_weight: 0,
+        msp_va_percent: 0,
+        msp_wastage_weight: 0,
+        total_weight_av: parseFloat(product.gross_wt) || 0,
+        mc_on: '',
+        mc_per_gram: 0,
+        rate_amt: parseFloat(product.total_price) || 0,
+        pricing: 'standard',
+        pieace_cost: parseFloat(product.total_price) || 0,
+        disscount_percentage: 0,
+        disscount: 0,
+        hm_charges: 0,
+        total_amount: parseFloat(product.total_price) || 0,
+        taxable_amount: parseFloat(product.total_price) || 0,
+        tax_amount: 0,
+        net_amount: parseFloat(product.total_price) || 0,
+        original_total_price: parseFloat(product.total_price) || 0,
+        opentag_id: 0,
+        qty: 1
+      };
 
-    // Store in localStorage
-    localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
-    
-    // Show message based on product type
-    const actionText = product.status === "Available" ? 'Buy Now' : 'Order Now';
-    alert(`Product selected for ${actionText}! Redirecting to estimate form...`);
-    
-    navigate('/customer-estimates');
+      const response = await fetch(`${baseURL}/create-estimate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uniqueData: {
+            customer_id: userData.id,
+            customer_name: userData.name,
+            order_date: new Date().toISOString().split('T')[0],
+            estimate_status: 'Ordered',
+            source_by: 'customer',
+            total_amount: productData.total_amount,
+            taxable_amount: productData.taxable_amount,
+            tax_amount: productData.tax_amount,
+            net_amount: productData.net_amount,
+            disscount: 0,
+            disscount_percentage: 0,
+            hm_charges: 0
+          },
+          repeatedData: [productData]
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
+        localStorage.setItem('orderCount', (currentCount + 1).toString());
+        window.dispatchEvent(new Event('orderCountChanged'));
+        localStorage.setItem('lastEstimateNumber', data.estimate_number);
+        alert('Order created successfully! Redirecting to estimates page...');
+        navigate('/customer-estimates');
+      } else {
+        alert(data.message || 'Failed to create order');
+      }
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Error creating order. Please try again.');
+    } finally {
+      setIsOrdering(prev => ({ ...prev, [product.product_id]: false }));
+    }
   };
 
-  // Rest of your existing functions remain the same...
+  // Navigation handlers
+  const handleOrderNowClick = (product) => {
+    if (product.status === "Available") {
+      handleBuyNow(product);
+    } else if (product.status === "Selected" || product.status === "Ordered") {
+      handleOrderNow(product);
+    }
+  };
+
+  // Handler for the second button (Add to Cart / Order Cart)
+  const handleSecondaryButtonClick = (product) => {
+    if (product.status === "Available") {
+      handleAddToCart(product.product_id);
+    } else if (product.status === "Selected" || product.status === "Ordered") {
+      handleAddToOrderCart(product.product_id);
+    }
+  };
+
   const nextImage = (productId, e) => {
     e?.stopPropagation()
     const product = products.find(p => p.product_id === productId)
@@ -406,7 +686,10 @@ const ProductCatalog = () => {
             const hasImages = product.images && product.images.length > 0
             const currentIndex = currentImageIndexes[product.product_id] || 0
             const isAdding = isAddingToCart[product.product_id] || false
+            const isAddingOrder = isAddingToOrderCart[product.product_id] || false
+            const isOrderingProduct = isOrdering[product.product_id] || false
             const isInCart = inCartProducts[product.product_id] || false
+            const isInOrderCart = inOrderCartProducts[product.product_id] || false
             const showButtons = shouldShowButtons(product)
             
             return (
@@ -422,7 +705,6 @@ const ProductCatalog = () => {
                         onClick={() => openModal(product)}
                       />
                       
-                      {/* Navigation Arrows */}
                       {product.images.length > 1 && (
                         <>
                           <button 
@@ -442,14 +724,12 @@ const ProductCatalog = () => {
                         </>
                       )}
                       
-                      {/* Image Counter */}
                       {product.images.length > 1 && (
                         <div className="product-catalog-image-counter">
                           {currentIndex + 1} / {product.images.length}
                         </div>
                       )}
                       
-                      {/* Image Dots Indicator */}
                       {product.images.length > 1 && (
                         <div className="product-catalog-image-dots">
                           {product.images.map((_, index) => (
@@ -481,7 +761,6 @@ const ProductCatalog = () => {
                   <h3 className="product-catalog-name">{product.product_name}</h3>
                   <p className="product-catalog-barcode">Barcode: {product.barcode}</p>
                   
-                  {/* Status Badge */}
                   <div className={`product-catalog-status-badge product-catalog-status-${product.status?.toLowerCase()}`}>
                     Status: {product.status}
                   </div>
@@ -493,7 +772,6 @@ const ProductCatalog = () => {
                     </span>
                   </div>
 
-                  {/* Pricing Details */}
                   <div className="product-catalog-pricing-section">
                     {product.making_charges > 0 && (
                       <div className="product-catalog-price-row">
@@ -524,21 +802,38 @@ const ProductCatalog = () => {
                     </div>
                   </div>
 
-                  {/* Actions - Only show buttons if status is Available, Selected, or Ordered */}
+                  {/* Actions */}
                   {showButtons && (
                     <div className="product-catalog-actions">
                       <button 
                         className="product-catalog-buy-now-btn"
-                        onClick={() => handleOrderNow(product)}
+                        onClick={() => handleOrderNowClick(product)}
+                        disabled={isOrderingProduct}
                       >
-                        {getOrderNowButtonText(product)}
+                        {isOrderingProduct ? (
+                          <>
+                            <FaSpinner className="product-catalog-spinner" /> Processing...
+                          </>
+                        ) : (
+                          getOrderNowButtonText(product)
+                        )}
                       </button>
                       <button 
-                        className={`product-catalog-add-to-cart-btn ${isInCart ? 'product-catalog-in-cart' : ''}`}
-                        onClick={() => handleAddToCart(product.product_id)}
-                        disabled={isAdding || isInCart}
+                        className={`product-catalog-add-to-cart-btn ${
+                          product.status === "Available" 
+                            ? (isInCart ? 'product-catalog-in-cart' : '')
+                            : (isInOrderCart ? 'product-catalog-in-cart' : '')
+                        }`}
+                        onClick={() => handleSecondaryButtonClick(product)}
+                        disabled={
+                          (product.status === "Available" && (isAdding || isInCart || isOrderingProduct)) ||
+                          ((product.status === "Selected" || product.status === "Ordered") && (isAddingOrder || isInOrderCart || isOrderingProduct))
+                        }
                       >
-                        {getAddToCartButtonText(product)}
+                        {product.status === "Available" 
+                          ? getAddToCartButtonText(product)
+                          : getOrderCartButtonText(product)
+                        }
                       </button>
                     </div>
                   )}
@@ -564,7 +859,6 @@ const ProductCatalog = () => {
                 className="product-catalog-modal-image"
               />
               
-              {/* Modal Navigation Arrows */}
               {modalProduct.images.length > 1 && (
                 <>
                   <button 
@@ -584,14 +878,12 @@ const ProductCatalog = () => {
                 </>
               )}
               
-              {/* Modal Image Counter */}
               {modalProduct.images.length > 1 && (
                 <div className="product-catalog-modal-image-counter">
                   {modalCurrentIndex + 1} / {modalProduct.images.length}
                 </div>
               )}
               
-              {/* Modal Image Dots */}
               {modalProduct.images.length > 1 && (
                 <div className="product-catalog-modal-image-dots">
                   {modalProduct.images.map((_, index) => (
@@ -606,7 +898,6 @@ const ProductCatalog = () => {
               )}
             </div>
             
-            {/* Product Info in Modal */}
             <div className="product-catalog-modal-product-info">
               <h3 className="product-catalog-modal-product-name">{modalProduct.product_name}</h3>
               <p className="product-catalog-modal-product-barcode">Barcode: {modalProduct.barcode}</p>
@@ -621,35 +912,59 @@ const ProductCatalog = () => {
                 Total Price: {formatPrice(parseFloat(modalProduct.total_price))}
               </div>
               
-              {/* Modal Actions - Only show if status allows */}
               {shouldShowButtons(modalProduct) && (
                 <div className="product-catalog-modal-actions">
                   <button 
                     className="product-catalog-modal-order-now"
                     onClick={() => {
-                      handleOrderNow(modalProduct)
+                      handleOrderNowClick(modalProduct)
                       closeModal()
                     }}
+                    disabled={isOrdering[modalProduct.product_id]}
                   >
-                    {getOrderNowButtonText(modalProduct)}
+                    {isOrdering[modalProduct.product_id] ? (
+                      <>
+                        <FaSpinner className="product-catalog-modal-spinner" /> Processing...
+                      </>
+                    ) : (
+                      getOrderNowButtonText(modalProduct)
+                    )}
                   </button>
                   <button 
-                    className={`product-catalog-modal-add-to-cart ${inCartProducts[modalProduct.product_id] ? 'product-catalog-modal-in-cart' : ''}`}
+                    className={`product-catalog-modal-add-to-cart ${
+                      modalProduct.status === "Available"
+                        ? (inCartProducts[modalProduct.product_id] ? 'product-catalog-modal-in-cart' : '')
+                        : (inOrderCartProducts[modalProduct.product_id] ? 'product-catalog-modal-in-cart' : '')
+                    }`}
                     onClick={() => {
-                      handleAddToCart(modalProduct.product_id)
+                      handleSecondaryButtonClick(modalProduct)
                       closeModal()
                     }}
-                    disabled={isAddingToCart[modalProduct.product_id] || inCartProducts[modalProduct.product_id]}
+                    disabled={
+                      (modalProduct.status === "Available" && (isAddingToCart[modalProduct.product_id] || inCartProducts[modalProduct.product_id] || isOrdering[modalProduct.product_id])) ||
+                      ((modalProduct.status === "Selected" || modalProduct.status === "Ordered") && (isAddingToOrderCart[modalProduct.product_id] || inOrderCartProducts[modalProduct.product_id] || isOrdering[modalProduct.product_id]))
+                    }
                   >
-                    {isAddingToCart[modalProduct.product_id] ? (
-                      <>
-                        <FaSpinner className="product-catalog-modal-spinner" /> Adding...
-                      </>
-                    ) : inCartProducts[modalProduct.product_id] ? (
-                      'Already in Cart'
-                    ) : (
-                      modalProduct.status === "Available" ? 'Add to Cart' : 'Order Cart'
-                    )}
+                    {modalProduct.status === "Available"
+                      ? (isAddingToCart[modalProduct.product_id] ? (
+                          <>
+                            <FaSpinner className="product-catalog-modal-spinner" /> Adding...
+                          </>
+                        ) : inCartProducts[modalProduct.product_id] ? (
+                          'Already in Cart'
+                        ) : (
+                          'Add to Cart'
+                        ))
+                      : (isAddingToOrderCart[modalProduct.product_id] ? (
+                          <>
+                            <FaSpinner className="product-catalog-modal-spinner" /> Adding...
+                          </>
+                        ) : inOrderCartProducts[modalProduct.product_id] ? (
+                          'Already in Order Cart'
+                        ) : (
+                          'Order Cart'
+                        ))
+                    }
                   </button>
                 </div>
               )}
