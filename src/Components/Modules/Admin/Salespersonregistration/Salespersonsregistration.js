@@ -6,6 +6,7 @@ import { FaEye, FaEyeSlash, FaCamera, FaUpload, FaTrash } from "react-icons/fa";
 import Navbar from "../../../Pages/Navbar/Navbar";
 import FaceCapture from "../FaceCapture/FaceCapture";
 import baseURL from "../../ApiUrl/NodeBaseURL";
+import baseURL2 from "../../ApiUrl/NodeBaseURL2";
 
 // Static data for Indian states, districts, and cities
 const indiaStateDistrictCityData = {
@@ -409,6 +410,66 @@ function SalespersonRegister() {
     }
   };
 
+  // Function to store salesman in accounts database (ERP)
+  const storeInAccountsDB = async (salesmanData, userId) => {
+    try {
+      const accountsData = {
+        account_name: salesmanData.full_name,
+        print_name: salesmanData.full_name,
+        account_group: "SALESMAN",
+        op_bal: null,
+        metal_balance: null,
+        dr_cr: null,
+        address1: "",
+        address2: "",
+        city: salesmanData.city || "",
+        district: salesmanData.district || "",
+        pincode: salesmanData.pincode || "",
+        state: salesmanData.state || "",
+        state_code: "",
+        phone: salesmanData.phone,
+        mobile: salesmanData.phone,
+        contact_person: null,
+        email: salesmanData.email,
+        birthday: salesmanData.dob || null,
+        anniversary: salesmanData.anniversary || null,
+        bank_account_no: "",
+        bank_name: "",
+        ifsc_code: "",
+        branch: "",
+        gst_in: "",
+        aadhar_card: "",
+        pan_card: "",
+        religion: "",
+        images: null,
+        user_id: userId // Reference to users table ID
+      };
+
+      console.log("Sending to accounts API:", accountsData);
+
+      const response = await fetch(`${baseURL2}/account-details`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(accountsData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Account stored successfully in ERP:", result);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error("Failed to store account in ERP:", errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error storing in accounts DB:", error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -469,6 +530,7 @@ function SalespersonRegister() {
     apiData.append('role', formData.role);
     apiData.append('pincode', formData.pincode);
     apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+    apiData.append('status', 'pending');
     
     // Append face photo from face capture (base64 to file)
     const base64Image = faceData.image;
@@ -487,6 +549,7 @@ function SalespersonRegister() {
     apiData.append('profile_photo', selectedImage);
 
     try {
+      // First API call - Store in users database (Jiya Jewellery Module)
       const response = await fetch(`${baseURL}/api/users`, {
         method: "POST",
         body: apiData,
@@ -494,12 +557,30 @@ function SalespersonRegister() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log("Success:", result);
+        console.log("User registration success:", result);
         
+        const generatedUserId = result.id;
+        console.log("Generated User ID:", generatedUserId);
+
+        // Second API call - Store in accounts database (ERP Module)
+        const salesmanDataForAccounts = {
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone,
+          city: formData.city,
+          district: formData.district,
+          pincode: formData.pincode,
+          state: formData.state,
+          dob: formData.dob,
+          anniversary: formData.anniversary,
+        };
+
+        await storeInAccountsDB(salesmanDataForAccounts, generatedUserId);
+
         Swal.fire({
           icon: 'success',
           title: 'Registration Successful!',
-          text: 'Your salesman account has been created successfully.',
+          text: 'Your salesman account has been created successfully in both systems.',
           confirmButtonColor: '#3085d6',
         }).then((result) => {
           if (result.isConfirmed) {
