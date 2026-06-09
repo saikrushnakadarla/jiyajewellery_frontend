@@ -94,7 +94,7 @@ const useScreenshotPrevention = (enabled = true) => {
       }
 
       if (e.ctrlKey && e.key === "u") {
-        e.preventDefault();
+        e.preventDefault();   
       }
     };
 

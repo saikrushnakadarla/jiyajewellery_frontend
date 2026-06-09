@@ -214,7 +214,8 @@ function SalespersonRegister() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [faceData, setFaceData] = useState(null);
-  
+  const [dutyStartTime, setDutyStartTime] = useState("");
+  const [dutyEndTime, setDutyEndTime] = useState("");
   // Image upload states - Mandatory for salesman
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -244,7 +245,18 @@ function SalespersonRegister() {
     company_name: "",
     role: "salesman",
     pincode: "",
+    duty_start_time: "",
+    duty_end_time: "",
   });
+
+
+  const handleDutyStartChange = (e) => {
+    setDutyStartTime(e.target.value);
+  };
+
+  const handleDutyEndChange = (e) => {
+    setDutyEndTime(e.target.value);
+  };
 
   // Update districts when state changes
   useEffect(() => {
@@ -261,8 +273,8 @@ function SalespersonRegister() {
 
   // Update cities when district changes
   useEffect(() => {
-    if (formData.state && formData.district && 
-        indiaStateDistrictCityData[formData.state]?.districts[formData.district]) {
+    if (formData.state && formData.district &&
+      indiaStateDistrictCityData[formData.state]?.districts[formData.district]) {
       const cities = indiaStateDistrictCityData[formData.state].districts[formData.district];
       setAvailableCities(cities);
       setFormData(prev => ({ ...prev, city: "" }));
@@ -283,12 +295,20 @@ function SalespersonRegister() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Auto-capitalize first letter of each word for full_name and company_name
     if (name === 'full_name' || name === 'company_name') {
       setFormData((prev) => ({ ...prev, [name]: capitalizeWords(value) }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
+    // Handle duty hours separately if needed
+    if (name === 'duty_start_time') {
+      setDutyStartTime(value);
+    }
+    if (name === 'duty_end_time') {
+      setDutyEndTime(value);
     }
   };
 
@@ -317,7 +337,7 @@ function SalespersonRegister() {
         });
         return;
       }
-      
+
       if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/)) {
         Swal.fire({
           icon: 'error',
@@ -350,12 +370,12 @@ function SalespersonRegister() {
   const startCamera = async () => {
     setIsCapturing(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
           facingMode: "user"
-        } 
+        }
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -392,13 +412,13 @@ function SalespersonRegister() {
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
+
       canvas.toBlob((blob) => {
         const file = new File([blob], `captured-profile-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setSelectedImage(file);
         setImagePreview(URL.createObjectURL(blob));
         stopCamera();
-        
+
         Swal.fire({
           icon: 'success',
           title: 'Photo Captured!',
@@ -470,144 +490,158 @@ function SalespersonRegister() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
 
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
+  // Validate passwords match
+  if (formData.password !== formData.confirmPassword) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Password Mismatch',
+      text: 'Passwords do not match. Please try again.',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Validate duty hours
+  if (!formData.duty_start_time || !formData.duty_end_time) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Duty Hours Required',
+      text: 'Please enter both start time and end time for duty hours.',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Validate face capture
+  if (!faceData) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Face Registration Required',
+      text: 'Please capture your face for face login feature.',
+      confirmButtonColor: '#3085d6',
+    });
+    setShowFaceCapture(true);
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Validate mandatory image upload/capture
+  if (!selectedImage) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Profile Photo Required',
+      text: 'Please upload or capture a profile photo. This is mandatory for salesman registration.',
+      confirmButtonColor: '#3085d6',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Prepare data for API
+  const apiData = new FormData();
+  apiData.append('full_name', formData.full_name);
+  apiData.append('email_id', formData.email);
+  apiData.append('phone', formData.phone);
+  apiData.append('date_of_birth', formData.dob);
+  apiData.append('gender', formData.gender);
+  apiData.append('designation', formData.designation);
+  apiData.append('date_of_anniversary', formData.anniversary);
+  apiData.append('country', formData.country);
+  apiData.append('state', formData.state);
+  apiData.append('district', formData.district);
+  apiData.append('city', formData.city);
+  apiData.append('password', formData.password);
+  apiData.append('confirm_password', formData.confirmPassword);
+  apiData.append('company_name', formData.company_name);
+  apiData.append('role', formData.role);
+  apiData.append('pincode', formData.pincode);
+  apiData.append('duty_start_time', formData.duty_start_time);
+  apiData.append('duty_end_time', formData.duty_end_time);
+  apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+  apiData.append('status', 'pending');
+  
+  // Append face photo from face capture (base64 to file)
+  const base64Image = faceData.image;
+  const byteString = atob(base64Image.split(',')[1]);
+  const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  const blob = new Blob([ab], { type: mimeString });
+  const faceFile = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
+  apiData.append('face_photo', faceFile);
+  
+  // Append mandatory profile photo
+  apiData.append('profile_photo', selectedImage);
+
+  try {
+    // First API call - Store in users database (Jiya Jewellery Module)
+    const response = await fetch(`${baseURL}/api/users`, {
+      method: "POST",
+      body: apiData,
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("User registration success:", result);
+      
+      const generatedUserId = result.id;
+      console.log("Generated User ID:", generatedUserId);
+
+      // Second API call - Store in accounts database (ERP Module)
+      const salesmanDataForAccounts = {
+        full_name: formData.full_name,
+        email: formData.email,
+        phone: formData.phone,
+        city: formData.city,
+        district: formData.district,
+        pincode: formData.pincode,
+        state: formData.state,
+        dob: formData.dob,
+        anniversary: formData.anniversary,
+      };
+
+      await storeInAccountsDB(salesmanDataForAccounts, generatedUserId);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Registration Successful!',
+        text: 'Your salesman account has been created successfully in both systems.',
+        confirmButtonColor: '#3085d6',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/");
+        }
+      });
+    } else {
+      const errorData = await response.json();
       Swal.fire({
         icon: 'error',
-        title: 'Password Mismatch',
-        text: 'Passwords do not match. Please try again.',
+        title: 'Registration Failed',
+        text: errorData.message || 'Registration failed. Please try again.',
         confirmButtonColor: '#3085d6',
       });
-      setIsSubmitting(false);
-      return;
     }
-
-    // Validate face capture
-    if (!faceData) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Face Registration Required',
-        text: 'Please capture your face for face login feature.',
-        confirmButtonColor: '#3085d6',
-      });
-      setShowFaceCapture(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Validate mandatory image upload/capture
-    if (!selectedImage) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Profile Photo Required',
-        text: 'Please upload or capture a profile photo. This is mandatory for salesman registration.',
-        confirmButtonColor: '#3085d6',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Prepare data for API
-    const apiData = new FormData();
-    apiData.append('full_name', formData.full_name);
-    apiData.append('email_id', formData.email);
-    apiData.append('phone', formData.phone);
-    apiData.append('date_of_birth', formData.dob);
-    apiData.append('gender', formData.gender);
-    apiData.append('designation', formData.designation);
-    apiData.append('date_of_anniversary', formData.anniversary);
-    apiData.append('country', formData.country);
-    apiData.append('state', formData.state);
-    apiData.append('district', formData.district);
-    apiData.append('city', formData.city);
-    apiData.append('password', formData.password);
-    apiData.append('confirm_password', formData.confirmPassword);
-    apiData.append('company_name', formData.company_name);
-    apiData.append('role', formData.role);
-    apiData.append('pincode', formData.pincode);
-    apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-    apiData.append('status', 'pending');
-    
-    // Append face photo from face capture (base64 to file)
-    const base64Image = faceData.image;
-    const byteString = atob(base64Image.split(',')[1]);
-    const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    const blob = new Blob([ab], { type: mimeString });
-    const faceFile = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
-    apiData.append('face_photo', faceFile);
-    
-    // Append mandatory profile photo
-    apiData.append('profile_photo', selectedImage);
-
-    try {
-      // First API call - Store in users database (Jiya Jewellery Module)
-      const response = await fetch(`${baseURL}/api/users`, {
-        method: "POST",
-        body: apiData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("User registration success:", result);
-        
-        const generatedUserId = result.id;
-        console.log("Generated User ID:", generatedUserId);
-
-        // Second API call - Store in accounts database (ERP Module)
-        const salesmanDataForAccounts = {
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          city: formData.city,
-          district: formData.district,
-          pincode: formData.pincode,
-          state: formData.state,
-          dob: formData.dob,
-          anniversary: formData.anniversary,
-        };
-
-        await storeInAccountsDB(salesmanDataForAccounts, generatedUserId);
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Registration Successful!',
-          text: 'Your salesman account has been created successfully in both systems.',
-          confirmButtonColor: '#3085d6',
-        }).then((result) => {
-          if (result.isConfirmed) {
-            navigate("/");
-          }
-        });
-      } else {
-        const errorData = await response.json();
-        Swal.fire({
-          icon: 'error',
-          title: 'Registration Failed',
-          text: errorData.message || 'Registration failed. Please try again.',
-          confirmButtonColor: '#3085d6',
-        });
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Network Error',
-        text: 'Please check your connection and try again.',
-        confirmButtonColor: '#3085d6',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Network Error',
+      text: 'Please check your connection and try again.',
+      confirmButtonColor: '#3085d6',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleBack = () => {
     navigate("/salespersontable");
@@ -618,12 +652,12 @@ function SalespersonRegister() {
 
   return (
     <>
-      <Navbar/>
+      <Navbar />
       <div className="customerregistration-main-container">
-        <div className="customerregistration-form-container" style={{marginTop:"90px"}}>
+        <div className="customerregistration-form-container" style={{ marginTop: "90px" }}>
           <h2>Salesman Registration</h2>
           {errorMessage && <div className="customerregistration-error">{errorMessage}</div>}
-          
+
           {/* Face Registration for Face Login */}
           <button
             type="button"
@@ -642,7 +676,7 @@ function SalespersonRegister() {
           >
             {faceData ? '✓ Face Registered for Login' : '📸 Register Face for Login'}
           </button>
-          
+
           <form className="customerregistration-form" onSubmit={handleSubmit} encType="multipart/form-data">
             {/* Full Name - Auto-capitalized */}
             <InputField
@@ -869,6 +903,35 @@ function SalespersonRegister() {
               required
             />
 
+            {/* Duty Hours Section - Only for Salesman */}
+            <div className="customerregistration-duty-hours-section">
+              <label className="input-label">
+                Duty Hours <span className="required-star" style={{ color: 'red', marginLeft: '4px' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1 }}>
+                  <InputField
+                    label="Start Time"
+                    type="time"
+                    name="duty_start_time"
+                    value={formData.duty_start_time}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <InputField
+                    label="End Time"
+                    type="time"
+                    name="duty_end_time"
+                    value={formData.duty_end_time}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Mandatory Profile Photo Upload/Capture Section */}
             <div className="customerregistration-image-section">
               <label className="input-label">
@@ -878,13 +941,13 @@ function SalespersonRegister() {
               <div className="customerregistration-image-container">
                 {/* Hidden canvas for camera capture */}
                 <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-                
+
                 {/* Camera View */}
                 {isCapturing && (
                   <div className="customerregistration-camera-container">
-                    <video 
-                      ref={videoRef} 
-                      autoPlay 
+                    <video
+                      ref={videoRef}
+                      autoPlay
                       playsInline
                       className="customerregistration-camera-video"
                     ></video>
@@ -948,7 +1011,7 @@ function SalespersonRegister() {
                     />
                   </div>
                 )}
-                
+
                 {!selectedImage && !isCapturing && (
                   <div style={{ color: '#ff6b6b', fontSize: '12px', marginTop: '5px' }}>
                     * Please upload or capture a profile photo
@@ -967,8 +1030,8 @@ function SalespersonRegister() {
               >
                 Close
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="customerregistration-submit-btn"
                 disabled={isSubmitting}
               >
@@ -978,7 +1041,7 @@ function SalespersonRegister() {
           </form>
         </div>
       </div>
-      
+
       {showFaceCapture && (
         <FaceCapture
           onFaceCaptured={handleFaceCaptured}

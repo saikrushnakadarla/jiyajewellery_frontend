@@ -309,6 +309,64 @@ const Login = () => {
     }
   };
 
+  // Function to check if current time is within duty hours
+  const checkDutyHours = async (userId) => {
+    try {
+      const response = await fetch(`${baseURL}/api/users/check-duty-hours/${userId}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Error fetching duty hours:', data);
+        return { allowed: false, message: "Unable to verify duty hours. Please contact administrator." };
+      }
+      
+      // If no duty hours are set, allow login (for flexibility)
+      if (!data.duty_start_time || !data.duty_end_time) {
+        return { allowed: true, message: "" };
+      }
+      
+      // Get current time
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes(); // Convert to minutes for easier comparison
+      
+      // Parse duty start and end times
+      const [startHour, startMinute] = data.duty_start_time.split(':');
+      const [endHour, endMinute] = data.duty_end_time.split(':');
+      
+      const dutyStartMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+      const dutyEndMinutes = parseInt(endHour) * 60 + parseInt(endMinute);
+      
+      // Check if current time is within duty hours
+      let isWithinDutyHours = false;
+      
+      if (dutyEndMinutes > dutyStartMinutes) {
+        // Normal case: duty hours are within the same day
+        isWithinDutyHours = currentTime >= dutyStartMinutes && currentTime <= dutyEndMinutes;
+      } else {
+        // Overnight duty hours (e.g., 22:00 to 06:00 next day)
+        isWithinDutyHours = currentTime >= dutyStartMinutes || currentTime <= dutyEndMinutes;
+      }
+      
+      if (!isWithinDutyHours) {
+        const formatTime = (minutes) => {
+          const hours = Math.floor(minutes / 60);
+          const mins = minutes % 60;
+          return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        };
+        
+        return { 
+          allowed: false, 
+          message: `You can only login between ${formatTime(dutyStartMinutes)} and ${formatTime(dutyEndMinutes)}. Please try again during duty hours.` 
+        };
+      }
+      
+      return { allowed: true, message: "" };
+    } catch (error) {
+      console.error('Error checking duty hours:', error);
+      return { allowed: false, message: "Unable to verify duty hours. Please try again later." };
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -379,9 +437,25 @@ const Login = () => {
             });
             return;
           }
+          
+          // CHECK DUTY HOURS FOR SALESMAN
+          const dutyCheck = await checkDutyHours(data.user.id);
+          
+          if (!dutyCheck.allowed) {
+            Swal.fire({
+              icon: "error",
+              title: "Access Denied",
+              text: dutyCheck.message,
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            }).then(() => {
+              setIsLoading(false);
+            });
+            return;
+          }
         }
         
-        // If account is not blocked, proceed with login
+        // If account is not blocked and within duty hours, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -486,9 +560,26 @@ const Login = () => {
             });
             return;
           }
+          
+          // CHECK DUTY HOURS FOR SALESMAN
+          const dutyCheck = await checkDutyHours(data.user.id);
+          
+          if (!dutyCheck.allowed) {
+            Swal.fire({
+              icon: "error",
+              title: "Access Denied",
+              text: dutyCheck.message,
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            }).then(() => {
+              setIsLoading(false);
+              setShowFaceLogin(false);
+            });
+            return;
+          }
         }
         
-        // If account is not blocked, proceed with login
+        // If account is not blocked and within duty hours, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -653,7 +744,7 @@ const Login = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> 
 
         {showFaceLogin && (
           <FaceCapture

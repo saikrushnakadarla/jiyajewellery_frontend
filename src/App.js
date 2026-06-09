@@ -88,7 +88,7 @@ const AppContent = () => {
   return (
     <>
 
-    {/* <ScreenshotProtection> */}
+    <ScreenshotProtection>
       {/* Only show watermark if NOT on login page */}
       {!isLoginPage && <WaterMark />}
       
@@ -185,7 +185,7 @@ const AppContent = () => {
 
 
       </Routes>
-      {/* </ScreenshotProtection> */}
+      </ScreenshotProtection>
     </>
   );
 };
