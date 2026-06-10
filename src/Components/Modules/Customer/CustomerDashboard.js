@@ -264,21 +264,42 @@ function Dashboard() {
   }, []);
 
 
-  
-// Add this useEffect at the beginning of CustomerDashboard component
+  // Combined email verification and account status check - FIXED VERSION
 useEffect(() => {
-  // Check if email verification is needed
-  const userData = localStorage.getItem("user");
-  if (userData) {
+  const checkAuthStatus = async () => {
+    const userData = localStorage.getItem("user");
+    if (!userData) return;
+    
     const user = JSON.parse(userData);
     const needsVerification = localStorage.getItem("needsEmailVerification");
     
+    // If user is not approved, redirect to login
+    if (user.status !== 'approved') {
+      localStorage.removeItem("user");
+      localStorage.removeItem("needsEmailVerification");
+      Swal.fire({
+        icon: "warning",
+        title: "Account Not Approved",
+        text: "Your account has not been approved by admin yet. Please try again later.",
+        confirmButtonText: "OK",
+        allowOutsideClick: false
+      }).then(() => {
+        navigate("/");
+      });
+      return;
+    }
+    
+    // Check email verification - only for approved accounts
     if (needsVerification === 'true' || user.email_verified === 'Not Verified') {
       navigate("/email-verification");
       return;
     }
-  }
+  };
+  
+  checkAuthStatus();
 }, [navigate]);
+  
+
 
   // Handle new real-time notification
   const handleNewNotification = (notification) => {

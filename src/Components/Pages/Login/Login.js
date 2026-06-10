@@ -421,19 +421,34 @@ const Login = () => {
       if (response.ok) {
         const userRole = data.user?.role?.toLowerCase();
         
+        // CHECK FOR CUSTOMER ACCOUNT STATUS FIRST
+        if (userRole === "customer") {
+          // Check if account is approved
+          if (data.user.status !== 'approved') {
+            setIsLoading(false);
+            Swal.fire({
+              icon: "warning",
+              title: "Account Pending Approval",
+              text: "Your account needs approval from administration. Please wait for admin approval.",
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            // DO NOT navigate - stay on login page
+            return;
+          }
+        }
+        
         // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
         if (userRole === "salesman") {
           // Check if account is blocked due to screenshot attempts
           if (data.user.account_status === 'inactive') {
+            setIsLoading(false);
             Swal.fire({
               icon: "error",
               title: "Account Blocked!",
               text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
               confirmButtonText: "OK",
               allowOutsideClick: false
-            }).then(() => {
-              localStorage.removeItem('user');
-              setIsLoading(false);
             });
             return;
           }
@@ -442,20 +457,19 @@ const Login = () => {
           const dutyCheck = await checkDutyHours(data.user.id);
           
           if (!dutyCheck.allowed) {
+            setIsLoading(false);
             Swal.fire({
               icon: "error",
               title: "Access Denied",
               text: dutyCheck.message,
               confirmButtonText: "OK",
               allowOutsideClick: false
-            }).then(() => {
-              setIsLoading(false);
             });
             return;
           }
         }
         
-        // If account is not blocked and within duty hours, proceed with login
+        // If account is approved and not blocked, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -469,22 +483,12 @@ const Login = () => {
           setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
           setTimeout(async () => {
-            if (data.user.status === "approved") {
-              const needsVerification = await checkEmailVerification(data.user.id);
-              if (needsVerification) {
-                navigate("/email-verification");
-              } else {
-                navigate("/customer-dashboard");
-              }
+            // For approved customers, check email verification
+            const needsVerification = await checkEmailVerification(data.user.id);
+            if (needsVerification) {
+              navigate("/email-verification");
             } else {
-              Swal.fire({
-                icon: "info",
-                title: "Account Pending Approval",
-                text: "Your account is awaiting approval from the administrator.",
-                confirmButtonText: "OK"
-              }).then(() => {
-                navigate("/customer-dashboard");
-              });
+              navigate("/customer-dashboard");
             }
           }, 1500);
         } else if (userRole === "salesman") {
@@ -543,20 +547,35 @@ const Login = () => {
       if (response.ok && data.success) {
         const userRole = data.user?.role?.toLowerCase();
         
+        // CHECK FOR CUSTOMER ACCOUNT STATUS FIRST
+        if (userRole === "customer") {
+          // Check if account is approved
+          if (data.user.status !== 'approved') {
+            setIsLoading(false);
+            setShowFaceLogin(false);
+            Swal.fire({
+              icon: "warning",
+              title: "Account Pending Approval",
+              text: "Your account needs approval from administration. Please wait for admin approval.",
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            return;
+          }
+        }
+        
         // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
         if (userRole === "salesman") {
           // Check if account is blocked due to screenshot attempts
           if (data.user.account_status === 'inactive') {
+            setIsLoading(false);
+            setShowFaceLogin(false);
             Swal.fire({
               icon: "error",
               title: "Account Blocked!",
               text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
               confirmButtonText: "OK",
               allowOutsideClick: false
-            }).then(() => {
-              localStorage.removeItem('user');
-              setIsLoading(false);
-              setShowFaceLogin(false);
             });
             return;
           }
@@ -565,21 +584,20 @@ const Login = () => {
           const dutyCheck = await checkDutyHours(data.user.id);
           
           if (!dutyCheck.allowed) {
+            setIsLoading(false);
+            setShowFaceLogin(false);
             Swal.fire({
               icon: "error",
               title: "Access Denied",
               text: dutyCheck.message,
               confirmButtonText: "OK",
               allowOutsideClick: false
-            }).then(() => {
-              setIsLoading(false);
-              setShowFaceLogin(false);
             });
             return;
           }
         }
         
-        // If account is not blocked and within duty hours, proceed with login
+        // If account is approved and not blocked, proceed with login
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -594,10 +612,11 @@ const Login = () => {
           setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
           setTimeout(() => {
-            if (data.user.status === "approved") {
+            // For approved customers, check email verification
+            if (data.user.email_verified === "Verified") {
               navigate("/customer-dashboard");
             } else {
-              navigate("/customer-dashboard");
+              navigate("/email-verification");
             }
           }, 1500);
         } else if (userRole === "salesman") {

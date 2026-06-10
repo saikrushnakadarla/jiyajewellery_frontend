@@ -560,6 +560,7 @@ function CustomerRegistration() {
     formDataToSend.append('latitude', formData.latitude || '');
     formDataToSend.append('longitude', formData.longitude || '');
     formDataToSend.append('status', 'pending');
+    formDataToSend.append('email_verified', 'Not Verified');
     
     // Only append image if selected
     if (selectedImage) {
