@@ -22,6 +22,8 @@ const RateManagement = () => {
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [hasTodayRates, setHasTodayRates] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch current rates and historical data
     useEffect(() => {
@@ -179,13 +181,35 @@ const RateManagement = () => {
                 setAllowEdit18(false);
                 setAllowEdit24(false);
                 setHasTodayRates(true);
+
+                  // Show success message
+                setSuccessMessage("Today's Gold and Silver rates updated successfully!");
+
+                // Hide message after 3 seconds
+                setTimeout(() => {
+                    setSuccessMessage('');
+                }, 3000);
                 
             } else {
                 console.error('Error updating rates:', result.error);
+
+                setErrorMessage("Failed to update rates. Please try again.");
+
+                    setTimeout(() => {
+                        setErrorMessage('');
+                    }, 3000);
             }
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
+        } 
+        catch (error) {
+                console.error('Error:', error);
+
+                setErrorMessage("Something went wrong while updating rates.");
+
+                setTimeout(() => {
+                    setErrorMessage('');
+                }, 3000);
+            }   
+        finally {
             setUpdating(false);
         }
     };
@@ -282,6 +306,18 @@ const RateManagement = () => {
             <h1 className="rates-management-title">
                 ENTER TODAY RATE
             </h1>
+
+            {successMessage && (
+                <div className="rates-success-popup">
+                    {successMessage}
+                </div>
+            )}
+
+            {errorMessage && (
+                <div className="rates-error-popup">
+                    {errorMessage}
+                </div>
+            )}
             
             {/* Current Rates Section */}
             <div className="rates-current-section">

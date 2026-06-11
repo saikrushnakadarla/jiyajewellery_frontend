@@ -1,5 +1,5 @@
 // EmailVerification.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import baseURL from "../../Modules/ApiUrl/NodeBaseURL";
@@ -13,10 +13,13 @@ const EmailVerification = () => {
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const [canResend, setCanResend] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const otpSentRef = useRef(false);
 
   useEffect(() => {
     // Get user data from localStorage
     const userData = localStorage.getItem("user");
+
+    
     if (!userData) {
       navigate("/login");
       return;
@@ -33,7 +36,10 @@ const EmailVerification = () => {
     setEmail(user.email_id);
 
     // Send initial OTP
-    sendOTP();
+    if (!otpSentRef.current) {
+      otpSentRef.current = true;
+      sendOTP();
+    }
 
     // Timer for OTP expiry
     const timer = setInterval(() => {

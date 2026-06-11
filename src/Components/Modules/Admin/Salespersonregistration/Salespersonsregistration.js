@@ -296,6 +296,32 @@ function SalespersonRegister() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    // Restrict DOB and Anniversary year to exactly 4 digits
+  if (name === "dob" || name === "anniversary") {
+    const dateParts = value.split("-");
+
+    if (dateParts[0] && dateParts[0].length > 4) {
+      return; // Prevent year more than 4 digits
+    }
+  }
+
+
+   // Restrict phone number to 10 digits only
+  if (name === "phone") {
+    const numericValue = value.replace(/\D/g, "");
+
+    if (numericValue.length > 10) {
+      return; // Prevent entering more than 10 digits
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      phone: numericValue,
+    }));
+
+    return;
+  }
+
     // Auto-capitalize first letter of each word for full_name and company_name
     if (name === 'full_name' || name === 'company_name') {
       setFormData((prev) => ({ ...prev, [name]: capitalizeWords(value) }));
@@ -493,6 +519,53 @@ function SalespersonRegister() {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
+
+  // Validate DOB year format
+if (formData.dob) {
+  const year = formData.dob.split("-")[0];
+
+  if (!/^\d{4}$/.test(year)) {
+    Swal.fire({
+      icon: "error",
+      title: "Invalid Date of Birth",
+      text: "DOB year must contain exactly 4 digits (YYYY).",
+      confirmButtonColor: "#3085d6",
+    });
+
+    setIsSubmitting(false);
+    return;
+  }
+}
+
+// Validate Anniversary year format
+if (formData.anniversary) {
+  const year = formData.anniversary.split("-")[0];
+
+  if (!/^\d{4}$/.test(year)) {
+    Swal.fire({
+      icon: "error",
+      title: "Invalid Anniversary Date",
+      text: "Anniversary year must contain exactly 4 digits (YYYY).",
+      confirmButtonColor: "#3085d6",
+    });
+
+    setIsSubmitting(false);
+    return;
+  }
+}
+
+// Validate Phone Number length
+if (!/^\d{10}$/.test(formData.phone)) {
+  Swal.fire({
+    icon: "error",
+    title: "Invalid Phone Number",
+    text: "Phone number must contain exactly 10 digits.",
+    confirmButtonColor: "#3085d6",
+  });
+
+  setIsSubmitting(false);
+  return;
+}
 
   // Validate passwords match
   if (formData.password !== formData.confirmPassword) {

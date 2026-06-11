@@ -720,7 +720,7 @@ const Login = () => {
                     </button>
                   </div>
 
-                  <div className="saleslogin-guest-btn-wrapper mt-3">
+                  {/* <div className="saleslogin-guest-btn-wrapper mt-3">
                     <button
                       type="button"
                       className="saleslogin-guest-btn"
@@ -728,7 +728,7 @@ const Login = () => {
                     >
                       Guest
                     </button>
-                  </div>
+                  </div> */}
                   <div className="mt-3">
                     <p className="saleslogin-register-text">
                       Don't have an account?{" "}

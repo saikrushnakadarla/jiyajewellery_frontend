@@ -79,6 +79,9 @@ import EmailVerification from './Components/Pages/EmailVerification/EmailVerific
 
 import OrderCartCatalog from './Components/Modules/Customer/OrderCatalog/OrderCartCatalog';
 
+import ForgotPassword from './Components/Pages/Login/ForgotPassword';
+import VerifyOTP from './Components/Pages/Login/VerifyOTP';
+import ResetPassword from './Components/Pages/Login/ResetPassword';
 
 // Create a wrapper component to conditionally show watermark
 const AppContent = () => {
@@ -182,6 +185,10 @@ const AppContent = () => {
 
    
         <Route path="/customer-order-cart" element={<OrderCartCatalog />} />
+
+         <Route path="/forgot-password" element={<ForgotPassword />} />
+         <Route path="/verify-otp" element={<VerifyOTP />} />
+         <Route path="/reset-password" element={<ResetPassword />} />
 
 
       </Routes>
