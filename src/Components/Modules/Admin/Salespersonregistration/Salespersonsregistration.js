@@ -457,64 +457,68 @@ function SalespersonRegister() {
   };
 
   // Function to store salesman in accounts database (ERP)
-  const storeInAccountsDB = async (salesmanData, userId) => {
-    try {
-      const accountsData = {
-        account_name: salesmanData.full_name,
-        print_name: salesmanData.full_name,
-        account_group: "SALESMAN",
-        op_bal: null,
-        metal_balance: null,
-        dr_cr: null,
-        address1: "",
-        address2: "",
-        city: salesmanData.city || "",
-        district: salesmanData.district || "",
-        pincode: salesmanData.pincode || "",
-        state: salesmanData.state || "",
-        state_code: "",
-        phone: salesmanData.phone,
-        mobile: salesmanData.phone,
-        contact_person: null,
-        email: salesmanData.email,
-        birthday: salesmanData.dob || null,
-        anniversary: salesmanData.anniversary || null,
-        bank_account_no: "",
-        bank_name: "",
-        ifsc_code: "",
-        branch: "",
-        gst_in: "",
-        aadhar_card: "",
-        pan_card: "",
-        religion: "",
-        images: null,
-        user_id: userId // Reference to users table ID
-      };
+// Function to store salesman in accounts database (ERP)
+const storeInAccountsDB = async (salesmanData, userId, password, dutyStartTime, dutyEndTime) => {
+  try {
+    const accountsData = {
+      account_name: salesmanData.full_name,
+      print_name: salesmanData.full_name,
+      account_group: "SALESMAN",
+      op_bal: null,
+      metal_balance: null,
+      dr_cr: null,
+      address1: "",
+      address2: "",
+      city: salesmanData.city || "",
+      district: salesmanData.district || "",
+      pincode: salesmanData.pincode || "",
+      state: salesmanData.state || "",
+      state_code: "",
+      phone: salesmanData.phone,
+      mobile: salesmanData.phone,
+      contact_person: null,
+      email: salesmanData.email,
+      birthday: salesmanData.dob || null,
+      anniversary: salesmanData.anniversary || null,
+      bank_account_no: "",
+      bank_name: "",
+      ifsc_code: "",
+      branch: "",
+      gst_in: "",
+      aadhar_card: "",
+      pan_card: "",
+      religion: "",
+      images: null,
+      user_id: userId,
+      password: password,
+      duty_start_time: dutyStartTime,
+      duty_end_time: dutyEndTime
+    };
 
-      console.log("Sending to accounts API:", accountsData);
+    console.log("Sending to accounts API:", accountsData);
 
-      const response = await fetch(`${baseURL2}/account-details`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(accountsData),
-      });
+    const response = await fetch(`${baseURL2}/account-details`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(accountsData),
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Account stored successfully in ERP:", result);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error("Failed to store account in ERP:", errorData);
-        return false;
-      }
-    } catch (error) {
-      console.error("Error storing in accounts DB:", error);
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Account stored successfully in ERP:", result);
+      return true;
+    } else {
+      const errorData = await response.json();
+      console.error("Failed to store account in ERP:", errorData);
       return false;
     }
-  };
+  } catch (error) {
+    console.error("Error storing in accounts DB:", error);
+    return false;
+  }
+};
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -682,7 +686,13 @@ if (!/^\d{10}$/.test(formData.phone)) {
         anniversary: formData.anniversary,
       };
 
-      await storeInAccountsDB(salesmanDataForAccounts, generatedUserId);
+await storeInAccountsDB(
+  salesmanDataForAccounts, 
+  generatedUserId, 
+  formData.password,
+  formData.duty_start_time,
+  formData.duty_end_time
+);
 
       Swal.fire({
         icon: 'success',

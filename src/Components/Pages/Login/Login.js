@@ -7,6 +7,7 @@ import "./Login.css";
 import { FaEye, FaEyeSlash, FaCamera } from "react-icons/fa";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 import baseURL from "../../Modules/ApiUrl/NodeBaseURL";
+import baseURL2 from "../../Modules/ApiUrl/NodeBaseURL2";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -310,9 +311,18 @@ const Login = () => {
   };
 
   // Function to check if current time is within duty hours
-  const checkDutyHours = async (userId) => {
+  // Modified to work for both users table and account_details table
+  const checkDutyHours = async (userId, role) => {
     try {
-      const response = await fetch(`${baseURL}/api/users/check-duty-hours/${userId}`);
+      let url;
+      // If role is salesman, use ERP API, otherwise use main app API
+      if (role === 'salesman') {
+        url = `${baseURL2}/salesman/check-duty-hours/${userId}`;
+      } else {
+        url = `${baseURL}/api/users/check-duty-hours/${userId}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (!response.ok) {
@@ -404,6 +414,86 @@ const Login = () => {
 
     setIsLoading(true);
 
+    // FIRST: Try Salesman login using baseURL2 (ERP)
+    try {
+      const salesmanResponse = await fetch(`${baseURL2}/salesman/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email_id.trim(),
+          password: password,
+        }),
+      });
+
+      const salesmanData = await salesmanResponse.json();
+
+      if (salesmanResponse.ok && salesmanData.success) {
+        const userRole = salesmanData.user?.role?.toLowerCase();
+        
+        if (userRole === "salesman") {
+          // Check if account is blocked
+          if (salesmanData.user.account_status === 'inactive') {
+            setIsLoading(false);
+            Swal.fire({
+              icon: "error",
+              title: "Account Blocked!",
+              text: "Your account has been blocked due to multiple screenshot attempts. Please contact administrator.",
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            return;
+          }
+          
+          // CHECK DUTY HOURS FOR SALESMAN - Using ERP API with role parameter
+          const dutyCheck = await checkDutyHours(salesmanData.user.id, 'salesman');
+          
+          if (!dutyCheck.allowed) {
+            setIsLoading(false);
+            Swal.fire({
+              icon: "error",
+              title: "Access Denied",
+              text: dutyCheck.message,
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            return;
+          }
+          
+          // Salesman login successful
+          localStorage.setItem("user", JSON.stringify(salesmanData.user));
+
+          Swal.fire({
+            icon: "success",
+            title: "Login Successful!",
+            timer: 1500,
+            showConfirmButton: false
+          });
+
+          setTimeout(() => {
+            const today = new Date().toDateString();
+            const lastCheckInDate = sessionStorage.getItem('lastCheckInDate');
+
+            if (lastCheckInDate !== today) {
+              sessionStorage.removeItem('attendanceChecked');
+              sessionStorage.removeItem('visitLogCompleted');
+              sessionStorage.removeItem('visitLogSkipped');
+              sessionStorage.removeItem('lastCheckInDate');
+            }
+
+            navigate("/salesperson-dashboard");
+          }, 1500);
+          
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.log("Salesman login not attempted or failed:", error);
+    }
+
+    // SECOND: Try Customer/Admin login using baseURL (Main App)
     try {
       const response = await fetch(`${baseURL}/api/users/login`, {
         method: "POST",
@@ -436,9 +526,24 @@ const Login = () => {
             // DO NOT navigate - stay on login page
             return;
           }
+          
+          // For customers, check duty hours if they have any (using main app API)
+          const dutyCheck = await checkDutyHours(data.user.id, 'customer');
+          
+          if (!dutyCheck.allowed) {
+            setIsLoading(false);
+            Swal.fire({
+              icon: "error",
+              title: "Access Denied",
+              text: dutyCheck.message,
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            return;
+          }
         }
         
-        // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
+        // CHECK FOR SALESMAN ACCOUNT STATUS (if somehow salesman is in users table)
         if (userRole === "salesman") {
           // Check if account is blocked due to screenshot attempts
           if (data.user.account_status === 'inactive') {
@@ -453,8 +558,8 @@ const Login = () => {
             return;
           }
           
-          // CHECK DUTY HOURS FOR SALESMAN
-          const dutyCheck = await checkDutyHours(data.user.id);
+          // CHECK DUTY HOURS FOR SALESMAN (from users table)
+          const dutyCheck = await checkDutyHours(data.user.id, 'salesman');
           
           if (!dutyCheck.allowed) {
             setIsLoading(false);
@@ -562,6 +667,22 @@ const Login = () => {
             });
             return;
           }
+          
+          // Check duty hours for customer
+          const dutyCheck = await checkDutyHours(data.user.id, 'customer');
+          
+          if (!dutyCheck.allowed) {
+            setIsLoading(false);
+            setShowFaceLogin(false);
+            Swal.fire({
+              icon: "error",
+              title: "Access Denied",
+              text: dutyCheck.message,
+              confirmButtonText: "OK",
+              allowOutsideClick: false
+            });
+            return;
+          }
         }
         
         // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
@@ -581,7 +702,7 @@ const Login = () => {
           }
           
           // CHECK DUTY HOURS FOR SALESMAN
-          const dutyCheck = await checkDutyHours(data.user.id);
+          const dutyCheck = await checkDutyHours(data.user.id, 'salesman');
           
           if (!dutyCheck.allowed) {
             setIsLoading(false);
