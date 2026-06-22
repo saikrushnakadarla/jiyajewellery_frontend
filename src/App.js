@@ -83,6 +83,8 @@ import ForgotPassword from './Components/Pages/Login/ForgotPassword';
 import VerifyOTP from './Components/Pages/Login/VerifyOTP';
 import ResetPassword from './Components/Pages/Login/ResetPassword';
 
+import Footer from './Components/Pages/Footer/Footer';
+
 // Create a wrapper component to conditionally show watermark
 const AppContent = () => {
   const location = useLocation();
@@ -192,6 +194,7 @@ const AppContent = () => {
 
 
       </Routes>
+      <Footer />
       {/* </ScreenshotProtection> */}
     </>
   );
