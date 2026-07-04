@@ -1,4 +1,4 @@
-// CustomerDashboard.jsx (Complete Fixed Version)
+// CustomerDashboard.jsx (Complete Fixed Version - Notification ID Resolution Fix)
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -20,6 +20,7 @@ import EstimateStatusChart from "./EstimatePieChart";
 import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCamera, FiBell, FiCheck } from 'react-icons/fi';
 import { Button, Dropdown, Badge, Toast, ToastContainer } from "react-bootstrap";
 import baseURL from "../ApiUrl/NodeBaseURL";
+import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 import ScreenshotProtection from "../../../utils/ScreenshotProtection";
 
@@ -33,14 +34,18 @@ ChartJS.register(
   ArcElement
 );
 
-
-
 function Dashboard() {
   const navigate = useNavigate();
   const protectionRef = useRef(null);
   const sseRef = useRef(null);
+  const sseRef2 = useRef(null);
   const pollingIntervalRef = useRef(null);
-  
+
+  // NEW: holds the resolved account_details.account_id used for notifications.
+  // This is DIFFERENT from users.id / users.customer_id and must be resolved
+  // by matching against the account_details table.
+  const customerAccountIdRef = useRef(null);
+
   const [currentUser, setCurrentUser] = useState(null);
   const [estimatesCount, setEstimatesCount] = useState({
     pending: 0,
@@ -79,41 +84,121 @@ function Dashboard() {
       if (sseRef.current) {
         sseRef.current.close();
       }
+      if (sseRef2.current) {
+        sseRef2.current.close();
+      }
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
 
-  // Connect to SSE for real-time notifications
+  // ------------------------------------------------------------------
+  // NEW: Resolve the account_details.account_id for the logged-in customer.
+  //
+  // Why this is needed:
+  // - Customers log in via the `users` table. localStorage's `user` object
+  //   contains `users.id` and (sometimes) `users.customer_id` (e.g. "CUST-001").
+  // - But the backend (visitLogsWarehouseRoutes / visitLogsScheduleRoutes)
+  //   writes notifications with `user_id = customer_account_id`, which is
+  //   actually `account_details.account_id` (e.g. 53, 57) - a totally
+  //   different ID space created separately when the customer registered
+  //   (see storeInAccountsDB in CustomerRegistration.jsx).
+  // - Salesman notifications "just work" because salesman login reads
+  //   directly from account_details and returns account_id as user.id -
+  //   there's no ID-space mismatch there.
+  //
+  // Matching strategy (in priority order):
+  // 1. Match on customer_id (works for newer customers that have a
+  //    generated "CUST-XXX" id stored on both users and account_details).
+  // 2. Match on phone/mobile (works for older customers where
+  //    account_details.customer_id is NULL, e.g. "krishna").
+  // 3. Match on email (last-resort fallback).
+  // ------------------------------------------------------------------
+  const resolveCustomerAccountId = async (user) => {
+    try {
+      const response = await fetch(`${baseURL2}/get/account-details`);
+      if (!response.ok) return null;
+
+      const accounts = await response.json();
+      const customerAccounts = accounts.filter(
+        (acc) => acc.account_group && acc.account_group.toUpperCase() === 'CUSTOMERS'
+      );
+
+      let matched = null;
+
+      // Priority 1: customer_id match
+      if (user.customer_id) {
+        matched = customerAccounts.find(
+          (acc) => acc.customer_id && acc.customer_id === user.customer_id
+        );
+      }
+
+      // Priority 2: phone / mobile match
+      if (!matched && user.phone) {
+        matched = customerAccounts.find(
+          (acc) => acc.mobile === user.phone || acc.phone === user.phone
+        );
+      }
+
+      // Priority 3: email match
+      if (!matched) {
+        const email = user.email_id || user.email;
+        if (email) {
+          matched = customerAccounts.find((acc) => acc.email === email);
+        }
+      }
+
+      if (!matched) {
+        console.warn('⚠️ Could not resolve account_details.account_id for this customer. Notifications will not load.');
+        return null;
+      }
+
+      console.log(`✅ Resolved customer account_id: ${matched.account_id} (matched via ${
+        user.customer_id && matched.customer_id === user.customer_id ? 'customer_id' :
+        (matched.mobile === user.phone || matched.phone === user.phone) ? 'phone' : 'email'
+      })`);
+
+      return matched.account_id;
+    } catch (error) {
+      console.error('❌ Error resolving customer account_id:', error);
+      return null;
+    }
+  };
+
+  // Connect to SSE for real-time notifications from both servers
   useEffect(() => {
     const setupNotifications = async () => {
       const userData = localStorage.getItem("user");
       if (!userData) return;
-      
+
       const user = JSON.parse(userData);
-      const customerId = user.customer_id || user.id || user.userId || user.customerId;
-      
-      if (!customerId) return;
-      
-      // Connect to SSE
+
+      // Resolve the correct account_details.account_id (NOT users.id / users.customer_id)
+      const accountId = await resolveCustomerAccountId(user);
+
+      if (!accountId) return;
+
+      customerAccountIdRef.current = accountId;
+
+      // Connect to SSE from Jiya Jewellery (port 5000)
       const connectSSE = () => {
         try {
-          const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${customerId}`);
-          
+          const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
+
           eventSource.onopen = () => {
-            console.log('Customer SSE connection established');
+            console.log('Customer SSE connection established (port 5000)');
           };
-          
+
           eventSource.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data);
-              
+
               if (data.type === 'connected') {
-                console.log('Connected to customer notification stream');
+                console.log('Connected to customer notification stream (port 5000)');
                 return;
               }
-              
+
               // Handle incoming notification
               if (data.title && data.message) {
                 handleNewNotification(data);
@@ -122,34 +207,78 @@ function Dashboard() {
               console.error('Error parsing SSE message:', error);
             }
           };
-          
+
           eventSource.onerror = (error) => {
-            console.error('SSE connection error:', error);
+            console.error('SSE connection error (port 5000):', error);
             eventSource.close();
-            
+
             // Reconnect after 5 seconds
             setTimeout(() => {
               connectSSE();
             }, 5000);
           };
-          
+
           sseRef.current = eventSource;
         } catch (error) {
-          console.error('Error setting up SSE:', error);
+          console.error('Error setting up SSE (port 5000):', error);
         }
       };
-      
+
+      // Connect to SSE from Jiya Jewellery ERP (port 5001)
+      const connectSSE2 = () => {
+        try {
+          const eventSource = new EventSource(`${baseURL2}/api/customer-notifications/${accountId}`);
+
+          eventSource.onopen = () => {
+            console.log('Customer SSE connection established (port 5001)');
+          };
+
+          eventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+
+              if (data.type === 'connected') {
+                console.log('Connected to customer notification stream (port 5001)');
+                return;
+              }
+
+              // Handle incoming notification
+              if (data.title && data.message) {
+                handleNewNotification(data);
+              }
+            } catch (error) {
+              console.error('Error parsing SSE message:', error);
+            }
+          };
+
+          eventSource.onerror = (error) => {
+            console.error('SSE connection error (port 5001):', error);
+            eventSource.close();
+
+            // Reconnect after 5 seconds
+            setTimeout(() => {
+              connectSSE2();
+            }, 5000);
+          };
+
+          sseRef2.current = eventSource;
+        } catch (error) {
+          console.error('Error setting up SSE (port 5001):', error);
+        }
+      };
+
       connectSSE();
-      
-      // Fetch initial notifications
-      await fetchNotifications(customerId);
-      
+      connectSSE2();
+
+      // Fetch initial notifications from both servers using the resolved accountId
+      await fetchNotifications(accountId);
+
       // Set up polling as backup (every 30 seconds)
       pollingIntervalRef.current = setInterval(() => {
-        fetchNotifications(customerId, true);
+        fetchNotifications(accountId, true);
       }, 30000);
     };
-    
+
     setupNotifications();
   }, []);
 
@@ -157,7 +286,7 @@ function Dashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         const userData = localStorage.getItem("user");
         if (!userData) {
           setLoading(false);
@@ -166,9 +295,9 @@ function Dashboard() {
 
         const user = JSON.parse(userData);
         setCurrentUser(user);
-        
+
         const customerId = user.customer_id || user.id || user.userId || user.customerId;
-        
+
         if (!customerId) {
           console.error("Customer ID not found in user data");
           setLoading(false);
@@ -182,14 +311,14 @@ function Dashboard() {
           throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
         }
         const estimates = await estimatesResponse.json();
-        
-        const customerEstimates = estimates.filter(estimate => 
+
+        const customerEstimates = estimates.filter(estimate =>
           estimate.customer_id && estimate.customer_id.toString() === customerId.toString()
         );
-        
+
         const processedEstimates = customerEstimates.map(estimate => {
           let status = estimate.estimate_status || estimate.status;
-          
+
           if (!status) {
             if (estimate.source_by === "customer") {
               status = "Ordered";
@@ -197,33 +326,33 @@ function Dashboard() {
               status = "Pending";
             }
           }
-          
+
           if (status === "Accepted") {
             status = "Ordered";
           }
-          
+
           if (status === "Pending" && estimate.source_by === "customer") {
             status = "Ordered";
           }
-          
+
           return {
             ...estimate,
             processed_status: status
           };
         });
-        
-        const pending = processedEstimates.filter(estimate => 
+
+        const pending = processedEstimates.filter(estimate =>
           estimate.processed_status === "Pending"
         ).length;
-        
-        const ordered = processedEstimates.filter(estimate => 
+
+        const ordered = processedEstimates.filter(estimate =>
           estimate.processed_status === "Ordered"
         ).length;
-        
-        const rejected = processedEstimates.filter(estimate => 
+
+        const rejected = processedEstimates.filter(estimate =>
           estimate.processed_status === "Rejected"
         ).length;
-        
+
         setEstimatesCount({
           pending,
           ordered,
@@ -246,12 +375,12 @@ function Dashboard() {
         const usersResponse = await fetch(`${baseURL}/api/users`);
         if (usersResponse.ok) {
           const allUsers = await usersResponse.json();
-          const currentCustomer = allUsers.filter(u => 
+          const currentCustomer = allUsers.filter(u =>
             u.id && u.id.toString() === customerId.toString()
           );
           setRecentCustomers(currentCustomer);
         }
-        
+
         setLoading(false);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -263,43 +392,40 @@ function Dashboard() {
     fetchData();
   }, []);
 
-
   // Combined email verification and account status check - FIXED VERSION
-useEffect(() => {
-  const checkAuthStatus = async () => {
-    const userData = localStorage.getItem("user");
-    if (!userData) return;
-    
-    const user = JSON.parse(userData);
-    const needsVerification = localStorage.getItem("needsEmailVerification");
-    
-    // If user is not approved, redirect to login
-    if (user.status !== 'approved') {
-      localStorage.removeItem("user");
-      localStorage.removeItem("needsEmailVerification");
-      Swal.fire({
-        icon: "warning",
-        title: "Account Not Approved",
-        text: "Your account has not been approved by admin yet. Please try again later.",
-        confirmButtonText: "OK",
-        allowOutsideClick: false
-      }).then(() => {
-        navigate("/");
-      });
-      return;
-    }
-    
-    // Check email verification - only for approved accounts
-    if (needsVerification === 'true' || user.email_verified === 'Not Verified') {
-      navigate("/email-verification");
-      return;
-    }
-  };
-  
-  checkAuthStatus();
-}, [navigate]);
-  
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const userData = localStorage.getItem("user");
+      if (!userData) return;
 
+      const user = JSON.parse(userData);
+      const needsVerification = localStorage.getItem("needsEmailVerification");
+
+      // If user is not approved, redirect to login
+      if (user.status !== 'approved') {
+        localStorage.removeItem("user");
+        localStorage.removeItem("needsEmailVerification");
+        Swal.fire({
+          icon: "warning",
+          title: "Account Not Approved",
+          text: "Your account has not been approved by admin yet. Please try again later.",
+          confirmButtonText: "OK",
+          allowOutsideClick: false
+        }).then(() => {
+          navigate("/");
+        });
+        return;
+      }
+
+      // Check email verification - only for approved accounts
+      if (needsVerification === 'true' || user.email_verified === 'Not Verified') {
+        navigate("/email-verification");
+        return;
+      }
+    };
+
+    checkAuthStatus();
+  }, [navigate]);
 
   // Handle new real-time notification
   const handleNewNotification = (notification) => {
@@ -308,17 +434,44 @@ useEffect(() => {
     showToastNotification(notification);
   };
 
-  // Fetch notifications from API
+  // Fetch notifications from both APIs
   const fetchNotifications = async (userId, silent = false) => {
     try {
-      const response = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=customer&limit=50`);
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch from Jiya Jewellery (port 5000)
+      const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=customer&limit=50`);
+      let notifications1 = [];
+      if (response1.ok) {
+        const data = await response1.json();
         if (data.success) {
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.unreadCount || 0);
+          notifications1 = data.notifications || [];
         }
       }
+
+      // Fetch from Jiya Jewellery ERP (port 5001)
+      const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=customer&limit=50`);
+      let notifications2 = [];
+      if (response2.ok) {
+        const data = await response2.json();
+        if (data.success) {
+          notifications2 = data.notifications || [];
+        }
+      }
+
+      // Merge notifications from both sources
+      const allNotifications = [...notifications1, ...notifications2];
+
+      // Sort by created_at (newest first)
+      allNotifications.sort((a, b) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateB - dateA;
+      });
+
+      // Calculate total unread count
+      const totalUnread = allNotifications.filter(n => !n.is_read).length;
+
+      setNotifications(allNotifications);
+      setUnreadCount(totalUnread);
     } catch (error) {
       if (!silent) {
         console.error('Error fetching notifications:', error);
@@ -335,9 +488,9 @@ useEffect(() => {
       type: notification.type || 'info',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    
+
     setToastQueue(prev => [...prev, toastData]);
-    
+
     if (!showToast) {
       setToastMessage(toastData);
       setShowToast(true);
@@ -347,7 +500,7 @@ useEffect(() => {
   // Handle toast close and show next in queue
   const handleToastClose = () => {
     setShowToast(false);
-    
+
     setToastQueue(prev => {
       const newQueue = prev.slice(1);
       if (newQueue.length > 0) {
@@ -363,17 +516,20 @@ useEffect(() => {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${notificationId}/read`, {
+      // Try to mark as read on both servers
+      await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif.id === notificationId ? { ...notif, is_read: true } : notif
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+      await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${notificationId}/read`, {
+        method: 'PUT'
+      });
+
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === notificationId ? { ...notif, is_read: true } : notif
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -381,31 +537,36 @@ useEffect(() => {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    const userData = localStorage.getItem("user");
-    if (!userData) return;
-    
-    const user = JSON.parse(userData);
-    const customerId = user.customer_id || user.id || user.userId || user.customerId;
-    
-    if (!customerId) return;
-    
+    // Use the resolved account_details.account_id (NOT users.id / users.customer_id)
+    const accountId = customerAccountIdRef.current;
+
+    if (!accountId) {
+      console.warn('Cannot mark all as read - customer account_id not resolved yet');
+      return;
+    }
+
     try {
-      const response = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/mark-all-read/${customerId}`, {
+      // Mark all as read on both servers
+      await fetch(`${baseURL}/api/visit-logs-schedule/notifications/mark-all-read/${accountId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userType: 'customer' })
       });
-      if (response.ok) {
-        setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
-        setUnreadCount(0);
-        
-        Swal.fire({
-          icon: 'success',
-          title: 'All notifications marked as read',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      }
+      await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/mark-all-read/${accountId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userType: 'customer' })
+      });
+
+      setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
+      setUnreadCount(0);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'All notifications marked as read',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
@@ -429,16 +590,18 @@ useEffect(() => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Get notification icon
+  // Get notification icon - updated to handle warehouse notifications
   const getNotificationIcon = (notification) => {
     const msg = notification.message || '';
     const type = notification.type || '';
     if (msg.includes('scheduled') || type === 'schedule') return '📅';
+    if (msg.includes('warehouse') || type === 'warehouse_schedule') return '📦';
     if (msg.includes('Interested')) return '👍';
     if (msg.includes('Converted')) return '🎉';
     if (msg.includes('Completed')) return '✅';
     if (msg.includes('Cancelled')) return '❌';
     if (msg.includes('Updated')) return '🔄';
+    if (msg.includes('assigned') || msg.includes('Assigned')) return '👤';
     return '🔔';
   };
 
@@ -449,7 +612,7 @@ useEffect(() => {
         const userData = await response.json();
         const hasFace = userData.face_descriptor && userData.face_descriptor !== 'null' && userData.face_descriptor !== null;
         setHasFaceRegistered(hasFace);
-        
+
         if (!hasFace) {
           setShowFacePrompt(true);
           setTimeout(() => {
@@ -498,7 +661,7 @@ useEffect(() => {
 
       const formData = new FormData();
       formData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-      
+
       const base64Image = faceData.image;
       const byteString = atob(base64Image.split(',')[1]);
       const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
@@ -519,7 +682,7 @@ useEffect(() => {
       if (response.ok) {
         setHasFaceRegistered(true);
         setShowFaceCapture(false);
-        
+
         Swal.fire({
           icon: 'success',
           title: 'Face Registered Successfully!',
@@ -548,7 +711,7 @@ useEffect(() => {
   const processMonthlyData = (estimates) => {
     const months = [];
     const now = new Date();
-    
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthYear = date.toLocaleString('default', { month: 'short' });
@@ -565,14 +728,14 @@ useEffect(() => {
       const estimateDate = new Date(estimate.date || estimate.created_at);
       if (isNaN(estimateDate.getTime())) return;
 
-      const monthIndex = months.findIndex(m => 
-        m.month === estimateDate.getMonth() && 
+      const monthIndex = months.findIndex(m =>
+        m.month === estimateDate.getMonth() &&
         m.year === estimateDate.getFullYear()
       );
 
       if (monthIndex !== -1) {
         months[monthIndex].estimates++;
-        
+
         if (estimate.processed_status === "Ordered") {
           months[monthIndex].orders++;
         }
@@ -736,13 +899,13 @@ useEffect(() => {
   return (
     <>
       <Navbar/>
-      
+
       {/* Toast Container for Notifications */}
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
-        <Toast 
-          show={showToast} 
-          onClose={handleToastClose} 
-          delay={6000} 
+        <Toast
+          show={showToast}
+          onClose={handleToastClose}
+          delay={6000}
           autohide
           style={{
             minWidth: '350px',
@@ -751,10 +914,10 @@ useEffect(() => {
             border: '1px solid #e5e7eb'
           }}
         >
-          <Toast.Header 
+          <Toast.Header
             closeButton={false}
             style={{
-              backgroundColor: toastMessage?.type === 'schedule' ? '#eff6ff' : '#f0fdf4',
+              backgroundColor: toastMessage?.type === 'schedule' || toastMessage?.type === 'warehouse_schedule' ? '#eff6ff' : '#f0fdf4',
               borderBottom: '1px solid #e5e7eb',
               borderRadius: '12px 12px 0 0',
               padding: '12px 16px'
@@ -762,7 +925,8 @@ useEffect(() => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
               <span style={{ fontSize: '20px' }}>
-                {toastMessage?.type === 'schedule' ? '📅' : '🔔'}
+                {toastMessage?.type === 'schedule' ? '📅' :
+                 toastMessage?.type === 'warehouse_schedule' ? '📦' : '🔔'}
               </span>
               <strong className="me-auto" style={{ fontSize: '14px' }}>
                 {toastMessage?.title || 'Notification'}
@@ -770,7 +934,7 @@ useEffect(() => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <small style={{ color: '#6b7280' }}>{toastMessage?.time}</small>
-              <button 
+              <button
                 onClick={handleToastClose}
                 style={{
                   background: 'none',
@@ -786,7 +950,7 @@ useEffect(() => {
               </button>
             </div>
           </Toast.Header>
-          <Toast.Body style={{ 
+          <Toast.Body style={{
             padding: '16px',
             fontSize: '14px',
             color: '#374151',
@@ -801,15 +965,15 @@ useEffect(() => {
         {/* Welcome Message with Notification Bell */}
         {currentUser && (
           <div className="welcome-section">
+            <div className="welcome-content">
+              <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'} Sir!</h1>
+              <p>Here's what's happening with your estimates</p>
+            </div>
             <div className="welcome-card">
-              <div className="welcome-content">
-                <h1>Welcome, {currentUser.full_name || currentUser.name || 'User'} Sir!</h1>
-                <p>Here's what's happening with your estimates</p>
-              </div>
               <div className="welcome-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 {/* Notification Bell with Dropdown */}
-                <Dropdown 
-                  show={notificationDropdownOpen} 
+                <Dropdown
+                  show={notificationDropdownOpen}
                   onToggle={setNotificationDropdownOpen}
                   align="end"
                 >
@@ -817,12 +981,12 @@ useEffect(() => {
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <FiBell size={24} color="#fff" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
                       {unreadCount > 0 && (
-                        <Badge 
-                          pill 
-                          bg="danger" 
-                          style={{ 
-                            position: 'absolute', 
-                            top: '-10px', 
+                        <Badge
+                          pill
+                          bg="danger"
+                          style={{
+                            position: 'absolute',
+                            top: '-10px',
                             right: '-15px',
                             fontSize: '11px',
                             padding: '3px 7px',
@@ -836,19 +1000,19 @@ useEffect(() => {
                     </div>
                   </Dropdown.Toggle>
 
-                  <Dropdown.Menu 
-                    style={{ 
-                      width: '400px', 
-                      maxHeight: '500px', 
-                      overflowY: 'auto', 
+                  <Dropdown.Menu
+                    style={{
+                      width: '400px',
+                      maxHeight: '500px',
+                      overflowY: 'auto',
                       padding: '0',
                       borderRadius: '12px',
                       boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
                       border: '1px solid #e5e7eb'
                     }}
                   >
-                    <div style={{ 
-                      padding: '16px 20px', 
+                    <div style={{
+                      padding: '16px 20px',
                       borderBottom: '1px solid #e5e7eb',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -864,12 +1028,12 @@ useEffect(() => {
                         <strong style={{ fontSize: '16px' }}>Notifications</strong>
                       </div>
                       {unreadCount > 0 && (
-                        <Button 
-                          variant="link" 
-                          size="sm" 
+                        <Button
+                          variant="link"
+                          size="sm"
                           onClick={markAllAsRead}
-                          style={{ 
-                            fontSize: '13px', 
+                          style={{
+                            fontSize: '13px',
                             textDecoration: 'none',
                             color: '#3b82f6',
                             fontWeight: 500
@@ -879,13 +1043,13 @@ useEffect(() => {
                         </Button>
                       )}
                     </div>
-                    
+
                     <div className="notification-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                       {notifications.length === 0 ? (
-                        <div style={{ 
-                          padding: '60px 20px', 
-                          textAlign: 'center', 
-                          color: '#6b7280' 
+                        <div style={{
+                          padding: '60px 20px',
+                          textAlign: 'center',
+                          color: '#6b7280'
                         }}>
                           <div style={{ marginBottom: '16px' }}>
                             <FiBell size={48} style={{ opacity: 0.3 }} />
@@ -897,10 +1061,10 @@ useEffect(() => {
                         </div>
                       ) : (
                         notifications.map(notification => (
-                          <Dropdown.Item 
+                          <Dropdown.Item
                             key={notification.id}
                             onClick={() => !notification.is_read && markAsRead(notification.id)}
-                            style={{ 
+                            style={{
                               padding: '16px 20px',
                               backgroundColor: notification.is_read ? 'white' : '#eff6ff',
                               borderBottom: '1px solid #f3f4f6',
@@ -911,8 +1075,8 @@ useEffect(() => {
                             }}
                           >
                             <div style={{ display: 'flex', gap: '14px', width: '100%' }}>
-                              <div style={{ 
-                                fontSize: '24px', 
+                              <div style={{
+                                fontSize: '24px',
                                 width: '36px',
                                 height: '36px',
                                 display: 'flex',
@@ -923,7 +1087,7 @@ useEffect(() => {
                                 {getNotificationIcon(notification)}
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ 
+                                <div style={{
                                   fontWeight: notification.is_read ? '500' : '600',
                                   marginBottom: '6px',
                                   fontSize: '14px',
@@ -934,26 +1098,26 @@ useEffect(() => {
                                 }}>
                                   <span>{notification.title}</span>
                                   {!notification.is_read && (
-                                    <span style={{ 
-                                      width: '8px', 
-                                      height: '8px', 
-                                      backgroundColor: '#3b82f6', 
+                                    <span style={{
+                                      width: '8px',
+                                      height: '8px',
+                                      backgroundColor: '#3b82f6',
                                       borderRadius: '50%',
                                       flexShrink: 0,
                                       marginTop: '4px'
                                     }}></span>
                                   )}
                                 </div>
-                                <div style={{ 
-                                  fontSize: '13px', 
-                                  color: '#6b7280', 
+                                <div style={{
+                                  fontSize: '13px',
+                                  color: '#6b7280',
                                   marginBottom: '6px',
                                   lineHeight: '1.4'
                                 }}>
                                   {notification.message}
                                 </div>
-                                <div style={{ 
-                                  fontSize: '11px', 
+                                <div style={{
+                                  fontSize: '11px',
                                   color: '#9ca3af',
                                   display: 'flex',
                                   alignItems: 'center',
@@ -972,8 +1136,8 @@ useEffect(() => {
                 </Dropdown>
 
                 {/* Face Registration Button */}
-                <Button 
-                  variant="light" 
+                <Button
+                  variant="light"
                   className="face-register-btn"
                   onClick={handleManualFaceRegistration}
                   style={{
@@ -985,8 +1149,8 @@ useEffect(() => {
                   <FiCamera style={{ marginRight: '8px' }} />
                   {hasFaceRegistered ? 'Face Registered ✓' : 'Register Face for Login'}
                 </Button>
-                <Button 
-                  variant="light" 
+                <Button
+                  variant="light"
                   className="add-sale-btn"
                   onClick={() => navigate('/customer-estimates')}
                   style={{
@@ -1010,8 +1174,8 @@ useEffect(() => {
               <FiCamera className="banner-icon" />
               <span>Enable Face Login for quick and secure access to your account!</span>
             </div>
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               size="sm"
               onClick={handleManualFaceRegistration}
             >
@@ -1022,7 +1186,7 @@ useEffect(() => {
 
         {/* Statistics Cards */}
         <div className="stats-grid">
-          <div 
+          <div
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
@@ -1035,7 +1199,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div 
+          <div
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
@@ -1048,7 +1212,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div 
+          <div
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
@@ -1061,7 +1225,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div 
+          <div
             className="stat-card clickable"
             onClick={() => handleCardClick("/customer-estimation")}
           >
@@ -1084,8 +1248,8 @@ useEffect(() => {
                 <span className="breakdown-label">Pending</span>
                 <span className="breakdown-value">{estimatesCount.pending}</span>
                 <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 
-                    ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0) 
+                  {estimatesCount.total > 0
+                    ? ((estimatesCount.pending / estimatesCount.total) * 100).toFixed(0)
                     : 0}% of total
                 </span>
               </div>
@@ -1096,8 +1260,8 @@ useEffect(() => {
                 <span className="breakdown-label">Ordered</span>
                 <span className="breakdown-value">{estimatesCount.ordered}</span>
                 <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 
-                    ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0) 
+                  {estimatesCount.total > 0
+                    ? ((estimatesCount.ordered / estimatesCount.total) * 100).toFixed(0)
                     : 0}% of total
                 </span>
               </div>
@@ -1108,8 +1272,8 @@ useEffect(() => {
                 <span className="breakdown-label">Rejected</span>
                 <span className="breakdown-value">{estimatesCount.rejected}</span>
                 <span className="breakdown-percentage">
-                  {estimatesCount.total > 0 
-                    ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0) 
+                  {estimatesCount.total > 0
+                    ? ((estimatesCount.rejected / estimatesCount.total) * 100).toFixed(0)
                     : 0}% of total
                 </span>
               </div>
@@ -1136,7 +1300,7 @@ useEffect(() => {
 
             <div className="chart-wrapper custom-chart-wrapper">
               {estimatesCount.total > 0 ? (
-                <EstimateStatusChart 
+                <EstimateStatusChart
                   pending={estimatesCount.pending}
                   ordered={estimatesCount.ordered}
                   rejected={estimatesCount.rejected}
@@ -1153,8 +1317,8 @@ useEffect(() => {
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Estimates</h3>
-            <Button 
-              variant="outline-primary" 
+            <Button
+              variant="outline-primary"
               size="sm"
               onClick={() => navigate('/customer-estimation')}
             >
@@ -1175,8 +1339,8 @@ useEffect(() => {
                 </thead>
                 <tbody>
                   {recentEstimates.map((estimate, index) => (
-                    <tr 
-                      key={index} 
+                    <tr
+                      key={index}
                       onClick={() => handleEstimateClick(estimate.estimate_number)}
                       className="clickable-row"
                     >
@@ -1296,20 +1460,20 @@ useEffect(() => {
           50% { transform: scale(1.1); }
           100% { transform: scale(1); }
         }
-        
+
         .notification-list::-webkit-scrollbar {
           width: 6px;
         }
-        
+
         .notification-list::-webkit-scrollbar-track {
           background: #f1f1f1;
         }
-        
+
         .notification-list::-webkit-scrollbar-thumb {
           background: #888;
           border-radius: 3px;
         }
-        
+
         .notification-list::-webkit-scrollbar-thumb:hover {
           background: #555;
         }

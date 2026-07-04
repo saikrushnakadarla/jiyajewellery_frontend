@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import SalesNavbar from "../../Pages/Navbar/SalesNavbar";
-import { Card, Row, Col, Alert, Spinner, Table, Button, ProgressBar } from "react-bootstrap";
+import { Card, Row, Col, Alert, Spinner, Table, Button, ProgressBar, Dropdown, Badge, Toast, ToastContainer } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "./SalesDashboard.css";
 import {
@@ -17,6 +17,9 @@ import {
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import baseURL from "../ApiUrl/NodeBaseURL";
+import baseURL2 from "../ApiUrl/NodeBaseURL2";
+import { FiBell } from 'react-icons/fi';
+import Swal from 'sweetalert2';
 
 ChartJS.register(
   CategoryScale,
@@ -30,6 +33,10 @@ ChartJS.register(
 
 function SalesPersonDashboard() {
   const navigate = useNavigate();
+  const sseRef = useRef(null);
+  const sseRef2 = useRef(null);
+  const pollingIntervalRef = useRef(null);
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -51,6 +58,306 @@ function SalesPersonDashboard() {
     revenue: []
   });
   const [monthlyTarget] = useState(100000);
+
+  // Notification states
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [toastQueue, setToastQueue] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+
+  // Connect to SSE for real-time notifications from both servers
+  useEffect(() => {
+    const setupNotifications = async () => {
+      const userData = localStorage.getItem("user");
+      if (!userData) return;
+      
+      const user = JSON.parse(userData);
+      const salesmanId = user.id || user.userId;
+      
+      if (!salesmanId) return;
+      
+      // Connect to SSE from Jiya Jewellery (port 5000)
+      const connectSSE = () => {
+        try {
+          const eventSource = new EventSource(`${baseURL}/api/salesman-notifications/${salesmanId}`);
+          
+          eventSource.onopen = () => {
+            console.log('Salesman SSE connection established (port 5000)');
+          };
+          
+          eventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              
+              if (data.type === 'connected') {
+                console.log('Connected to salesman notification stream (port 5000)');
+                return;
+              }
+              
+              if (data.title && data.message) {
+                handleNewNotification(data);
+              }
+            } catch (error) {
+              console.error('Error parsing SSE message:', error);
+            }
+          };
+          
+          eventSource.onerror = (error) => {
+            console.error('SSE connection error (port 5000):', error);
+            eventSource.close();
+            setTimeout(() => {
+              connectSSE();
+            }, 5000);
+          };
+          
+          sseRef.current = eventSource;
+        } catch (error) {
+          console.error('Error setting up SSE (port 5000):', error);
+        }
+      };
+      
+      // Connect to SSE from Jiya Jewellery ERP (port 5001)
+      const connectSSE2 = () => {
+        try {
+          const eventSource = new EventSource(`${baseURL2}/api/salesman-notifications/${salesmanId}`);
+          
+          eventSource.onopen = () => {
+            console.log('Salesman SSE connection established (port 5001)');
+          };
+          
+          eventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              
+              if (data.type === 'connected') {
+                console.log('Connected to salesman notification stream (port 5001)');
+                return;
+              }
+              
+              if (data.title && data.message) {
+                handleNewNotification(data);
+              }
+            } catch (error) {
+              console.error('Error parsing SSE message:', error);
+            }
+          };
+          
+          eventSource.onerror = (error) => {
+            console.error('SSE connection error (port 5001):', error);
+            eventSource.close();
+            setTimeout(() => {
+              connectSSE2();
+            }, 5000);
+          };
+          
+          sseRef2.current = eventSource;
+        } catch (error) {
+          console.error('Error setting up SSE (port 5001):', error);
+        }
+      };
+      
+      connectSSE();
+      connectSSE2();
+      
+      // Fetch initial notifications from both servers
+      await fetchNotifications(salesmanId);
+      
+      // Set up polling as backup (every 30 seconds)
+      pollingIntervalRef.current = setInterval(() => {
+        fetchNotifications(salesmanId, true);
+      }, 30000);
+    };
+    
+    setupNotifications();
+    
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+      if (sseRef2.current) {
+        sseRef2.current.close();
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Handle new real-time notification
+  const handleNewNotification = (notification) => {
+    setNotifications(prev => [notification, ...prev]);
+    setUnreadCount(prev => prev + 1);
+    showToastNotification(notification);
+  };
+
+  // Fetch notifications from both APIs
+  const fetchNotifications = async (userId, silent = false) => {
+    try {
+      // Fetch from Jiya Jewellery (port 5000)
+      const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=salesman&limit=50`);
+      let notifications1 = [];
+      if (response1.ok) {
+        const data = await response1.json();
+        if (data.success) {
+          notifications1 = data.notifications || [];
+        }
+      }
+
+      // Fetch from Jiya Jewellery ERP (port 5001)
+      const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=salesman&limit=50`);
+      let notifications2 = [];
+      if (response2.ok) {
+        const data = await response2.json();
+        if (data.success) {
+          notifications2 = data.notifications || [];
+        }
+      }
+
+      // Merge notifications from both sources
+      const allNotifications = [...notifications1, ...notifications2];
+      
+      // Sort by created_at (newest first)
+      allNotifications.sort((a, b) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateB - dateA;
+      });
+
+      // Calculate total unread count
+      const totalUnread = allNotifications.filter(n => !n.is_read).length;
+
+      setNotifications(allNotifications);
+      setUnreadCount(totalUnread);
+    } catch (error) {
+      if (!silent) {
+        console.error('Error fetching notifications:', error);
+      }
+    }
+  };
+
+  // Show toast notification with queue
+  const showToastNotification = (notification) => {
+    const toastData = {
+      id: Date.now(),
+      title: notification.title || 'Notification',
+      message: notification.message || '',
+      type: notification.type || 'info',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setToastQueue(prev => [...prev, toastData]);
+    
+    if (!showToast) {
+      setToastMessage(toastData);
+      setShowToast(true);
+    }
+  };
+
+  // Handle toast close and show next in queue
+  const handleToastClose = () => {
+    setShowToast(false);
+    
+    setToastQueue(prev => {
+      const newQueue = prev.slice(1);
+      if (newQueue.length > 0) {
+        setTimeout(() => {
+          setToastMessage(newQueue[0]);
+          setShowToast(true);
+        }, 300);
+      }
+      return newQueue;
+    });
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${notificationId}/read`, {
+        method: 'PUT'
+      });
+      await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${notificationId}/read`, {
+        method: 'PUT'
+      });
+      
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notificationId ? { ...notif, is_read: true } : notif
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    const userData = localStorage.getItem("user");
+    if (!userData) return;
+    
+    const user = JSON.parse(userData);
+    const salesmanId = user.id || user.userId;
+    
+    if (!salesmanId) return;
+    
+    try {
+      await fetch(`${baseURL}/api/visit-logs-schedule/notifications/mark-all-read/${salesmanId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userType: 'salesman' })
+      });
+      await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/mark-all-read/${salesmanId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userType: 'salesman' })
+      });
+      
+      setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
+      setUnreadCount(0);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'All notifications marked as read',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  // Format relative time
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffSeconds = Math.floor((now - date) / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSeconds < 60) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes} min ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Get notification icon
+  const getNotificationIcon = (notification) => {
+    const msg = notification.message || '';
+    const type = notification.type || '';
+    if (msg.includes('scheduled') || type === 'schedule') return '📅';
+    if (msg.includes('warehouse') || type === 'warehouse_schedule') return '📦';
+    if (msg.includes('assigned') || msg.includes('Assigned')) return '👤';
+    if (msg.includes('Completed')) return '✅';
+    if (msg.includes('Cancelled')) return '❌';
+    if (msg.includes('Updated')) return '🔄';
+    return '🔔';
+  };
 
   useEffect(() => {
     const fetchSalesPersonData = async () => {
@@ -194,9 +501,6 @@ function SalesPersonDashboard() {
         if (estimate.normalized_status === "ordered") {
           months[monthIndex].orders++;
           months[monthIndex].revenue += amount;
-        } else if (estimate.normalized_status === "accepted" || estimate.normalized_status === "pending") {
-          // You can decide if accepted/pending estimates should contribute to revenue
-          // For now, only ordered estimates contribute to revenue
         }
       }
     });
@@ -327,7 +631,7 @@ function SalesPersonDashboard() {
             size: 11
           },
           callback: function (value, index, values) {
-            if (this.chart.canvas.id === 'revenue-chart') {
+            if (this.chart && this.chart.canvas && this.chart.canvas.id === 'revenue-chart') {
               return '₹' + value.toLocaleString('en-IN');
             }
             return value;
@@ -396,8 +700,70 @@ function SalesPersonDashboard() {
   return (
     <>
       <SalesNavbar />
+      
+      {/* Toast Container for Notifications */}
+      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
+        <Toast 
+          show={showToast} 
+          onClose={handleToastClose} 
+          delay={6000} 
+          autohide
+          style={{
+            minWidth: '350px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+            border: '1px solid #e5e7eb'
+          }}
+        >
+          <Toast.Header 
+            closeButton={false}
+            style={{
+              backgroundColor: toastMessage?.type === 'schedule' || toastMessage?.type === 'warehouse_schedule' ? '#eff6ff' : '#f0fdf4',
+              borderBottom: '1px solid #e5e7eb',
+              borderRadius: '12px 12px 0 0',
+              padding: '12px 16px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <span style={{ fontSize: '20px' }}>
+                {toastMessage?.type === 'schedule' ? '📅' : 
+                 toastMessage?.type === 'warehouse_schedule' ? '📦' : '🔔'}
+              </span>
+              <strong className="me-auto" style={{ fontSize: '14px' }}>
+                {toastMessage?.title || 'Notification'}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <small style={{ color: '#6b7280' }}>{toastMessage?.time}</small>
+              <button 
+                onClick={handleToastClose}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  color: '#6b7280',
+                  padding: '0 4px',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </Toast.Header>
+          <Toast.Body style={{ 
+            padding: '16px',
+            fontSize: '14px',
+            color: '#374151',
+            lineHeight: '1.5'
+          }}>
+            {toastMessage?.message}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
       <div className="sales-dashboard-container">
-        {/* Welcome Section */}
+        {/* Welcome Section with Notification Bell */}
         {currentUser && (
           <div className="welcome-section">
             <div className="welcome-card">
@@ -419,35 +785,199 @@ function SalesPersonDashboard() {
                   </span>
                 </div>
               </div>
-              <Button
-                variant="light"
-                className="add-sale-btn"
-                onClick={() => navigate('/add-sale')}
-              >
-                <i className="bi bi-plus-circle"></i>
-                Add New Sale
-              </Button>
+              <div className="welcome-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {/* Notification Bell with Dropdown */}
+                <Dropdown 
+                  show={notificationDropdownOpen} 
+                  onToggle={setNotificationDropdownOpen}
+                  align="end"
+                >
+                  <Dropdown.Toggle as="div" style={{ cursor: 'pointer' }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <FiBell size={24} color="#fff" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+                      {unreadCount > 0 && (
+                        <Badge 
+                          pill 
+                          bg="danger" 
+                          style={{ 
+                            position: 'absolute', 
+                            top: '-10px', 
+                            right: '-15px',
+                            fontSize: '11px',
+                            padding: '3px 7px',
+                            animation: 'pulse 2s infinite',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                          }}
+                        >
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </Badge>
+                      )}
+                    </div>
+                  </Dropdown.Toggle>
+
+                  <Dropdown.Menu 
+                    style={{ 
+                      width: '400px', 
+                      maxHeight: '500px', 
+                      overflowY: 'auto', 
+                      padding: '0',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                      border: '1px solid #e5e7eb'
+                    }}
+                  >
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      borderBottom: '1px solid #e5e7eb',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '12px 12px 0 0',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiBell size={18} color="#3b82f6" />
+                        <strong style={{ fontSize: '16px' }}>Notifications</strong>
+                      </div>
+                      {unreadCount > 0 && (
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          onClick={markAllAsRead}
+                          style={{ 
+                            fontSize: '13px', 
+                            textDecoration: 'none',
+                            color: '#3b82f6',
+                            fontWeight: 500
+                          }}
+                        >
+                          Mark all as read
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="notification-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      {notifications.length === 0 ? (
+                        <div style={{ 
+                          padding: '60px 20px', 
+                          textAlign: 'center', 
+                          color: '#6b7280' 
+                        }}>
+                          <div style={{ marginBottom: '16px' }}>
+                            <FiBell size={48} style={{ opacity: 0.3 }} />
+                          </div>
+                          <p style={{ margin: 0, fontSize: '16px', fontWeight: 500, color: '#374151' }}>No notifications yet</p>
+                          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#9ca3af' }}>
+                            You'll be notified about new visit assignments and updates here
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.map(notification => (
+                          <Dropdown.Item 
+                            key={notification.id}
+                            onClick={() => !notification.is_read && markAsRead(notification.id)}
+                            style={{ 
+                              padding: '16px 20px',
+                              backgroundColor: notification.is_read ? 'white' : '#eff6ff',
+                              borderBottom: '1px solid #f3f4f6',
+                              borderLeft: notification.is_read ? '4px solid transparent' : '4px solid #3b82f6',
+                              whiteSpace: 'normal',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', gap: '14px', width: '100%' }}>
+                              <div style={{ 
+                                fontSize: '24px', 
+                                width: '36px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                {getNotificationIcon(notification)}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ 
+                                  fontWeight: notification.is_read ? '500' : '600',
+                                  marginBottom: '6px',
+                                  fontSize: '14px',
+                                  color: '#111827',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'flex-start'
+                                }}>
+                                  <span>{notification.title}</span>
+                                  {!notification.is_read && (
+                                    <span style={{ 
+                                      width: '8px', 
+                                      height: '8px', 
+                                      backgroundColor: '#3b82f6', 
+                                      borderRadius: '50%',
+                                      flexShrink: 0,
+                                      marginTop: '4px'
+                                    }}></span>
+                                  )}
+                                </div>
+                                <div style={{ 
+                                  fontSize: '13px', 
+                                  color: '#6b7280', 
+                                  marginBottom: '6px',
+                                  lineHeight: '1.4'
+                                }}>
+                                  {notification.message}
+                                </div>
+                                <div style={{ 
+                                  fontSize: '11px', 
+                                  color: '#9ca3af',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <span>🕐</span>
+                                  {formatRelativeTime(notification.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                          </Dropdown.Item>
+                        ))
+                      )}
+                    </div>
+                  </Dropdown.Menu>
+                </Dropdown>
+
+                <Button
+                  variant="light"
+                  className="add-sale-btn"
+                  onClick={() => navigate('/add-sale')}
+                >
+                  <i className="bi bi-plus-circle"></i>
+                  Add New Sale
+                </Button>
+              </div>
             </div>
           </div>
         )}
 
         {/* Stats Cards */}
         <div className="row" style={{marginBottom:'15px'}}>
-          {/* Commented out Total Sales section
-  <div className="col-md-3">
-    <div 
-      className="stat-card clickable"
-      onClick={() => handleCardClick("/sales-report")}
-    >
-      <div className="stat-content">
-        <span className="stat-label">Total Sales</span>
-        <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
-      </div>
-    </div>
-  </div>
-  */}
+          <div className="col-md-3">
+            <div 
+              className="stat-card clickable"
+              onClick={() => handleCardClick("/sales-report")}
+            >
+              <div className="stat-content">
+                <span className="stat-label">Total Sales</span>
+                <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          </div>
 
-          <div className="col-md-4">
+          <div className="col-md-3">
             <div
               className="stat-card clickable"
               onClick={() => handleCardClick("/sales-report")}
@@ -459,7 +989,7 @@ function SalesPersonDashboard() {
             </div>
           </div>
 
-          <div className="col-md-4">
+          <div className="col-md-3">
             <div
               className="stat-card clickable"
               onClick={() => handleCardClick("/customers")}
@@ -471,7 +1001,7 @@ function SalesPersonDashboard() {
             </div>
           </div>
 
-          <div className="col-md-4">
+          <div className="col-md-3">
             <div
               className="stat-card clickable"
               onClick={() => handleCardClick("/salesperson-estimation")}
@@ -698,6 +1228,32 @@ function SalesPersonDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Add pulse animation style */}
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+        
+        .notification-list::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .notification-list::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+        
+        .notification-list::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 3px;
+        }
+        
+        .notification-list::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+      `}</style>
     </>
   );
 }
