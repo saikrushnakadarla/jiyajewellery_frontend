@@ -1536,3 +1536,115 @@
   font-weight: bold;
   color: #007bff;
 }
+
+
+/* Weight Machine Capture Button */
+.weight-capture-btn {
+  background-color: #6f42c1 !important;
+  border-color: #6f42c1 !important;
+  color: white !important;
+}
+
+.weight-capture-btn:hover {
+  background-color: #5a32a3 !important;
+  border-color: #5a32a3 !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
+}
+
+/* Processing container animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.processing-container {
+  animation: slideIn 0.3s ease-out;
+}
+
+
+/* Weight Machine Capture Button */
+.weight-capture-btn {
+  background-color: #6f42c1 !important;
+  border-color: #6f42c1 !important;
+  color: white !important;
+}
+
+.weight-capture-btn:hover {
+  background-color: #5a32a3 !important;
+  border-color: #5a32a3 !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
+}
+
+/* Processing container animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.processing-container {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Success and error message containers */
+.success-message-container,
+.error-message-container {
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+/* Action buttons row */
+.action-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.action-buttons-row .btn {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* Total quantity container */
+.total-qty-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f8f9fa;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+}
+
+.total-qty-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.total-qty-value {
+  font-weight: 700;
+  color: #007bff;
+  font-size: 18px;
+  background-color: #e9ecef;
+  padding: 0 10px;
+  border-radius: 4px;
+  min-width: 30px;
+  text-align: center;
+}
