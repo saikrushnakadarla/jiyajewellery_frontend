@@ -11,6 +11,8 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalespersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './SalespersonReports.css';
 
+
+
 // PDF Styles
 const pdfStyles = StyleSheet.create({
   page: {
@@ -205,6 +207,7 @@ const SalespersonReports = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsData, setDetailsData] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState({
     fromDate: '',
     toDate: ''
@@ -730,36 +733,53 @@ const SalespersonReports = () => {
           </div>
 
           {/* Date Filter */}
-          <div className="salesperson-reports-filter-container">
-            <div className="salesperson-reports-filter-row">
-              <div className="salesperson-reports-filter-group">
-                <label className="salesperson-reports-filter-label">From Date:</label>
-                <input
-                  type="date"
-                  className="salesperson-reports-date-input"
-                  value={dateRange.fromDate}
-                  onChange={(e) => setDateRange({...dateRange, fromDate: e.target.value})}
-                />
-              </div>
-              <div className="salesperson-reports-filter-group">
-                <label className="salesperson-reports-filter-label">To Date:</label>
-                <input
-                  type="date"
-                  className="salesperson-reports-date-input"
-                  value={dateRange.toDate}
-                  onChange={(e) => setDateRange({...dateRange, toDate: e.target.value})}
-                />
-              </div>
-              <div className="salesperson-reports-filter-group">
-                <button 
-                  className="salesperson-reports-filter-btn"
-                  onClick={handleDateFilter}
-                >
-                  Apply Filter
-                </button>
-              </div>
-            </div>
-          </div>
+          {/* Date Filter */}
+<div className="salesperson-reports-filter-container">
+  <div className="salesperson-reports-filter-row">
+    <div className="salesperson-reports-filter-dates-group">
+      <div className="salesperson-reports-filter-group">
+        <label className="salesperson-reports-filter-label">From Date:</label>
+        <input
+          type="date"
+          className="salesperson-reports-date-input"
+          value={dateRange.fromDate}
+          onChange={(e) => setDateRange({...dateRange, fromDate: e.target.value})}
+        />
+      </div>
+      <div className="salesperson-reports-filter-group">
+        <label className="salesperson-reports-filter-label">To Date:</label>
+        <input
+          type="date"
+          className="salesperson-reports-date-input"
+          value={dateRange.toDate}
+          onChange={(e) => setDateRange({...dateRange, toDate: e.target.value})}
+        />
+      </div>
+    </div>
+
+    <div className="salesperson-reports-filter-search-apply-group">
+      <div className="salesperson-reports-filter-group salesperson-reports-search-group">
+        <input
+          type="text"
+          className="salesperson-reports-search-input"
+          placeholder="Search..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <div className="salesperson-reports-filter-group salesperson-reports-apply-group">
+        <button
+          className="salesperson-reports-filter-btn"
+          onClick={handleDateFilter}
+        >
+          Apply Filter
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+    
 
           {/* Table */}
           <div className="salesperson-reports-table-wrapper">

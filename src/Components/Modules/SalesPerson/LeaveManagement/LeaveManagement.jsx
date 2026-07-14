@@ -19,33 +19,35 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   };
 
   return (
-    <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
-      <input
-        value={globalFilter || ''}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="form-control"
-        placeholder="Search..."
-        style={{ maxWidth: '200px' }}
-      />
-      <input
-        type="date"
-        value={fromDate}
-        onChange={(e) => setFromDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-        placeholder="mm/dd/yyyy"
-      />
-      <input
-        type="date"
-        value={toDate}
-        onChange={(e) => setToDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-        placeholder="mm/dd/yyyy"
-      />
-      <button onClick={applyDateFilter} className="btn btn-primary">
-        OK
-      </button>
+    <div className="dataTable_search mb-3">
+      <div className="date-row">
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="form-control date-from"
+          style={{ maxWidth: '150px' }}
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="form-control date-to"
+          style={{ maxWidth: '150px' }}
+        />
+      </div>
+      <div className="search-row">
+        <input
+          value={globalFilter || ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="form-control search-input"
+          placeholder="Search..."
+          style={{ maxWidth: '200px' }}
+        />
+        <button onClick={applyDateFilter} className="btn btn-primary date-ok-btn">
+          OK
+        </button>
+      </div>
     </div>
   );
 }
@@ -376,32 +378,28 @@ const LeaveManagement = () => {
       <SalesPersonNavbar />
       <div className="main-container">
         <div className="leave-management-container">
-          <Row className="mb-3">
-            <Col className="d-flex justify-content-between align-items-center">
-              <h3 style={{ marginTop: "20px" }}>
-                Leave Management
-                {refreshing && (
-                  <span style={{ 
-                    marginLeft: '15px', 
-                    fontSize: '12px', 
-                    color: '#6c757d'
-                  }}>
-                    <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    Refreshing...
-                  </span>
-                )}
-              </h3>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <Button
-                  className="create_but"
-                  onClick={handleCreate}
-                  style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
-                >
-                  + Add Leave Request
-                </Button>
-              </div>
-            </Col>
-          </Row>
+         <Row className="mb-3 leave-header-row">
+  <Col className="d-flex justify-content-between align-items-center leave-header-content">
+    <h3 style={{ marginTop: "20px" }} className="leave-title">
+      Leave Management
+      {refreshing && (
+        <span style={{ marginLeft: '15px', fontSize: '12px', color: '#6c757d' }}>
+          <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          Refreshing...
+        </span>
+      )}
+    </h3>
+    <div style={{ display: 'flex', gap: '10px' }}>
+      <Button
+        className="create_but leave-add-btn"
+        onClick={handleCreate}
+        style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
+      >
+        + Add Leave Request
+      </Button>
+    </div>
+  </Col>
+</Row>
 
           <GlobalFilter 
             globalFilter={globalFilter} 

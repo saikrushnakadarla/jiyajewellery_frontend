@@ -124,18 +124,74 @@
     border-color: #8d5e24 !important;
 }
 
+
+.dataTable_search .date-row,
+.dataTable_search .search-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
 @media (max-width: 768px) {
     .leave-management-container {
-        margin-top: 20px;
-        padding: 10px;
+        margin-top: 70px;
+        padding: 20px;
     }
-    
+
+    /* ---- Header: title + Add button on same line ---- */
+    .leave-header-content {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px;
+    }
+
+    .leave-title {
+        margin-top: 0 !important;
+        font-size: 15px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .leave-add-btn {
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    /* ---- Search bar: dates on line 1, search+OK on line 2 (mobile only) ---- */
     .dataTable_search {
-        flex-wrap: wrap;
+        flex-direction: column !important;
+        align-items: stretch !important;
     }
-    
-    .dataTable_search input {
-        max-width: 100% !important;
-        flex: 1;
+
+    .dataTable_search .date-row,
+    .dataTable_search .search-row {
+        width: 100%;
+    }
+
+    .dataTable_search .date-from,
+    .dataTable_search .date-to {
+        flex: 1 1 50%;
+        max-width: none !important;
+        min-width: 0;
+    }
+
+    .dataTable_search .search-input {
+        flex: 1 1 auto;
+        max-width: none !important;
+        min-width: 0;
+    }
+
+    .dataTable_search .date-ok-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
     }
 }

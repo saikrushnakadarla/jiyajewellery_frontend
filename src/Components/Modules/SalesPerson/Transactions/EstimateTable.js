@@ -19,31 +19,35 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   };
 
   return (
-    <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
-      <input
-        value={globalFilter || ''}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="form-control"
-        placeholder="Search..."
-        style={{ maxWidth: '200px' }}
-      />
-      <input
-        type="date"
-        value={fromDate}
-        onChange={(e) => setFromDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-      />
-      <input
-        type="date"
-        value={toDate}
-        onChange={(e) => setToDate(e.target.value)}
-        className="form-control"
-        style={{ maxWidth: '150px' }}
-      />
-      <button onClick={applyDateFilter} className="btn btn-primary">
-        OK
-      </button>
+    <div className="dataTable_search mb-3">
+      <div className="dataTable_search_dates">
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="form-control"
+          style={{ maxWidth: '150px' }}
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="form-control"
+          style={{ maxWidth: '150px' }}
+        />
+      </div>
+      <div className="dataTable_search_query">
+        <input
+          value={globalFilter || ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="form-control"
+          placeholder="Search..."
+          style={{ maxWidth: '200px' }}
+        />
+        <button onClick={applyDateFilter} className="btn btn-primary">
+          OK
+        </button>
+      </div>
     </div>
   );
 }
@@ -612,17 +616,17 @@ const EstimateTable = () => {
         <div className="main-container">
           <div className="estimates-table-container">
             <Row className="mb-3">
-              <Col className="d-flex justify-content-between align-items-center">
-                <h3 style={{marginTop:"20px"}}>Selections</h3>
-                <Button
-                  className="create_but"
-                  onClick={handleCreate}
-                  style={{ backgroundColor: '#a36e29', borderColor: '#a36e29' }}
-                >
-                  + Create
-                </Button>
-              </Col>
-            </Row>
+                <Col className="d-flex justify-content-between align-items-center selections-header-row">
+                  <h3 style={{marginTop:"20px"}}>Your Selections</h3>
+                  <Button
+                    className="create_but"
+                    onClick={handleCreate}
+                    style={{ backgroundColor: '#a36e29', borderColor: '#a36e29', marginTop:"15px"}}
+                  >
+                    + Create
+                  </Button>
+                </Col>
+              </Row>
             <div className="text-center py-5">
               <div className="alert alert-info">
                 No estimates found for your account (Salesperson: {salespersonName}). Create your first estimate!

@@ -111,6 +111,21 @@
     align-items: center;
 }
 
+.dataTable_search {
+    flex-wrap: wrap;
+}
+
+.dataTable_search_dates {
+    display: flex;
+    gap: 10px;
+}
+
+.dataTable_search_query {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 .dataTable_search input {
     height: 38px;
 }
@@ -165,41 +180,88 @@
         margin-top: 20px;
         padding: 10px;
     }
-    
+
+    /* Keep title + Create button on one line on mobile too */
+    .selections-header-row.d-flex.justify-content-between.align-items-center {
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: nowrap;
+    }
+
+    .selections-header-row h3 {
+        font-size: 18px;
+        margin: 0 !important;
+    }
+
+    .selections-header-row .create_but {
+        flex-shrink: 0;
+        padding: 6px 14px;
+        font-size: 14px;
+    }
+
+    /* Stack the two groups: dates row, then search+OK row */
     .dataTable_search {
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
     }
-    
-    .dataTable_search input {
-        max-width: 100% !important;
+
+    .dataTable_search_dates {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .dataTable_search_dates input {
         flex: 1;
+        max-width: none !important;
+        min-width: 0;
     }
-    
+
+    .dataTable_search_query {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .dataTable_search_query input {
+        flex: 1;
+        max-width: none !important;
+        min-width: 0;
+    }
+
+    .dataTable_search_query button {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    /* Generic fallback for OTHER d-flex rows (e.g. pagination) — not the header row,
+       since .selections-header-row above is more specific and wins for that one */
     .d-flex.justify-content-between.align-items-center {
         flex-direction: column;
         gap: 15px;
         align-items: flex-start !important;
     }
-    
+
     .d-flex.justify-content-between.align-items-center h3 {
         margin-bottom: 0;
     }
-    
+
     .d-flex.align-items-center.justify-content-between {
-        flex-direction: column;
+        flex-direction: row;
         gap: 15px;
     }
-    
+
     .pagebuttons {
         display: flex;
         gap: 10px;
     }
-    
+
     /* Responsive table */
     .table-responsive {
         overflow-x: auto;
     }
-    
+
     .dataTable_cell,
     .dataTable_headerCell {
         max-width: 150px;
