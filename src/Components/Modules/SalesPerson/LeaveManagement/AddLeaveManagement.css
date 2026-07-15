@@ -148,3 +148,33 @@
         max-width: 1400px;
     }
 }
+
+@media (max-width: 768px) {
+    .leave-request-container {
+        margin-top: 20px;
+        padding-top: 20px;
+    }
+    
+    .leave-request-form-section {
+        padding: 20px;
+    }
+    
+    .form-title {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .cancel-btn,
+    .save-btn {
+        min-width: 0;
+        flex: 1 1 0;
+        width: auto;
+        padding: 8px 0 !important;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    .container {
+        padding: 0 15px;
+    }
+}
