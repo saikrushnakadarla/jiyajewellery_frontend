@@ -1377,7 +1377,7 @@ function Dashboard() {
         </div>
 
         {/* Profile Information Section */}
-        <div className="recent-section">
+        <div className="recent-section-footer">
           <div className="section-header">
             <h3>Profile Information</h3>
           </div>

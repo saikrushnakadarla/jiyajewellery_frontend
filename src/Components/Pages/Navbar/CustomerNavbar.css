@@ -367,3 +367,32 @@
         gap: 10px;
     }
 }
+
+
+.navbar-hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+
+.navbar-hamburger .navbar-bar {
+    width: 25px;
+    height: 3px;
+    background-color: #333;
+    transition: all 0.3s ease;
+}
+
+.navbar-hamburger.open .navbar-bar:nth-child(2) {
+    opacity: 0;
+}
+
+.navbar-hamburger.open .navbar-bar:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.navbar-hamburger.open .navbar-bar:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+}

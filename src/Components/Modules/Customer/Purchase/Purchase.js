@@ -19,7 +19,7 @@ function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   };
 
   return (
-    <div className="dataTable_search mb-3 d-flex align-items-center gap-2">
+    <div className="purchase-dataTable_search mb-3 d-flex align-items-center gap-2">
       <input
         value={globalFilter || ''}
         onChange={(e) => setGlobalFilter(e.target.value)}
@@ -576,16 +576,16 @@ const Purchase = () => {
                       </table>
                     </div>
 
-                    {/* Pagination Controls */}
-                    <div className="d-flex align-items-center justify-content-between mt-3">
-                      <div className="dataTable_pageInfo">
+                   {/* Pagination Controls */}
+                    <div className="purchase-pagination-bar d-flex align-items-center justify-content-between mt-3">
+                      <div className="purchase-pageInfo">
                         Page{' '}
                         <strong>
                           {pageIndex + 1} of {pageOptions.length}
                         </strong>
                         {' '}(Showing {tableData.length} total records)
                       </div>
-                      <div className="pagebuttons">
+                      <div className="purchase-pagebuttons">
                         <button
                           className="btn btn-primary me-2 btn1"
                           onClick={() => previousPage()}
@@ -601,7 +601,7 @@ const Purchase = () => {
                           Next
                         </button>
                       </div>
-                      <div>
+                      <div className="purchase-pagesize-wrapper">
                         <select
                           className="form-select form-select-sm"
                           value={pageSize}
@@ -630,7 +630,7 @@ const Purchase = () => {
         </div>
 
         {/* Modal for View Details */}
-        <Modal show={showModal} onHide={handleCloseModal} size="xl" className="m-auto">
+        <Modal show={showModal} onHide={handleCloseModal} size="xl" className="purchase-modal m-auto">
           <Modal.Header closeButton>
             <Modal.Title>Purchase Details</Modal.Title>
           </Modal.Header>

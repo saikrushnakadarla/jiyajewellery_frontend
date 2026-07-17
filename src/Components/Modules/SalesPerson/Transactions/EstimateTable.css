@@ -177,7 +177,7 @@
 /* Responsive Design */
 @media (max-width: 768px) {
     .estimates-table-container {
-        margin-top: 20px;
+        margin-top: 70px;
         padding: 10px;
     }
 
@@ -248,7 +248,7 @@
     }
 
     .d-flex.align-items-center.justify-content-between {
-        flex-direction: row;
+        flex-direction: column;
         gap: 15px;
     }
 

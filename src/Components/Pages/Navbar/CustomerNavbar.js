@@ -77,6 +77,15 @@ function CustomerNavbar() {
     }
   };
 
+
+  const toggleMenu = () => {
+  setIsOpen(!isOpen);
+};
+
+const handleItemClick = () => {
+  setIsOpen(false);
+};
+
   useEffect(() => {
     // Initial fetch
     fetchCartCount();
@@ -145,11 +154,23 @@ function CustomerNavbar() {
     });
   };
 
+
+
+
   return (
     <header className="navbar-header">
       {/* Logo */}
       <div className="navbar-brand">
         <img src={logo} alt="Logo" className="navbar-logo" />
+      </div>
+
+      <div
+        className={`navbar-hamburger ${isOpen ? 'open' : ''}`}
+        onClick={toggleMenu}
+      >
+        <div className="navbar-bar"></div>
+        <div className="navbar-bar"></div>
+        <div className="navbar-bar"></div>
       </div>
 
       {/* Center Menu */}

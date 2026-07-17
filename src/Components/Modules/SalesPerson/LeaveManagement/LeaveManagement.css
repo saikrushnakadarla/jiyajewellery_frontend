@@ -168,7 +168,7 @@
 
     /* ---- Search bar: dates on line 1, search+OK on line 2 (mobile only) ---- */
     .dataTable_search {
-        flex-direction: column !important;
+        flex-direction: row !important;
         align-items: stretch !important;
     }
 

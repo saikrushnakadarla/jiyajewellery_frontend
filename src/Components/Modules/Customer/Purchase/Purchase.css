@@ -81,16 +81,16 @@
 }
 
 /* Table Styles */
-.dataTable_wrapper {
+.purchase-dataTable_wrapper {
   margin-top: 20px;
 }
 
-.dataTable_headerRow {
+.purchase-dataTable_headerRow {
   background-color: #f8fafc;
   border-bottom: 2px solid #eef2f6;
 }
 
-.dataTable_headerCell {
+.purchase-dataTable_headerCell {
   padding: 16px;
   font-weight: 600;
   color: #1e293b;
@@ -101,19 +101,19 @@
   white-space: nowrap;
 }
 
-.dataTable_headerCell:hover {
+.purchase-dataTable_headerCell:hover {
   background-color: #f1f5f9;
 }
 
-.dataTable_body .dataTable_row {
+.purchase-dataTable_body .purchase-dataTable_row {
   transition: background-color 0.2s ease;
 }
 
-.dataTable_body .dataTable_row:hover {
+.purchase-dataTable_body .purchase-dataTable_row:hover {
   background-color: #f8fafc;
 }
 
-.dataTable_cell {
+.purchase-dataTable_cell {
   padding: 14px 16px;
   color: #334155;
   font-size: 14px;
@@ -122,7 +122,7 @@
 }
 
 /* Pagination */
-.pagebuttons .btn1 {
+.purchase-pagebuttons .btn1 {
   background-color: #a36e29;
   border-color: #a36e29;
   padding: 8px 20px;
@@ -130,18 +130,18 @@
   font-weight: 500;
 }
 
-.pagebuttons .btn1:hover {
+.purchase-pagebuttons .btn1:hover {
   background-color: #8b5a21;
   border-color: #8b5a21;
 }
 
-.pagebuttons .btn1:disabled {
+.purchase-pagebuttons .btn1:disabled {
   background-color: #cbd5e1;
   border-color: #cbd5e1;
   cursor: not-allowed;
 }
 
-.dataTable_pageInfo {
+.purchase-pageInfo {
   color: #64748b;
   font-size: 14px;
 }
@@ -176,22 +176,22 @@
 }
 
 /* Search Input Styles */
-.dataTable_search input[type="text"],
-.dataTable_search input[type="date"] {
+.purchase-dataTable_search input[type="text"],
+.purchase-dataTable_search input[type="date"] {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 14px;
 }
 
-.dataTable_search input[type="text"]:focus,
-.dataTable_search input[type="date"]:focus {
+.purchase-dataTable_search input[type="text"]:focus,
+.purchase-dataTable_search input[type="date"]:focus {
   border-color: #a36e29;
   outline: none;
   box-shadow: 0 0 0 2px rgba(163, 110, 41, 0.1);
 }
 
-.dataTable_search .btn-primary {
+.purchase-dataTable_search .btn-primary {
   background-color: #a36e29;
   border-color: #a36e29;
   padding: 8px 20px;
@@ -200,7 +200,7 @@
   border-radius: 8px;
 }
 
-.dataTable_search .btn-primary:hover {
+.purchase-dataTable_search .btn-primary:hover {
   background-color: #8b5a21;
   border-color: #8b5a21;
 }
@@ -216,7 +216,7 @@
   .summary-card {
     margin-bottom: 16px;
   }
-  
+
   .summary-value {
     font-size: 24px;
   }
@@ -227,32 +227,208 @@
     padding: 16px;
     margin-top: 70px;
   }
-  
+
   .purchase-table-container {
     padding: 16px;
   }
-  
+
   .purchase-table-container h3 {
     font-size: 20px;
   }
-  
-  .dataTable_headerCell,
-  .dataTable_cell {
+
+  .purchase-dataTable_headerCell,
+  .purchase-dataTable_cell {
     padding: 10px;
     font-size: 13px;
   }
-  
+
   .summary-icon {
     width: 40px;
     height: 40px;
     font-size: 20px;
   }
-  
+
   .summary-value {
     font-size: 20px;
   }
-  
+
   .summary-label {
     font-size: 12px;
+  }
+
+  /* Search + date filter row */
+  .purchase-dataTable_search {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .purchase-dataTable_search input,
+  .purchase-dataTable_search button {
+    box-sizing: border-box;
+  }
+
+  .purchase-dataTable_search input[type="date"] {
+    order: 1;
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0 !important;
+    width: calc(50% - 5px) !important;
+    max-width: calc(50% - 5px) !important;
+  }
+
+  .purchase-dataTable_search input:not([type="date"]) {
+    order: 2;
+    flex: 1 1 calc(70% - 5px);
+    min-width: 0 !important;
+    width: calc(70% - 5px) !important;
+    max-width: 100% !important;
+  }
+
+  .purchase-dataTable_search button {
+    order: 3;
+    flex: 1 1 calc(30% - 5px);
+    min-width: 0 !important;
+    width: calc(30% - 5px) !important;
+  }
+
+  /* Pagination bar */
+  .purchase-pagination-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .purchase-pageInfo {
+    order: 1;
+    text-align: center;
+    width: 100%;
+  }
+
+  .purchase-pagebuttons {
+    order: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .purchase-pagebuttons button {
+    flex: 1 1 auto;
+    max-width: 140px;
+  }
+
+  .purchase-pagesize-wrapper {
+    order: 3;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .purchase-pagesize-wrapper select {
+    width: auto !important;
+    min-width: 100px;
+  }
+
+  /* ===== Purchase Details Modal — Mobile ===== */
+  .purchase-modal .modal-dialog {
+    margin: 8px;
+    max-width: calc(100% - 16px);
+  }
+
+  .purchase-modal .modal-content {
+    border-radius: 12px;
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+ .purchase-modal .modal-header {
+    padding: 12px 16px;
+    position: relative;
+  }
+
+  .purchase-modal .modal-header .btn-close {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.5);
+    background-image: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    top: 12px;
+    right: 14px;
+  }
+
+  .purchase-modal .modal-header .btn-close::before {
+    content: '✕';
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1;
+  }
+
+  .purchase-modal .modal-header .btn-close:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+
+
+  .purchase-modal .modal-title {
+    font-size: 16px;
+  }
+
+  .purchase-modal .modal-body {
+    padding: 12px;
+  }
+
+  .purchase-modal .modal-footer {
+    padding: 10px 12px;
+    justify-content: center;
+  }
+
+  .purchase-modal .modal-footer .btn {
+    width: 100%;
+  }
+
+  /* Details (label/value) table */
+  .purchase-details-table {
+    font-size: 13px;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .purchase-details-table td {
+    padding: 8px 10px;
+    white-space: normal !important;
+    word-break: break-word;
+    vertical-align: middle;
+  }
+
+  .purchase-details-table td:first-child {
+    width: 42%;
+    font-size: 12px;
+  }
+
+  .purchase-details-table td:last-child {
+    width: 58%;
+  }
+
+  /* Products Purchased table */
+  .purchase-products-table {
+    font-size: 12px;
+  }
+
+  .purchase-products-table th,
+  .purchase-products-table td {
+    padding: 8px;
+    white-space: nowrap;
+  }
+
+  .purchase-modal h5 {
+    font-size: 15px;
   }
 }
