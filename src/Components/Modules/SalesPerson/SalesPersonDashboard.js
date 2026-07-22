@@ -59,6 +59,10 @@ function SalesPersonDashboard() {
   });
   const [monthlyTarget] = useState(100000);
 
+  // State for Today's Sales Visits
+  const [todayVisits, setTodayVisits] = useState([]);
+  const [visitsLoading, setVisitsLoading] = useState(true);
+
   // Notification states
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -359,6 +363,101 @@ function SalesPersonDashboard() {
     return '🔔';
   };
 
+  // Fetch Today's Sales Visits
+  const fetchTodayVisits = async (salesmanId) => {
+    try {
+      setVisitsLoading(true);
+      
+      // Fetch schedule visits
+      const scheduleResponse = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule`);
+      if (!scheduleResponse.ok) {
+        throw new Error('Failed to fetch schedule visits');
+      }
+      const scheduleData = await scheduleResponse.json();
+      
+      // Fetch account details (customers) - this has all the detailed customer info
+      const accountResponse = await fetch(`${baseURL2}/get/account-details`);
+      if (!accountResponse.ok) {
+        throw new Error('Failed to fetch account details');
+      }
+      const accountData = await accountResponse.json();
+      
+      // Get today's date (start of day to end of day)
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      
+      // Filter visits for today, current salesman, and scheduled status
+      const todayVisitsFiltered = scheduleData.filter(visit => {
+        // Check if visit has salesman_id and matches current salesman
+        if (!visit.salesman_id || visit.salesman_id !== salesmanId) {
+          return false;
+        }
+        
+        // Check if visit is scheduled
+        if (visit.status !== 'scheduled') {
+          return false;
+        }
+        
+        // Check if scheduled_date is today
+        if (!visit.scheduled_date) {
+          return false;
+        }
+        
+        const visitDate = new Date(visit.scheduled_date);
+        return visitDate >= todayStart && visitDate <= todayEnd;
+      });
+      
+      // Group visits by customer and enrich with full customer details
+      const groupedVisits = {};
+      todayVisitsFiltered.forEach(visit => {
+        // Find customer from account_details by matching customer_id or account_id
+        const customer = accountData.find(acc => 
+          acc.customer_id === visit.customer_id || 
+          acc.account_id === visit.customer_account_id
+        );
+        
+        const customerKey = visit.customer_account_id || visit.customer_id;
+        if (!groupedVisits[customerKey]) {
+          groupedVisits[customerKey] = {
+            customer_account_id: visit.customer_account_id,
+            customer_id: visit.customer_id,
+            customer_name: customer?.account_name || visit.customer_name || 'Unknown Customer',
+            customer_phone: customer?.phone || visit.customer_phone || 'N/A',
+            customer_mobile: customer?.mobile || visit.customer_mobile || 'N/A',
+            customer_email: customer?.email || visit.customer_email || 'N/A',
+            address1: customer?.address1 || 'N/A',
+            address2: customer?.address2 || '',
+            city: customer?.city || 'N/A',
+            state: customer?.state || 'N/A',
+            pincode: customer?.pincode || 'N/A',
+            account_name: customer?.account_name || visit.customer_name || 'Unknown Customer',
+            visits: []
+          };
+        }
+        groupedVisits[customerKey].visits.push({
+          id: visit.id,
+          warehouse_name: visit.warehouse_name,
+          warehouse_location: visit.warehouse_location,
+          barcode: visit.barcode,
+          scheduled_date: visit.scheduled_date,
+          status: visit.status,
+          salesman_name: visit.salesman_name
+        });
+      });
+      
+      // Convert grouped object to array
+      const groupedVisitsArray = Object.values(groupedVisits);
+      setTodayVisits(groupedVisitsArray);
+      
+    } catch (error) {
+      console.error('Error fetching today visits:', error);
+      setTodayVisits([]);
+    } finally {
+      setVisitsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchSalesPersonData = async () => {
       try {
@@ -371,6 +470,9 @@ function SalesPersonDashboard() {
         const user = JSON.parse(userStr);
         setCurrentUser(user);
         const salesPersonId = user.id.toString();
+
+        // Fetch today's visits
+        await fetchTodayVisits(user.id);
 
         const [usersResponse, estimatesResponse] = await Promise.all([
           fetch(`${baseURL}/api/users`),
@@ -539,6 +641,29 @@ function SalesPersonDashboard() {
       default:
         return 'status-badge';
     }
+  };
+
+  // Format date and time for display
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   // Bar chart configuration for Monthly Overview
@@ -949,115 +1074,204 @@ function SalesPersonDashboard() {
                     </div>
                   </Dropdown.Menu>
                 </Dropdown>
-
-                <Button
-                  variant="light"
-                  className="add-sale-btn"
-                  onClick={() => navigate('/add-sale')}
-                >
-                  <i className="bi bi-plus-circle"></i>
-                  Add New Sale
-                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="row" style={{marginBottom:'15px'}}>
-          <div className="col-md-3">
-            <div 
-              className="stat-card clickable"
-              onClick={() => handleCardClick("/sales-report")}
-            >
-              <div className="stat-content">
-                <span className="stat-label">Total Sales</span>
-                <span className="stat-value">₹{stats.totalSales.toLocaleString('en-IN')}</span>
-              </div>
+        {/* TODAY'S SALES VISITS SECTION - No Click */}
+        <div className="today-visits-section" style={{ marginBottom: '30px' }}>
+          <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: '#1e293b' }}>
+                <span style={{ marginRight: '8px' }}>📅</span> Today's Sales Visits
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>
+                {formatDate(new Date().toISOString())}
+              </p>
             </div>
+            <Badge bg="primary" style={{ fontSize: '14px', padding: '8px 16px' }}>
+              {todayVisits.length} Customer{todayVisits.length !== 1 ? 's' : ''}
+            </Badge>
           </div>
 
-          <div className="col-md-3">
-            <div
-              className="stat-card clickable"
-              onClick={() => handleCardClick("/sales-report")}
-            >
-              <div className="stat-content">
-                <span className="stat-label">Monthly Target</span>
-                <span className="stat-value">₹{monthlyTarget.toLocaleString('en-IN')}</span>
-              </div>
+          {visitsLoading ? (
+            <div className="text-center py-4">
+              <Spinner animation="border" variant="primary" size="sm" />
+              <span className="ms-2">Loading visits...</span>
             </div>
-          </div>
+          ) : todayVisits.length > 0 ? (
+            <Row className="g-4">
+              {todayVisits.map((customer, index) => (
+                <Col key={index} lg={4} md={6} sm={12}>
+                  <Card className="today-visit-card" style={{
+                    border: 'none',
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    height: '100%',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
+                  }}
+                  >
+                    <Card.Body style={{ padding: '0' }}>
+                      {/* Customer Header */}
+                      <div style={{ 
+                        padding: '16px 20px 12px 20px',
+                        borderBottom: '1px solid #f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}>
+                        <div style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '18px',
+                          fontWeight: '600',
+                          color: '#fff',
+                          flexShrink: 0
+                        }}>
+                          {customer.account_name?.charAt(0) || 'C'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h6 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+                            {customer.account_name || 'Unknown Customer'}
+                          </h6>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>
+                            <span>🆔</span> {customer.customer_id || 'N/A'}
+                          </div>
+                        </div>
+                        {/* <Badge 
+                          style={{ 
+                            fontSize: '10px', 
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            backgroundColor: '#dbeafe',
+                            color: '#1d4ed8',
+                            fontWeight: 500
+                          }}
+                        >
+                          {customer.visits[0]?.status?.toUpperCase() || 'SCHEDULED'}
+                        </Badge> */}
+                      </div>
 
-          <div className="col-md-3">
-            <div
-              className="stat-card clickable"
-              onClick={() => handleCardClick("/customers")}
-            >
-              <div className="stat-content">
-                <span className="stat-label">Customers</span>
-                <span className="stat-value">{stats.totalCustomers}</span>
-              </div>
-            </div>
-          </div>
+                      {/* Customer Details - Compact Grid */}
+                      <div style={{ padding: '12px 20px' }}>
+                        <div style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '1fr 1fr', 
+                          gap: '6px 16px',
+                          fontSize: '13px'
+                        }}>
+                          <div>
+                            <span style={{ color: '#94a3b8' }}>📞</span>
+                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_phone || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span style={{ color: '#94a3b8' }}>📱</span>
+                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_mobile || 'N/A'}</span>
+                          </div>
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <span style={{ color: '#94a3b8' }}>✉️</span>
+                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_email || 'N/A'}</span>
+                          </div>
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <span style={{ color: '#94a3b8' }}>📍</span>
+                            <span style={{ marginLeft: '4px', color: '#334155' }}>
+                              {customer.address1 && customer.address1 !== 'N/A' ? customer.address1 : ''}
+                              {customer.city && customer.city !== 'N/A' ? `, ${customer.city}` : ''}
+                              {customer.state && customer.state !== 'N/A' ? `, ${customer.state}` : ''}
+                              {customer.pincode && customer.pincode !== 'N/A' ? ` - ${customer.pincode}` : ''}
+                              {(!customer.address1 || customer.address1 === 'N/A') && 'No address available'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-          <div className="col-md-3">
-            <div
-              className="stat-card clickable"
-              onClick={() => handleCardClick("/salesperson-estimation")}
-            >
-              <div className="stat-content">
-                <span className="stat-label">Estimates</span>
-                <span className="stat-value">{stats.totalEstimates}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+                      {/* Visits Section */}
+                      <div style={{ 
+                        backgroundColor: '#f8fafc',
+                        padding: '12px 20px',
+                        borderTop: '1px solid #f1f5f9',
+                        borderBottom: '1px solid #f1f5f9'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          marginBottom: '8px'
+                        }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
+                            📋 {customer.visits.length} Visit{customer.visits.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        {customer.visits.map((visit, vIndex) => (
+                          <div key={vIndex} style={{ 
+                            display: 'grid',
+                            gridTemplateColumns: 'auto 1fr auto',
+                            gap: '4px 12px',
+                            padding: '6px 0',
+                            borderBottom: vIndex < customer.visits.length - 1 ? '1px solid #e2e8f0' : 'none',
+                            fontSize: '12px'
+                          }}>
+                            <span style={{ color: '#94a3b8' }}>🏪</span>
+                            <span style={{ color: '#334155' }}>{visit.warehouse_name || 'N/A'}</span>
+                            <span style={{ color: '#64748b' }}>{formatDateTime(visit.scheduled_date)}</span>
+                            <span style={{ color: '#94a3b8' }}>📦</span>
+                            <span style={{ color: '#3b82f6', fontWeight: 600, fontFamily: 'monospace' }}>
+                              {visit.barcode || 'N/A'}
+                            </span>
+                            <span></span>
+                          </div>
+                        ))}
+                      </div>
 
-        {/* Estimates Breakdown Section */}
-        <div className="breakdown-section">
-          <h3 className="section-title">Estimates Breakdown</h3>
-          <div className="breakdown-grid">
-            <div className="breakdown-card pending">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Pending</span>
-                <span className="breakdown-value">{stats.pendingEstimates}</span>
-                <span className="breakdown-percentage">
-                  {stats.totalEstimates > 0 ? ((stats.pendingEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card accepted">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Accepted</span>
-                <span className="breakdown-value">{stats.acceptedEstimates}</span>
-                <span className="breakdown-percentage">
-                  {stats.totalEstimates > 0 ? ((stats.acceptedEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card orders">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Orders</span>
-                <span className="breakdown-value">{stats.completedOrders}</span>
-                <span className="breakdown-percentage">
-                  {stats.totalEstimates > 0 ? ((stats.completedOrders / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-
-            <div className="breakdown-card rejected">
-              <div className="breakdown-content">
-                <span className="breakdown-label">Rejected</span>
-                <span className="breakdown-value">{stats.rejectedEstimates}</span>
-                <span className="breakdown-percentage">
-                  {stats.totalEstimates > 0 ? ((stats.rejectedEstimates / stats.totalEstimates) * 100).toFixed(0) : 0}% of total
-                </span>
-              </div>
-            </div>
-          </div>
+                      {/* Footer - Removed "Click to view details" */}
+                      <div style={{ 
+                        padding: '10px 20px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '12px',
+                        color: '#94a3b8'
+                      }}>
+                        <span>
+                          <span style={{ marginRight: '4px' }}>🕐</span>
+                          {customer.visits.length} Visit{customer.visits.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          ) : (
+            <Card style={{ 
+              border: '1px dashed #cbd5e1', 
+              borderRadius: '16px',
+              backgroundColor: '#f8fafc',
+              padding: '40px 20px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+              <h5 style={{ color: '#475569', marginBottom: '8px' }}>No Visits Scheduled Today</h5>
+              <p style={{ color: '#94a3b8', margin: 0 }}>
+                You have no warehouse visits scheduled for today. Enjoy your day! 🎉
+              </p>
+            </Card>
+          )}
         </div>
 
         {/* Charts Section */}
@@ -1093,38 +1307,12 @@ function SalesPersonDashboard() {
               )}
             </div>
           </div>
-
-          {/* Revenue Trend Chart */}
-          <div className="chart-container full-width">
-            <div className="chart-header">
-              <h3>Revenue Trend</h3>
-              <span className="chart-subtitle">Monthly revenue from orders (Last 6 months)</span>
-            </div>
-            <div className="chart-wrapper">
-              {monthlyData.revenue.some(val => val > 0) ? (
-                <Bar
-                  id="revenue-chart"
-                  data={revenueData}
-                  options={revenueBarOptions}
-                />
-              ) : (
-                <div className="no-data-message">No revenue data available</div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Recent Estimates Table */}
         <div className="recent-section">
           <div className="section-header">
             <h3>Recent Estimates</h3>
-            <Button
-              variant="outline-primary"
-              size="sm"
-              onClick={() => navigate('/salesperson-estimation')}
-            >
-              View All
-            </Button>
           </div>
           <div className="table-container">
             {recentEstimates.length > 0 ? (
@@ -1252,6 +1440,10 @@ function SalesPersonDashboard() {
         
         .notification-list::-webkit-scrollbar-thumb:hover {
           background: #555;
+        }
+
+        .today-visit-card {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
       `}</style>
     </>
