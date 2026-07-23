@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
+import CustomDropdown from './CustomDropdown'; // adjust path to wherever you place the file
 
 const VisitLogsForm = () => {
   const navigate = useNavigate();
@@ -1217,19 +1218,16 @@ const VisitLogsForm = () => {
                     <Form.Label className="vl-label">
                       Customer Name <span className="vl-required">*</span>
                     </Form.Label>
-                    <Form.Select
-                      name="customer_id"
+                    <CustomDropdown
+                      placeholder="-- Select Customer --"
                       value={formData.customer_id}
-                      onChange={handleCustomerChange}
-                      className="vl-select"
-                    >
-                      <option value="">-- Select Customer --</option>
-                      {customers.map(customer => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.full_name} {customer.latitude ? '📍' : '⚠️'}
-                        </option>
-                      ))}
-                    </Form.Select>
+                      onChange={(customerId) => handleCustomerChange({ target: { value: customerId } })}
+                      options={customers.map(customer => ({
+                        value: customer.id,
+                        label: customer.full_name,
+                        icon: customer.latitude ? '📍' : '⚠️'
+                      }))}
+                    />
                   </Form.Group>
                 </Col>
 
@@ -1254,18 +1252,16 @@ const VisitLogsForm = () => {
                     <Form.Label className="vl-label">
                       Outcome <span className="vl-required">*</span>
                     </Form.Label>
-                    <Form.Select
-                      name="outcome"
+                    <CustomDropdown
+                      placeholder="-- Select Outcome --"
                       value={formData.outcome}
-                      onChange={handleInputChange}
-                      className="vl-select"
-                    >
-                      {outcomeOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.icon} {option.label}
-                        </option>
-                      ))}
-                    </Form.Select>
+                      onChange={(value) => handleInputChange({ target: { name: 'outcome', value } })}
+                      options={outcomeOptions.map(option => ({
+                        value: option.value,
+                        label: option.label,
+                        icon: option.icon
+                      }))}
+                    />
                   </Form.Group>
                 </Col>
 

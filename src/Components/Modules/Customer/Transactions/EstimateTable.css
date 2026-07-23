@@ -162,44 +162,103 @@
 /* Responsive Design */
 @media (max-width: 768px) {
     .estimates-table-container {
-        margin-top: 20px;
+        margin-top: 70px;
         padding: 10px;
     }
-    
+
     .dataTable_search {
+        display: flex;
         flex-wrap: wrap;
+        gap: 10px;
     }
-    
-    .dataTable_search input {
+
+    .dataTable_search input,
+    .dataTable_search button {
+        box-sizing: border-box;
+    }
+
+    /* Row 1: both date inputs side by side */
+    .dataTable_search input[type="date"] {
+        order: 1;
+        flex: 1 1 calc(50% - 5px);
+        min-width: 0 !important;
+        width: calc(50% - 5px) !important;
+        max-width: calc(50% - 5px) !important;
+    }
+
+    /* Row 2: search input */
+    .dataTable_search input:not([type="date"]) {
+        order: 2;
+        flex: 1 1 calc(70% - 5px);
+        min-width: 0 !important;
+        width: calc(70% - 5px) !important;
         max-width: 100% !important;
-        flex: 1;
     }
-    
-    .d-flex.justify-content-between.align-items-center {
+
+    /* Row 2: OK button, next to search */
+    .dataTable_search button {
+        order: 3;
+        flex: 1 1 calc(30% - 5px);
+        min-width: 0 !important;
+        width: calc(30% - 5px) !important;
+    }
+
+  .pagination-bar {
+        display: flex;
         flex-direction: column;
-        gap: 15px;
-        align-items: flex-start !important;
+        align-items: center;
+        gap: 12px;
     }
-    
+
+    .pagination-bar .dataTable_pageInfo {
+        order: 1;
+        text-align: center;
+        width: 100%;
+    }
+
+    .pagination-bar .pagebuttons {
+        order: 2;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .pagination-bar .pagebuttons button {
+        flex: 1 1 auto;
+        max-width: 140px;
+    }
+
+    .pagination-bar .pagesize-wrapper {
+        order: 3;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .pagination-bar .pagesize-wrapper select {
+        width: auto !important;
+        min-width: 100px;
+    }
+
     .d-flex.justify-content-between.align-items-center h3 {
         margin-bottom: 0;
     }
-    
+
     .d-flex.align-items-center.justify-content-between {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .pagebuttons {
         display: flex;
         gap: 10px;
     }
-    
-    /* Responsive table */
+
     .table-responsive {
         overflow-x: auto;
     }
-    
+
     .dataTable_cell,
     .dataTable_headerCell {
         max-width: 150px;

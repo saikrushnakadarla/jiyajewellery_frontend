@@ -452,8 +452,8 @@ const LeaveManagement = () => {
               </table>
             </div>
 
-            {tableData.length > 0 && (
-              <div className="d-flex align-items-center justify-content-between mt-3">
+          {tableData.length > 0 && (
+            <div className="pagination-row mt-3">
                 <div className="dataTable_pageInfo">
                   Page{' '}
                   <strong>
@@ -477,7 +477,7 @@ const LeaveManagement = () => {
                     Next
                   </button>
                 </div>
-                <div>
+                <div className="page-size-wrapper">
                   <select
                     className="form-select form-select-sm"
                     value={pageSize}

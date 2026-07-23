@@ -1648,3 +1648,41 @@
   min-width: 30px;
   text-align: center;
 }
+
+/* Mobile only: pair buttons 2-per-row */
+@media (max-width: 768px) {
+  .action-buttons-row {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .action-buttons-row .action-btn {
+    flex: 0 0 calc(50% - 5px);
+    width: calc(50% - 5px);
+    justify-content: center;
+    padding: 10px 8px; /* slightly tighter so text fits on 2-up */
+    font-size: 13px;
+  }
+}
+
+
+/* .cancel-btn,
+.save-btn {
+  min-width: 130px;
+  justify-content: center;
+  text-align: center;
+} */
+
+
+@media (max-width: 768px) {
+  .estimate-form-container .cancel-btn,
+  .estimate-form-container .save-btn {
+    width: 45%;
+    padding: 10px 0;
+    justify-content: center;
+    text-align: center;
+  }
+}

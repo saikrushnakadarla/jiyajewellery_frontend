@@ -1587,7 +1587,7 @@ const processWeightImage = async (imageFile) => {
                   </Button>
 
                   <Button onClick={startWeightCamera} className="action-btn weight-capture-btn">
-                    <FaWeightHanging /> Capture Weight Machine
+                    <FaWeightHanging /> Capture Weight
                   </Button>
 
                   <input
@@ -1902,7 +1902,7 @@ const processWeightImage = async (imageFile) => {
 
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
-                <Button className="cancel-btn me-2" onClick={handleCancel}>Cancel</Button>
+                <Button className="cancel-btn me-2" onClick={handleCancel} style={{marginBottom:"2px"}}>Cancel</Button>
                 <Button className="save-btn" onClick={handleSaveAndPrint} disabled={scannedProducts.length === 0}>
                   <FaSave /> Save
                 </Button>

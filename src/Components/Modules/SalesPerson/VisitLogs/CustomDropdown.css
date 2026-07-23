@@ -1,0 +1,125 @@
+.cd-wrapper {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cd-control {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.cd-control:hover {
+  border-color: #d1d5db;
+}
+
+.cd-control-open,
+.cd-control:focus {
+  border-color: #a36e29;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(163, 110, 41, 0.1);
+  background: white;
+}
+
+.cd-control-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1f2937;
+}
+
+.cd-placeholder {
+  color: #9ca3af;
+}
+
+.cd-chevron {
+  flex-shrink: 0;
+  margin-left: 10px;
+  font-size: 12px;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+}
+
+.cd-chevron-open {
+  transform: rotate(180deg);
+}
+
+.cd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+.cd-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #1f2937;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cd-option:hover {
+  background: #f3f4f6;
+}
+
+.cd-option-selected {
+  background: #fef3c7;
+  font-weight: 600;
+}
+
+.cd-option-disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cd-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cd-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile: tighter padding, slightly smaller text */
+@media (max-width: 768px) {
+  .cd-control {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .cd-option {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .cd-menu {
+    max-height: 240px;
+  }
+}

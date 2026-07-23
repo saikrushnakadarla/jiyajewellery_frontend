@@ -1013,13 +1013,13 @@ const handleStatusChange = useCallback(async (rowData, newStatus) => {
                     </tbody>
                   </table>
                 </div>
-                <div className="d-flex align-items-center justify-content-between mt-3">
+                <div className="pagination-bar d-flex align-items-center justify-content-between mt-3">
                   <div className="dataTable_pageInfo">Page <strong>{pageIndex + 1} of {pageOptions.length}</strong> (Showing {tableData.length} total records)</div>
                   <div className="pagebuttons">
                     <button className="btn btn-primary me-2 btn1" onClick={() => previousPage()} disabled={!canPreviousPage}>Prev</button>
                     <button className="btn btn-primary btn1" onClick={() => nextPage()} disabled={!canNextPage}>Next</button>
                   </div>
-                  <div>
+                  <div className="pagesize-wrapper">
                     <select className="form-select form-select-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
                       {[5, 10, 20, 50].map((size) => <option key={size} value={size}>Show {size}</option>)}
                     </select>

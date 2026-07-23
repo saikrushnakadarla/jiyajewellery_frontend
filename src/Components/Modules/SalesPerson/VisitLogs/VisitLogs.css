@@ -742,8 +742,8 @@
 }
 
 .vl-log-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
+  /* background: #e5e7eb; */
+  /* color: #9ca3af; */
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -758,7 +758,7 @@
 }
 
 .vl-toggle-logs-btn:hover {
-  background-color: #f3f4f6;
+  /* background-color: #f3f4f6; */
   border-color: #d1d5db;
 }
 
@@ -1859,5 +1859,62 @@
   
   .vl-filter-btn {
     padding: 6px 10px;
+  }
+}
+
+
+
+/* Fix select/input overflow (all viewports, matters most on mobile) */
+.vl-select,
+.vl-input,
+.vl-date-input,
+.vl-otp-input,
+.vl-modal-select,
+.vl-modal-textarea {
+  box-sizing: border-box;
+}
+
+/* Keep native dropdown option text from forcing overflow */
+.vl-select option {
+  white-space: normal;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  /* Tighter, contained dropdowns on mobile */
+  .vl-select,
+  .vl-input,
+  .vl-date-input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .vl-form-group-col {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  /* Log Visit + View All Logs side by side on mobile only */
+  .vl-action-buttons {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  .vl-log-btn,
+  .vl-toggle-logs-btn {
+    flex: 1 1 0;
+    width: auto;
+    padding: 12px 10px;
+    font-size: 14px;
+    white-space: nowrap;
+    text-align: center;
+  }
+}
+
+@media (max-width: 400px) {
+  .vl-log-btn,
+  .vl-toggle-logs-btn {
+    font-size: 12px;
+    padding: 12px 6px;
   }
 }

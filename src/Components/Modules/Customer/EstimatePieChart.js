@@ -69,7 +69,7 @@ export default function EstimateStatusChart({ pending = 0, ordered = 0, rejected
           borderRadius: "18px",
           boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
           padding: "28px 28px 22px",
-          width: "280px",
+          width: "350px",
           userSelect: "none",
           textAlign: "center",
         }}
@@ -109,7 +109,7 @@ export default function EstimateStatusChart({ pending = 0, ordered = 0, rejected
         borderRadius: "18px",
         boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
         padding: "28px 28px 22px",
-        width: "280px",
+        width: "350px",
         userSelect: "none",
       }}
     >
