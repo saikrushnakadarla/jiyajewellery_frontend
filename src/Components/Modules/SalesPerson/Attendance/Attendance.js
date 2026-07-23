@@ -64,7 +64,7 @@ function Attendance() {
   const [isLocationServiceAvailable, setIsLocationServiceAvailable] = useState(true);
 
   // Constants
-  const MAX_DISTANCE_METERS = 50;
+  const MAX_DISTANCE_METERS = 150;
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {

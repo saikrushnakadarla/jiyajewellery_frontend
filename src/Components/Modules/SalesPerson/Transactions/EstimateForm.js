@@ -412,122 +412,150 @@ const EstimateForm = () => {
   // - labeled scale displays (even garbled OCR like "Grost Weight"/"Nol Height")
   // - handwritten shorthand like "GW 50gms  WAW 450m"
  // Extracts BOTH Gross Weight and Net/Wastage weight
+// Extracts BOTH Gross Weight and Net/Wastage weight from OCR text
 const extractWeightsFromText = (text) => {
-  const cleaned = text.replace(/\r/g, '').replace(/\n/g, ' ');
-  const lines = cleaned.split('.').map(l => l.trim()).filter(Boolean);
-  const numberRegex = /(\d+(?:\.\d+)?)/;
-
-  // Loose/fuzzy matches to survive OCR garbling
-  const grossLabel = /g\s*r?\s*o?\s*s?\s*t?\s*weight|gross\s*wt|g\W?w\b|gross\s*weight|gross/i;
-  const netLabel = /n\s*o?\s*l?\s*height|net\s*weight|net\s*wt|n\W?w\b|net\s*weight|net/i;
-  const wawLabel = /w\W?a\W?w\b|wastage|weight\s*av|total\s*weight/i;
-
+  console.log('=== EXTRACTING WEIGHTS FROM OCR ===');
+  console.log('Raw OCR Text:', text);
+  
+  // Clean the text - remove extra spaces and normalize
+  const cleaned = text.replace(/\r/g, '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  console.log('Cleaned Text:', cleaned);
+  
   let grossWeight = null;
   let secondaryWeight = null;
-  let secondaryLabel = null;
+  let secondaryLabel = 'wastage_weight';
 
-  // Strategy 1: Label and number on same line or next line
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const nextLine = lines[i + 1] || '';
-
-    // Check for Gross Weight
-    if (grossWeight === null && grossLabel.test(line)) {
-      const m = line.match(numberRegex) || nextLine.match(numberRegex);
-      if (m) {
-        grossWeight = parseFloat(m[1]);
-        console.log(`Found Gross Weight: ${grossWeight} in line: ${line}`);
-      }
-    }
-    
-    // Check for Net Weight
-    if (secondaryWeight === null && netLabel.test(line)) {
-      const m = line.match(numberRegex) || nextLine.match(numberRegex);
-      if (m) { 
-        secondaryWeight = parseFloat(m[1]); 
-        secondaryLabel = 'net_weight';
-        console.log(`Found Net Weight: ${secondaryWeight} in line: ${line}`);
-      }
-    }
-    
-    // Check for Wastage/Total Weight
-    if (secondaryWeight === null && wawLabel.test(line)) {
-      const m = line.match(numberRegex) || nextLine.match(numberRegex);
-      if (m) { 
-        secondaryWeight = parseFloat(m[1]); 
-        secondaryLabel = 'wastage_weight';
-        console.log(`Found Wastage Weight: ${secondaryWeight} in line: ${line}`);
-      }
-    }
-  }
-
-  // Strategy 2: Look for standalone numbers with labels like "Grost Teen" and "Nol Height"
-  // This handles the specific OCR output from your image
-  if (grossWeight === null) {
-    // Look for "Grost" or "gross" followed by a number
-    const grossMatch = cleaned.match(/g\s*r?\s*o?\s*s?\s*t?.*?(\d+(?:\.\d+)?)/i);
-    if (grossMatch) {
-      grossWeight = parseFloat(grossMatch[1]);
-      console.log(`Found Gross Weight via fallback: ${grossWeight}`);
-    }
-  }
+  // Extract all numbers with decimals
+  const numberMatches = cleaned.match(/\d+\.\d+|\d+/g);
+  console.log('All numbers found:', numberMatches);
   
-  if (secondaryWeight === null) {
-    // Look for "Nol" or "net" followed by a number
-    const netMatch = cleaned.match(/n\s*o?\s*l?.*?(\d+(?:\.\d+)?)/i);
-    if (netMatch) {
-      secondaryWeight = parseFloat(netMatch[1]);
-      secondaryLabel = 'net_weight';
-      console.log(`Found Net Weight via fallback: ${secondaryWeight}`);
+  if (!numberMatches || numberMatches.length === 0) {
+    console.log('No numbers found in text');
+    return null;
+  }
+
+  // Parse all numbers to float
+  const allNumbers = numberMatches.map(num => parseFloat(num));
+  console.log('Parsed numbers:', allNumbers);
+
+  // === STRATEGY 1: Find weights using specific patterns from your image ===
+  
+  // Look for "Grost Weight" pattern (your image has "Grost Weight 56.4")
+  const grossMatch = cleaned.match(/Grost\s*Weight\s*(\d+\.?\d*)/i);
+  if (grossMatch) {
+    grossWeight = parseFloat(grossMatch[1]);
+    console.log(`✅ Found Gross Weight via "Grost Weight" pattern: ${grossWeight}`);
+  }
+
+  // Look for "GABR" pattern (your image has "GABR" near the weight)
+  if (grossWeight === null) {
+    const gabrMatch = cleaned.match(/GABR\s*(\d+\.?\d*)/i);
+    if (gabrMatch) {
+      grossWeight = parseFloat(gabrMatch[1]);
+      console.log(`✅ Found Gross Weight via "GABR" pattern: ${grossWeight}`);
     }
   }
 
-  // Strategy 3: Look for "GW" shorthand
-  if (grossWeight === null) {
-    const gwMatch = cleaned.match(/G\s*W\.?\s*(\d+(?:\.\d+)?)/i);
-    if (gwMatch) {
-      grossWeight = parseFloat(gwMatch[1]);
-      console.log(`Found Gross Weight via GW shorthand: ${grossWeight}`);
-    }
+  // Look for "Nol Height" pattern (your image has "Nol Height 50.7")
+  const netMatch = cleaned.match(/Nol\s*Height\s*(\d+\.?\d*)/i);
+  if (netMatch) {
+    secondaryWeight = parseFloat(netMatch[1]);
+    secondaryLabel = 'net_weight';
+    console.log(`✅ Found Net Weight via "Nol Height" pattern: ${secondaryWeight}`);
   }
-  
+
+  // Look for "ONTLP" pattern (your image has "ONTLP" near the weight)
   if (secondaryWeight === null) {
-    const wawMatch = cleaned.match(/W\s*A\s*W\.?\s*(\d+(?:\.\d+)?)/i);
-    if (wawMatch) {
-      secondaryWeight = parseFloat(wawMatch[1]);
+    const ontlpMatch = cleaned.match(/ONTLP\s*(\d+\.?\d*)/i);
+    if (ontlpMatch) {
+      secondaryWeight = parseFloat(ontlpMatch[1]);
       secondaryLabel = 'wastage_weight';
-      console.log(`Found Wastage Weight via WAW shorthand: ${secondaryWeight}`);
+      console.log(`✅ Found Weight via "ONTLP" pattern: ${secondaryWeight}`);
     }
   }
 
-  // Strategy 4: Last resort - find all numbers and take first two
+  // === STRATEGY 2: Look for labels with numbers in close proximity ===
+  
+  // If gross not found, look for any variation of "gross", "grost", "grs"
   if (grossWeight === null) {
-    const allNumbers = cleaned.match(/\d+(?:\.\d+)?/g);
-    if (allNumbers && allNumbers.length > 0) {
-      grossWeight = parseFloat(allNumbers[0]);
-      console.log(`Found Gross Weight as first number: ${grossWeight}`);
-      if (allNumbers.length > 1 && secondaryWeight === null) {
-        secondaryWeight = parseFloat(allNumbers[1]);
-        secondaryLabel = 'wastage_weight';
-        console.log(`Found Secondary Weight as second number: ${secondaryWeight}`);
+    const grossVariations = /g\s*r\s*o\s*s\s*t|g\s*r\s*o\s*s\s*s|gross|grs|gabr/i;
+    const match = cleaned.match(grossVariations);
+    if (match) {
+      const startIndex = match.index + match[0].length;
+      const substring = cleaned.substring(startIndex, startIndex + 30);
+      const numMatch = substring.match(/\d+\.?\d*/);
+      if (numMatch) {
+        grossWeight = parseFloat(numMatch[0]);
+        console.log(`✅ Found Gross Weight via pattern "${match[0]}": ${grossWeight}`);
       }
     }
   }
 
-  // If we found both weights, return them
-  if (grossWeight !== null || secondaryWeight !== null) {
-    console.log(`Extracted weights - Gross: ${grossWeight}, Secondary: ${secondaryWeight} (${secondaryLabel})`);
+  // If net/secondary not found, look for any variation of "net", "nol", "height"
+  if (secondaryWeight === null) {
+    const netVariations = /n\s*o\s*l|nol|height|net|ontlp|wastage|waw/i;
+    const match = cleaned.match(netVariations);
+    if (match) {
+      const startIndex = match.index + match[0].length;
+      const substring = cleaned.substring(startIndex, startIndex + 30);
+      const numMatch = substring.match(/\d+\.?\d*/);
+      if (numMatch) {
+        secondaryWeight = parseFloat(numMatch[0]);
+        secondaryLabel = 'net_weight';
+        console.log(`✅ Found Secondary Weight via pattern "${match[0]}": ${secondaryWeight}`);
+      }
+    }
+  }
+
+  // === STRATEGY 3: If only one number is found, use it as gross weight ===
+  if (grossWeight === null && allNumbers.length === 1) {
+    grossWeight = allNumbers[0];
+    console.log(`ℹ️ Only one number found, using as Gross Weight: ${grossWeight}`);
+  }
+
+  // === STRATEGY 4: If two numbers found and neither is assigned ===
+  if (grossWeight === null && allNumbers.length >= 2) {
+    // First number is usually gross weight
+    grossWeight = allNumbers[0];
+    console.log(`ℹ️ Using first number as Gross Weight: ${grossWeight}`);
+    
+    // Second number is secondary
+    if (secondaryWeight === null) {
+      secondaryWeight = allNumbers[1];
+      secondaryLabel = 'wastage_weight';
+      console.log(`ℹ️ Using second number as Secondary Weight: ${secondaryWeight}`);
+    }
+  }
+
+  // === STRATEGY 5: Try to find numbers based on position in text ===
+  if (grossWeight === null && secondaryWeight === null) {
+    // Look for numbers that are together (like "56.4" and "50.7")
+    const numberPairs = cleaned.match(/(\d+\.?\d*)\s+(\d+\.?\d*)/);
+    if (numberPairs) {
+      grossWeight = parseFloat(numberPairs[1]);
+      secondaryWeight = parseFloat(numberPairs[2]);
+      secondaryLabel = 'wastage_weight';
+      console.log(`✅ Found number pair - Gross: ${grossWeight}, Secondary: ${secondaryWeight}`);
+    }
+  }
+
+  // === Final check and return ===
+  console.log('=== FINAL EXTRACTED WEIGHTS ===');
+  console.log(`Gross Weight: ${grossWeight}`);
+  console.log(`Secondary Weight: ${secondaryWeight} (${secondaryLabel})`);
+  
+  if (grossWeight !== null) {
     return { 
       grossWeight, 
       secondaryWeight, 
-      secondaryLabel: secondaryLabel || 'wastage_weight', 
+      secondaryLabel, 
       rawText: text 
     };
   }
 
+  console.log('❌ No weights could be extracted');
   return null;
 };
-
   // Save weight to estimate via API
   // Save weight to estimate via API - FIXED
 const saveWeightToEstimate = async (weights) => {
@@ -590,81 +618,142 @@ const saveWeightToEstimate = async (weights) => {
 };
 
   // Process weight machine image with enhanced OCR
-  const processWeightImage = async (imageFile) => {
-    setIsProcessingWeight(true);
-    setExtractedWeight(null);
-    setWeightCaptureError(null);
+// Process weight machine image with enhanced OCR
+const processWeightImage = async (imageFile) => {
+  setIsProcessingWeight(true);
+  setExtractedWeight(null);
+  setWeightCaptureError(null);
 
-    try {
-      // Preprocess image for better OCR accuracy
-      const preprocessed = await preprocessImageForOCR(imageFile);
+  try {
+    // Show processing indicator
+    Swal.fire({
+      title: 'Processing Image...',
+      text: 'Reading weight from image...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
-      const result = await Tesseract.recognize(
+    // Preprocess image for better OCR accuracy
+    const preprocessed = await preprocessImageForOCR(imageFile);
+
+    console.log('=== STARTING OCR PROCESS ===');
+    
+    // Try multiple OCR passes with different settings
+    let recognizedText = '';
+    
+    // First pass - standard
+    const result1 = await Tesseract.recognize(
+      preprocessed,
+      'eng',
+      {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        tessedit_pageseg_mode: '6', // Assume uniform text block
+        tessedit_char_whitelist: '0123456789.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
+      }
+    );
+    
+    recognizedText = result1.data.text;
+    console.log('=== OCR PASS 1 OUTPUT ===');
+    console.log(recognizedText);
+    
+    // If no good results, try second pass with different settings
+    if (!recognizedText.match(/\d+\.?\d*/)) {
+      console.log('No numbers found in first pass, trying second pass...');
+      const result2 = await Tesseract.recognize(
         preprocessed,
         'eng',
         {
-          logger: (m) => console.log(m),
+          tessedit_pageseg_mode: '3', // Fully automatic page segmentation
+          tessedit_char_whitelist: '0123456789.'
         }
       );
+      recognizedText = result2.data.text;
+      console.log('=== OCR PASS 2 OUTPUT ===');
+      console.log(recognizedText);
+    }
 
-      const recognizedText = result.data.text;
-      console.log('Recognized text from weight machine:', recognizedText);
+    Swal.close();
 
-      const weights = extractWeightsFromText(recognizedText);
+    const weights = extractWeightsFromText(recognizedText);
 
-      if (weights && (weights.grossWeight !== null || weights.secondaryWeight !== null)) {
-        // Set extracted weight with manual entry flag
-        const extractedData = {
-          ...weights,
-          manualEntryNeeded: false,
-          value: weights.grossWeight || weights.secondaryWeight,
-          unit: 'g'
-        };
-        setExtractedWeight(extractedData);
+    if (weights && weights.grossWeight !== null) {
+      // Successfully extracted weight
+      const extractedData = {
+        ...weights,
+        manualEntryNeeded: false,
+        value: weights.grossWeight,
+        unit: 'g'
+      };
+      setExtractedWeight(extractedData);
 
-        // Auto-save to estimate
-        await saveWeightToEstimate(weights);
+      // Auto-save to estimate
+      await saveWeightToEstimate(weights);
 
-        // Show success message
-        const grossDisplay = weights.grossWeight !== null ? weights.grossWeight : '—';
-        const secondaryDisplay = weights.secondaryWeight !== null ? weights.secondaryWeight : '—';
-        const labelDisplay = weights.secondaryLabel === 'net_weight' ? 'Net' : 'Wastage/Total';
+      // Show success message with big numbers
+      const grossDisplay = weights.grossWeight !== null ? weights.grossWeight.toFixed(1) : '—';
+      const secondaryDisplay = weights.secondaryWeight !== null ? weights.secondaryWeight.toFixed(1) : '—';
+      const labelDisplay = weights.secondaryLabel === 'net_weight' ? 'Net' : 'Wastage/Total';
 
-        Swal.fire({
-          icon: 'success',
-          title: 'Weight Extracted!',
-          html: `Gross Weight: <b>${grossDisplay}</b> g<br/>${labelDisplay} Weight: <b>${secondaryDisplay}</b> g`,
-          timer: 3000,
-          showConfirmButton: false
-        });
-      } else {
-        // No weight detected - offer manual entry
-        setExtractedWeight({
-          grossWeight: null,
-          secondaryWeight: null,
-          secondaryLabel: 'wastage_weight',
-          rawText: recognizedText,
-          manualEntryNeeded: true,
-          value: null,
-          unit: 'g'
-        });
-        setWeightCaptureError('Could not confidently read the weight. Please enter the values manually below.');
-      }
-    } catch (error) {
-      console.error('OCR Error:', error);
+      Swal.fire({
+        icon: 'success',
+        title: '✅ Weight Extracted Successfully!',
+        html: `
+          <div style="font-size: 24px; padding: 20px 0;">
+            <div><strong>Gross Weight:</strong> <span style="color: #0d47a1; font-size: 32px;">${grossDisplay}</span> g</div>
+            <div style="margin-top: 10px;"><strong>${labelDisplay}:</strong> <span style="color: #0d47a1; font-size: 32px;">${secondaryDisplay}</span> g</div>
+          </div>
+        `,
+        timer: 3000,
+        showConfirmButton: false
+      });
+    } else {
+      // No weight detected - show what was read
+      Swal.fire({
+        icon: 'warning',
+        title: 'Could Not Detect Weight',
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <p>OCR could not find weight values in the image.</p>
+            <p style="font-size: 12px; color: #666; background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 10px;">
+              <strong>OCR Read:</strong><br>${recognizedText.substring(0, 200) || 'No text detected'}
+            </p>
+            <p style="margin-top: 10px;">Please enter the values manually below.</p>
+          </div>
+        `,
+        confirmButtonText: 'Enter Manually'
+      });
+      
       setExtractedWeight({
         grossWeight: null,
         secondaryWeight: null,
         secondaryLabel: 'wastage_weight',
+        rawText: recognizedText,
         manualEntryNeeded: true,
         value: null,
         unit: 'g'
       });
-      setWeightCaptureError('Error processing image. Please enter the weight manually below.');
-    } finally {
-      setIsProcessingWeight(false);
+      setWeightCaptureError('Could not read weight from image. Please enter the values manually below.');
     }
-  };
+  } catch (error) {
+    Swal.close();
+    console.error('OCR Error:', error);
+    setExtractedWeight({
+      grossWeight: null,
+      secondaryWeight: null,
+      secondaryLabel: 'wastage_weight',
+      manualEntryNeeded: true,
+      value: null,
+      unit: 'g'
+    });
+    setWeightCaptureError('Error processing image. Please enter the weight manually below.');
+  } finally {
+    setIsProcessingWeight(false);
+  }
+};
 
   // Handle manual weight save
   const handleManualWeightSave = async () => {
@@ -1521,90 +1610,152 @@ const saveWeightToEstimate = async (weights) => {
             </Row>
 
             {/* Enhanced Weight Display with Manual Entry */}
-            {extractedWeight && (
-              <Row className="mb-3">
-                <Col xs={12} className="d-flex justify-content-end">
-                  <div style={{ 
-                    background: extractedWeight.manualEntryNeeded ? '#fff3cd' : '#e8f4fd', 
-                    border: extractedWeight.manualEntryNeeded ? '1px solid #ffc107' : '1px solid #90caf9', 
-                    borderRadius: 8, 
-                    padding: 16, 
-                    minWidth: 350,
-                    animation: 'slideIn 0.3s ease-out'
-                  }}>
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <strong>⚖️ Weight Machine Reading</strong>
-                      {extractedWeight.manualEntryNeeded && (
-                        <span className="badge bg-warning text-dark">Manual Entry Required</span>
-                      )}
-                      {!extractedWeight.manualEntryNeeded && (
-                        <span className="badge bg-success">Auto-Extracted</span>
-                      )}
-                    </div>
+        {/* Enhanced Weight Display with READ-ONLY values */}
+{extractedWeight && (
+  <Row className="mb-3">
+    <Col xs={12} className="d-flex justify-content-end">
+      <div style={{ 
+        background: extractedWeight.manualEntryNeeded ? '#fff3cd' : '#e8f4fd', 
+        border: extractedWeight.manualEntryNeeded ? '1px solid #ffc107' : '1px solid #90caf9', 
+        borderRadius: 8, 
+        padding: 16, 
+        minWidth: 350,
+        animation: 'slideIn 0.3s ease-out'
+      }}>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <strong>⚖️ Weight Machine Reading</strong>
+          {extractedWeight.manualEntryNeeded && (
+            <span className="badge bg-warning text-dark">Manual Entry Required</span>
+          )}
+          {!extractedWeight.manualEntryNeeded && (
+            <span className="badge bg-success">Auto-Extracted</span>
+          )}
+        </div>
 
-                    <div className="d-flex gap-2 mt-2 flex-wrap">
-                      <div style={{ flex: 1, minWidth: '100px' }}>
-                        <label style={{ fontSize: 12, fontWeight: 500 }}>Gross Weight (g)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="form-control form-control-sm"
-                          value={extractedWeight.grossWeight ?? ''}
-                          onChange={(e) => setExtractedWeight(prev => ({ 
-                            ...prev, 
-                            grossWeight: e.target.value ? parseFloat(e.target.value) : null 
-                          }))}
-                          placeholder="e.g., 56.4"
-                        />
-                      </div>
-                      <div style={{ flex: 1, minWidth: '100px' }}>
-                        <label style={{ fontSize: 12, fontWeight: 500 }}>
-                          {extractedWeight.secondaryLabel === 'net_weight' ? 'Net Weight (g)' : 'Wastage/Total Wt (g)'}
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="form-control form-control-sm"
-                          value={extractedWeight.secondaryWeight ?? ''}
-                          onChange={(e) => setExtractedWeight(prev => ({ 
-                            ...prev, 
-                            secondaryWeight: e.target.value ? parseFloat(e.target.value) : null 
-                          }))}
-                          placeholder="e.g., 50.7"
-                        />
-                      </div>
-                    </div>
+        {!extractedWeight.manualEntryNeeded ? (
+          // READ-ONLY DISPLAY - No editing allowed
+          <>
+            <div className="d-flex gap-4 mt-2 flex-wrap">
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Gross Weight</label>
+                <div style={{ 
+                  fontSize: 24, 
+                  fontWeight: 'bold', 
+                  color: '#0d47a1',
+                  padding: '8px 0',
+                  borderBottom: '2px solid #90caf9'
+                }}>
+                  {extractedWeight.grossWeight !== null ? `${extractedWeight.grossWeight} g` : '—'}
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>
+                  {extractedWeight.secondaryLabel === 'net_weight' ? 'Net Weight' : 'Wastage/Total Wt'}
+                </label>
+                <div style={{ 
+                  fontSize: 24, 
+                  fontWeight: 'bold', 
+                  color: '#0d47a1',
+                  padding: '8px 0',
+                  borderBottom: '2px solid #90caf9'
+                }}>
+                  {extractedWeight.secondaryWeight !== null ? `${extractedWeight.secondaryWeight} g` : '—'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 d-flex gap-2">
+              <Button 
+                size="sm" 
+                variant="success" 
+                disabled
+                style={{ opacity: 0.7 }}
+              >
+                <FaSave /> ✓ Auto-Saved
+              </Button>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                onClick={() => {
+                  setExtractedWeight(null);
+                  setWeightCaptureError(null);
+                }}
+              >
+                <FaTimes /> Close
+              </Button>
+            </div>
+          </>
+        ) : (
+          // MANUAL ENTRY MODE - Editable fields (only when OCR fails)
+          <>
+            <div className="d-flex gap-2 mt-2 flex-wrap">
+              <div style={{ flex: 1, minWidth: '100px' }}>
+                <label style={{ fontSize: 12, fontWeight: 500 }}>Gross Weight (g)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-control form-control-sm"
+                  value={extractedWeight.grossWeight ?? ''}
+                  onChange={(e) => setExtractedWeight(prev => ({ 
+                    ...prev, 
+                    grossWeight: e.target.value ? parseFloat(e.target.value) : null 
+                  }))}
+                  placeholder="e.g., 56.4"
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: '100px' }}>
+                <label style={{ fontSize: 12, fontWeight: 500 }}>
+                  {extractedWeight.secondaryLabel === 'net_weight' ? 'Net Weight (g)' : 'Wastage/Total Wt (g)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-control form-control-sm"
+                  value={extractedWeight.secondaryWeight ?? ''}
+                  onChange={(e) => setExtractedWeight(prev => ({ 
+                    ...prev, 
+                    secondaryWeight: e.target.value ? parseFloat(e.target.value) : null 
+                  }))}
+                  placeholder="e.g., 50.7"
+                />
+              </div>
+            </div>
+            <div className="mt-2 d-flex gap-2">
+              <Button 
+                size="sm" 
+                variant="primary" 
+                onClick={handleManualWeightSave}
+                disabled={!extractedWeight.grossWeight && !extractedWeight.secondaryWeight}
+              >
+                <FaSave /> Save Weight to Estimate
+              </Button>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                onClick={() => {
+                  setExtractedWeight(null);
+                  setWeightCaptureError(null);
+                }}
+              >
+                <FaTimes /> Close
+              </Button>
+            </div>
+          </>
+        )}
 
-                    <div className="mt-2 d-flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="primary" 
-                        onClick={handleManualWeightSave}
-                        disabled={!extractedWeight.grossWeight && !extractedWeight.secondaryWeight}
-                      >
-                        <FaSave /> Save Weight to Estimate
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
-                        onClick={() => {
-                          setExtractedWeight(null);
-                          setWeightCaptureError(null);
-                        }}
-                      >
-                        <FaTimes /> Close
-                      </Button>
-                    </div>
-
-                    {extractedWeight.rawText && (
-                      <div className="mt-2" style={{ fontSize: 11, color: '#666' }}>
-                        <small>OCR Raw: {extractedWeight.rawText.substring(0, 100)}...</small>
-                      </div>
-                    )}
-                  </div>
-                </Col>
-              </Row>
-            )}
+        {extractedWeight.rawText && !extractedWeight.manualEntryNeeded && (
+          <div className="mt-2" style={{ fontSize: 11, color: '#666' }}>
+            <small>OCR Read: {extractedWeight.rawText.substring(0, 100)}...</small>
+          </div>
+        )}
+        {extractedWeight.rawText && extractedWeight.manualEntryNeeded && (
+          <div className="mt-2" style={{ fontSize: 11, color: '#856404' }}>
+            <small>⚠️ Could not auto-detect. Please enter values manually below.</small>
+          </div>
+        )}
+      </div>
+    </Col>
+  </Row>
+)}
 
             {weightCaptureError && !extractedWeight?.manualEntryNeeded && (
               <Row className="mb-3">
