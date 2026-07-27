@@ -20,6 +20,8 @@ import baseURL from "../ApiUrl/NodeBaseURL";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import { FiBell } from 'react-icons/fi';
 import Swal from 'sweetalert2';
+// ADD: Import the notification modal
+import SalesmanNotificationModal from '../SalesPerson/SalesmanNotificationModal';
 
 ChartJS.register(
   CategoryScale,
@@ -37,6 +39,10 @@ function SalesPersonDashboard() {
   const sseRef2 = useRef(null);
   const pollingIntervalRef = useRef(null);
   
+  // ADD: State for notification modal
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -219,8 +225,31 @@ function SalesPersonDashboard() {
         }
       }
 
-      // Merge notifications from both sources
-      const allNotifications = [...notifications1, ...notifications2];
+      // ALSO: Fetch pending assignments from assigned-salesman API
+      const response3 = await fetch(`${baseURL2}/api/assigned-salesman/get-pending-assignments?salesman_id=${userId}`);
+      let assignmentNotifications = [];
+      if (response3.ok) {
+        const data = await response3.json();
+        if (Array.isArray(data) && data.length > 0) {
+          // Convert assignments to notification format
+          assignmentNotifications = data.map(assignment => ({
+            id: `assignment_${assignment.assigned_id}`,
+            user_id: userId,
+            user_type: 'salesman',
+            title: `📦 New Assignment #${assignment.assigned_number}`,
+            message: `You have ${assignment.total_items} item(s) assigned from ${assignment.from_stock_point_name || 'Stock Room'}. Please review and accept.`,
+            type: 'salesman_assignment',
+            related_id: assignment.assigned_id,
+            is_read: false,
+            created_at: assignment.created_at,
+            _isAssignment: true,
+            _assignmentData: assignment
+          }));
+        }
+      }
+
+      // Merge all notifications
+      const allNotifications = [...notifications1, ...notifications2, ...assignmentNotifications];
       
       // Sort by created_at (newest first)
       allNotifications.sort((a, b) => {
@@ -356,62 +385,108 @@ function SalesPersonDashboard() {
     const type = notification.type || '';
     if (msg.includes('scheduled') || type === 'schedule') return '📅';
     if (msg.includes('warehouse') || type === 'warehouse_schedule') return '📦';
-    if (msg.includes('assigned') || msg.includes('Assigned')) return '👤';
-    if (msg.includes('Completed')) return '✅';
-    if (msg.includes('Cancelled')) return '❌';
+    if (msg.includes('assigned') || msg.includes('Assigned') || type === 'salesman_assignment') return '📋';
+    if (msg.includes('Accepted')) return '✅';
+    if (msg.includes('Rejected')) return '❌';
     if (msg.includes('Updated')) return '🔄';
     return '🔔';
   };
 
-  // Fetch Today's Sales Visits
+  // ADD: Handle notification click - open modal for assignment notifications
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    if (!notification.is_read) {
+      markAsRead(notification.id);
+    }
+    
+    // Check if this is an assignment notification
+    const isAssignment = notification.type === 'salesman_assignment' || 
+                         notification._isAssignment === true ||
+                         (notification.title && notification.title.includes('Assignment'));
+    
+    if (isAssignment) {
+      setSelectedNotification(notification);
+      setShowNotificationModal(true);
+    } else {
+      // For other notifications, just show a toast or alert
+      Swal.fire({
+        icon: 'info',
+        title: notification.title || 'Notification',
+        text: notification.message || '',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
+  // ADD: Handle notification action complete (accept/reject)
+  const handleNotificationActionComplete = (action) => {
+    // Refresh notifications to update the list
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      const user = JSON.parse(userData);
+      const salesmanId = user.id || user.userId;
+      if (salesmanId) {
+        fetchNotifications(salesmanId);
+      }
+    }
+    
+    // Show success message based on action
+    if (action === 'accepted') {
+      Swal.fire({
+        icon: 'success',
+        title: 'Assignment Accepted!',
+        text: 'You have successfully accepted the assignment.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else if (action === 'rejected') {
+      Swal.fire({
+        icon: 'info',
+        title: 'Assignment Rejected',
+        text: 'You have rejected the assignment.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  // Fetch Today's Sales Visits (unchanged)
   const fetchTodayVisits = async (salesmanId) => {
     try {
       setVisitsLoading(true);
       
-      // Fetch schedule visits
       const scheduleResponse = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule`);
       if (!scheduleResponse.ok) {
         throw new Error('Failed to fetch schedule visits');
       }
       const scheduleData = await scheduleResponse.json();
       
-      // Fetch account details (customers) - this has all the detailed customer info
       const accountResponse = await fetch(`${baseURL2}/get/account-details`);
       if (!accountResponse.ok) {
         throw new Error('Failed to fetch account details');
       }
       const accountData = await accountResponse.json();
       
-      // Get today's date (start of day to end of day)
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
       const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
       
-      // Filter visits for today, current salesman, and scheduled status
       const todayVisitsFiltered = scheduleData.filter(visit => {
-        // Check if visit has salesman_id and matches current salesman
         if (!visit.salesman_id || visit.salesman_id !== salesmanId) {
           return false;
         }
-        
-        // Check if visit is scheduled
         if (visit.status !== 'scheduled') {
           return false;
         }
-        
-        // Check if scheduled_date is today
         if (!visit.scheduled_date) {
           return false;
         }
-        
         const visitDate = new Date(visit.scheduled_date);
         return visitDate >= todayStart && visitDate <= todayEnd;
       });
       
-      // Group visits by customer and enrich with full customer details
       const groupedVisits = {};
       todayVisitsFiltered.forEach(visit => {
-        // Find customer from account_details by matching customer_id or account_id
         const customer = accountData.find(acc => 
           acc.customer_id === visit.customer_id || 
           acc.account_id === visit.customer_account_id
@@ -446,7 +521,6 @@ function SalesPersonDashboard() {
         });
       });
       
-      // Convert grouped object to array
       const groupedVisitsArray = Object.values(groupedVisits);
       setTodayVisits(groupedVisitsArray);
       
@@ -458,6 +532,7 @@ function SalesPersonDashboard() {
     }
   };
 
+  // Rest of the useEffect and functions remain the same...
   useEffect(() => {
     const fetchSalesPersonData = async () => {
       try {
@@ -471,7 +546,6 @@ function SalesPersonDashboard() {
         setCurrentUser(user);
         const salesPersonId = user.id.toString();
 
-        // Fetch today's visits
         await fetchTodayVisits(user.id);
 
         const [usersResponse, estimatesResponse] = await Promise.all([
@@ -486,24 +560,20 @@ function SalesPersonDashboard() {
         const allUsers = await usersResponse.json();
         const allEstimates = await estimatesResponse.json();
 
-        // Filter customers (users with role "customer")
         const assignedCustomers = allUsers.filter(u =>
           u.role && u.role.toLowerCase() === "customer"
         );
         setRecentCustomers(assignedCustomers.slice(0, 5));
 
-        // Filter estimates created by this salesperson
         const salespersonCreatedEstimates = allEstimates.filter(estimate =>
           estimate.salesperson_id === salesPersonId ||
           (estimate.source_by !== "customer" && estimate.salesperson_id === salesPersonId)
         );
 
-        // Process estimates with normalized status
         const processedEstimates = salespersonCreatedEstimates.map(estimate => {
           let status = estimate.estimate_status || estimate.status || '';
           status = status.toLowerCase();
 
-          // Normalize status values
           if (status === "order" || status === "ordered") {
             status = "ordered";
           }
@@ -514,12 +584,10 @@ function SalesPersonDashboard() {
           };
         });
 
-        // Calculate total sales
         const totalSales = processedEstimates.reduce((sum, estimate) =>
           sum + (parseFloat(estimate.net_amount) || parseFloat(estimate.total_price) || 0), 0
         );
 
-        // Count estimates by status
         const pending = processedEstimates.filter(estimate =>
           estimate.normalized_status === "pending"
         ).length;
@@ -536,11 +604,9 @@ function SalesPersonDashboard() {
           estimate.normalized_status === "rejected"
         ).length;
 
-        // Process monthly data for charts
         const monthlyStats = processMonthlyData(processedEstimates);
         setMonthlyData(monthlyStats);
 
-        // Get recent estimates
         const recentEst = processedEstimates
           .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
           .slice(0, 5);
@@ -566,12 +632,10 @@ function SalesPersonDashboard() {
     fetchSalesPersonData();
   }, [navigate]);
 
-  // Function to process monthly data from estimates
   const processMonthlyData = (estimates) => {
     const months = [];
     const now = new Date();
 
-    // Generate last 6 months labels
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthYear = date.toLocaleString('default', { month: 'short' });
@@ -585,7 +649,6 @@ function SalesPersonDashboard() {
       });
     }
 
-    // Count estimates, orders, and revenue per month
     estimates.forEach(estimate => {
       const estimateDate = new Date(estimate.date || estimate.created_at);
       if (isNaN(estimateDate.getTime())) return;
@@ -643,7 +706,6 @@ function SalesPersonDashboard() {
     }
   };
 
-  // Format date and time for display
   const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -654,7 +716,6 @@ function SalesPersonDashboard() {
     });
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -666,7 +727,6 @@ function SalesPersonDashboard() {
     });
   };
 
-  // Bar chart configuration for Monthly Overview
   const monthlyOverviewData = {
     labels: monthlyData.labels,
     datasets: [
@@ -689,7 +749,6 @@ function SalesPersonDashboard() {
     ]
   };
 
-  // Bar chart configuration for Revenue Trend
   const revenueData = {
     labels: monthlyData.labels,
     datasets: [
@@ -826,6 +885,17 @@ function SalesPersonDashboard() {
     <>
       <SalesNavbar />
       
+      {/* Notification Modal */}
+      <SalesmanNotificationModal
+        show={showNotificationModal}
+        onHide={() => {
+          setShowNotificationModal(false);
+          setSelectedNotification(null);
+        }}
+        notification={selectedNotification}
+        onActionComplete={handleNotificationActionComplete}
+      />
+      
       {/* Toast Container for Notifications */}
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
         <Toast 
@@ -852,7 +922,8 @@ function SalesPersonDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
               <span style={{ fontSize: '20px' }}>
                 {toastMessage?.type === 'schedule' ? '📅' : 
-                 toastMessage?.type === 'warehouse_schedule' ? '📦' : '🔔'}
+                 toastMessage?.type === 'warehouse_schedule' ? '📦' : 
+                 toastMessage?.type === 'salesman_assignment' ? '📋' : '🔔'}
               </span>
               <strong className="me-auto" style={{ fontSize: '14px' }}>
                 {toastMessage?.title || 'Notification'}
@@ -1003,7 +1074,7 @@ function SalesPersonDashboard() {
                         notifications.map(notification => (
                           <Dropdown.Item 
                             key={notification.id}
-                            onClick={() => !notification.is_read && markAsRead(notification.id)}
+                            onClick={() => handleNotificationClick(notification)}
                             style={{ 
                               padding: '16px 20px',
                               backgroundColor: notification.is_read ? 'white' : '#eff6ff',
@@ -1079,7 +1150,7 @@ function SalesPersonDashboard() {
           </div>
         )}
 
-        {/* TODAY'S SALES VISITS SECTION - No Click */}
+        {/* TODAY'S SALES VISITS SECTION */}
         <div className="today-visits-section" style={{ marginBottom: '30px' }}>
           <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
@@ -1153,18 +1224,6 @@ function SalesPersonDashboard() {
                             <span>🆔</span> {customer.customer_id || 'N/A'}
                           </div>
                         </div>
-                        {/* <Badge 
-                          style={{ 
-                            fontSize: '10px', 
-                            padding: '4px 10px',
-                            borderRadius: '20px',
-                            backgroundColor: '#dbeafe',
-                            color: '#1d4ed8',
-                            fontWeight: 500
-                          }}
-                        >
-                          {customer.visits[0]?.status?.toUpperCase() || 'SCHEDULED'}
-                        </Badge> */}
                       </div>
 
                       {/* Customer Details - Compact Grid */}
@@ -1238,7 +1297,7 @@ function SalesPersonDashboard() {
                         ))}
                       </div>
 
-                      {/* Footer - Removed "Click to view details" */}
+                      {/* Footer */}
                       <div style={{ 
                         padding: '10px 20px',
                         display: 'flex',
@@ -1277,7 +1336,6 @@ function SalesPersonDashboard() {
         {/* Charts Section */}
         <div className="charts-section">
           <div className="chart-row">
-            {/* Monthly Overview Chart */}
             <div className="chart-container large">
               <div className="chart-header">
                 <h3>Monthly Overview</h3>
@@ -1292,7 +1350,6 @@ function SalesPersonDashboard() {
               </div>
             </div>
 
-            {/* Estimate Status Custom Chart */}
             <div className="chart-wrapper custom-chart-wrapper">
               {stats.totalEstimates > 0 ? (
                 <EstimateStatusChart
