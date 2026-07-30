@@ -20,17 +20,26 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
   const safeToFixed2 = (value) => safeToFixed(value, 2);
 
   const extractTransferId = () => {
-    if (!notification) return null;
-    
-    if (notification.related_id) return notification.related_id;
-    
-    const message = notification.message || '';
-    const match = message.match(/#(ASN\d+)/);
-    if (match) {
-      return match[1];
-    }
-    return null;
-  };
+  if (!notification) return null;
+  
+  // If related_id exists, use it directly
+  if (notification.related_id) return notification.related_id;
+  
+  // Try to extract from message
+  const message = notification.message || '';
+  // Look for ASN number
+  const asnMatch = message.match(/#(ASN\d+)/);
+  if (asnMatch) {
+    return asnMatch[1];
+  }
+  
+  // If it's an assignment notification with _assignmentData
+  if (notification._assignmentData && notification._assignmentData.assigned_id) {
+    return notification._assignmentData.assigned_id;
+  }
+  
+  return null;
+};
 
   useEffect(() => {
     if (show && notification) {

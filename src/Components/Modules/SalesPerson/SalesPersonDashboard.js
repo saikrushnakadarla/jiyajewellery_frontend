@@ -203,36 +203,51 @@ function SalesPersonDashboard() {
   };
 
   // Fetch notifications from both APIs
-  const fetchNotifications = async (userId, silent = false) => {
-    try {
-      // Fetch from Jiya Jewellery (port 5000)
-      const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=salesman&limit=50`);
-      let notifications1 = [];
-      if (response1.ok) {
-        const data = await response1.json();
-        if (data.success) {
-          notifications1 = data.notifications || [];
-        }
+ // Fetch notifications from both APIs
+const fetchNotifications = async (userId, silent = false) => {
+  try {
+    // Fetch from Jiya Jewellery (port 5000)
+    const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=salesman&limit=50`);
+    let notifications1 = [];
+    if (response1.ok) {
+      const data = await response1.json();
+      if (data.success) {
+        notifications1 = data.notifications || [];
       }
+    }
 
-      // Fetch from Jiya Jewellery ERP (port 5001)
-      const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=salesman&limit=50`);
-      let notifications2 = [];
-      if (response2.ok) {
-        const data = await response2.json();
-        if (data.success) {
-          notifications2 = data.notifications || [];
-        }
+    // Fetch from Jiya Jewellery ERP (port 5001)
+    const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=salesman&limit=50`);
+    let notifications2 = [];
+    if (response2.ok) {
+      const data = await response2.json();
+      if (data.success) {
+        notifications2 = data.notifications || [];
       }
+    }
 
-      // ALSO: Fetch pending assignments from assigned-salesman API
-      const response3 = await fetch(`${baseURL2}/api/assigned-salesman/get-pending-assignments?salesman_id=${userId}`);
-      let assignmentNotifications = [];
-      if (response3.ok) {
-        const data = await response3.json();
-        if (Array.isArray(data) && data.length > 0) {
-          // Convert assignments to notification format
-          assignmentNotifications = data.map(assignment => ({
+    // Fetch pending assignments from assigned-salesman API
+    // BUT skip if we already have notifications from the other endpoints
+    // to avoid duplicates
+    const response3 = await fetch(`${baseURL2}/api/assigned-salesman/get-pending-assignments?salesman_id=${userId}`);
+    let assignmentNotifications = [];
+    if (response3.ok) {
+      const data = await response3.json();
+      if (Array.isArray(data) && data.length > 0) {
+        // Check if we already have these assignments in notifications1 or notifications2
+        // to avoid duplicates
+        const existingAssignmentNumbers = new Set();
+        [...notifications1, ...notifications2].forEach(n => {
+          const match = n.message?.match(/#(ASN\d+)/);
+          if (match) {
+            existingAssignmentNumbers.add(match[1]);
+          }
+        });
+        
+        // Only add assignments that don't already have notifications
+        assignmentNotifications = data
+          .filter(assignment => !existingAssignmentNumbers.has(assignment.assigned_number))
+          .map(assignment => ({
             id: `assignment_${assignment.assigned_id}`,
             user_id: userId,
             user_type: 'salesman',
@@ -245,30 +260,42 @@ function SalesPersonDashboard() {
             _isAssignment: true,
             _assignmentData: assignment
           }));
-        }
-      }
-
-      // Merge all notifications
-      const allNotifications = [...notifications1, ...notifications2, ...assignmentNotifications];
-      
-      // Sort by created_at (newest first)
-      allNotifications.sort((a, b) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateB - dateA;
-      });
-
-      // Calculate total unread count
-      const totalUnread = allNotifications.filter(n => !n.is_read).length;
-
-      setNotifications(allNotifications);
-      setUnreadCount(totalUnread);
-    } catch (error) {
-      if (!silent) {
-        console.error('Error fetching notifications:', error);
       }
     }
-  };
+
+    // Merge all notifications
+    const allNotifications = [...notifications1, ...notifications2, ...assignmentNotifications];
+    
+    // Remove duplicates based on a unique key (title + message combination)
+    const uniqueNotifications = [];
+    const seenKeys = new Set();
+    for (const notif of allNotifications) {
+      // Create a unique key for each notification
+      const key = `${notif.title || ''}|${notif.message || ''}|${notif.type || ''}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueNotifications.push(notif);
+      }
+    }
+    
+    // Sort by created_at (newest first)
+    uniqueNotifications.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA;
+    });
+
+    // Calculate total unread count
+    const totalUnread = uniqueNotifications.filter(n => !n.is_read).length;
+
+    setNotifications(uniqueNotifications);
+    setUnreadCount(totalUnread);
+  } catch (error) {
+    if (!silent) {
+      console.error('Error fetching notifications:', error);
+    }
+  }
+};
 
   // Show toast notification with queue
   const showToastNotification = (notification) => {
