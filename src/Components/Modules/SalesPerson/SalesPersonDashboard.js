@@ -1174,7 +1174,7 @@ function SalesPersonDashboard() {
           ) : todayVisits.length > 0 ? (
             <Row className="g-4">
               {todayVisits.map((customer, index) => (
-                <Col key={index} lg={4} md={6} sm={12}>
+                <Col key={index} lg={12} md={6} sm={12}>
                   <Card className="today-visit-card" style={{
                     border: 'none',
                     borderRadius: '16px',
@@ -1232,19 +1232,19 @@ function SalesPersonDashboard() {
                           display: 'grid', 
                           gridTemplateColumns: '1fr 1fr', 
                           gap: '6px 16px',
-                          fontSize: '13px'
+                          fontSize: '18px'
                         }}>
                           <div>
                             <span style={{ color: '#94a3b8' }}>📞</span>
-                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_phone || 'N/A'}</span>
+                            <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_phone || 'N/A'}</span>
                           </div>
                           <div>
                             <span style={{ color: '#94a3b8' }}>📱</span>
-                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_mobile || 'N/A'}</span>
+                            <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_mobile || 'N/A'}</span>
                           </div>
                           <div style={{ gridColumn: '1 / -1' }}>
                             <span style={{ color: '#94a3b8' }}>✉️</span>
-                            <span style={{ marginLeft: '4px', color: '#334155' }}>{customer.customer_email || 'N/A'}</span>
+                            <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_email || 'N/A'}</span>
                           </div>
                           <div style={{ gridColumn: '1 / -1' }}>
                             <span style={{ color: '#94a3b8' }}>📍</span>

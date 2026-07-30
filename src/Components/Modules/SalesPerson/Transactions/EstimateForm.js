@@ -853,86 +853,96 @@ const processWeightImage = async (imageFile) => {
   };
 
   // Function to calculate all product values
-  const calculateProductTotals = (productDetails) => {
-    const grossWeight = parseFloat(productDetails.gross_wt) || 0;
-    const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
-    const stonePrice = parseFloat(productDetails.stone_price) || 0;
-    const rate = parseFloat(productDetails.rate) || 0;
-    const vaPercent = parseFloat(productDetails.va_percent) || 0;
-    const vaOn = productDetails.va_on || "Gross Weight";
-    const mcPerGram = parseFloat(productDetails.mc_per_gram) || 0;
-    const mcOn = productDetails.mc_on || "MC %";
-    const hmCharges = parseFloat(productDetails.hm_charges) || 60.00;
-    const taxPercent = productDetails.tax_percent || "0.9% GST";
-    const pricing = productDetails.pricing || "By Weight";
-    const qty = parseFloat(productDetails.qty) || 1;
+// Function to calculate all product values
+const calculateProductTotals = (productDetails) => {
+  const grossWeight = parseFloat(productDetails.gross_wt) || 0;
+  const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
+  const stonePrice = parseFloat(productDetails.stone_price) || 0;
+  const rate = parseFloat(productDetails.rate) || 0;
+  const vaPercent = parseFloat(productDetails.va_percent) || 0;
+  const vaOn = productDetails.va_on || "Gross Weight";
+  const mcPerGram = parseFloat(productDetails.mc_per_gram) || 0;
+  const mcOn = productDetails.mc_on || "MC %";
+  const hmCharges = parseFloat(productDetails.hm_charges) || 60.00;
+  const taxPercent = productDetails.tax_percent || "0.9% GST";
+  const pricing = productDetails.pricing || "By Weight";
+  const qty = parseFloat(productDetails.qty) || 1;
 
-    const netWeight = grossWeight - stoneWeight;
+  // Extract the new fields
+  const coverWt = parseFloat(productDetails.Cover_Wt) || 0;
+  const cardWt = parseFloat(productDetails.Card_Wt) || 0;
+  const packingWt = parseFloat(productDetails.Packing_Wt) || 0;
 
-    let wastageWeight = 0;
-    let totalWeight = netWeight;
+  const netWeight = grossWeight - stoneWeight;
 
-    if (vaOn === "Gross Weight") {
-      wastageWeight = (grossWeight * vaPercent) / 100;
-      totalWeight = netWeight + wastageWeight;
-    } else if (vaOn === "Weight BW") {
-      wastageWeight = (netWeight * vaPercent) / 100;
-      totalWeight = netWeight + wastageWeight;
+  let wastageWeight = 0;
+  let totalWeight = netWeight;
+
+  if (vaOn === "Gross Weight") {
+    wastageWeight = (grossWeight * vaPercent) / 100;
+    totalWeight = netWeight + wastageWeight;
+  } else if (vaOn === "Weight BW") {
+    wastageWeight = (netWeight * vaPercent) / 100;
+    totalWeight = netWeight + wastageWeight;
+  }
+
+  let rateAmount = 0;
+  if (pricing === "By Weight") {
+    rateAmount = rate * totalWeight;
+  } else if (pricing === "By fixed") {
+    rateAmount = rate * qty;
+  }
+
+  let makingCharges = 0;
+  if (mcOn === "MC / Gram") {
+    makingCharges = mcPerGram * totalWeight;
+  } else if (mcOn === "MC %") {
+    makingCharges = (mcPerGram * rateAmount) / 100;
+  } else if (mcOn === "MC / Piece") {
+    makingCharges = mcPerGram * qty;
+  }
+
+  let taxPercentNum = 0;
+  if (taxPercent) {
+    const taxMatch = taxPercent.match(/(\d+(?:\.\d+)?)/);
+    if (taxMatch) {
+      taxPercentNum = parseFloat(taxMatch[1]);
     }
+  }
 
-    let rateAmount = 0;
-    if (pricing === "By Weight") {
-      rateAmount = rate * totalWeight;
-    } else if (pricing === "By fixed") {
-      rateAmount = rate * qty;
-    }
+  const totalBeforeTax = rateAmount + stonePrice + makingCharges + hmCharges;
+  const taxAmount = (totalBeforeTax * taxPercentNum) / 100;
+  const totalPrice = totalBeforeTax + taxAmount;
 
-    let makingCharges = 0;
-    if (mcOn === "MC / Gram") {
-      makingCharges = mcPerGram * totalWeight;
-    } else if (mcOn === "MC %") {
-      makingCharges = (mcPerGram * rateAmount) / 100;
-    } else if (mcOn === "MC / Piece") {
-      makingCharges = mcPerGram * qty;
-    }
+  const weightBW = netWeight;
 
-    let taxPercentNum = 0;
-    if (taxPercent) {
-      const taxMatch = taxPercent.match(/(\d+(?:\.\d+)?)/);
-      if (taxMatch) {
-        taxPercentNum = parseFloat(taxMatch[1]);
-      }
-    }
-
-    const totalBeforeTax = rateAmount + stonePrice + makingCharges + hmCharges;
-    const taxAmount = (totalBeforeTax * taxPercentNum) / 100;
-    const totalPrice = totalBeforeTax + taxAmount;
-
-    const weightBW = netWeight;
-
-    return {
-      gross_weight: grossWeight.toFixed(3),
-      stone_weight: stoneWeight.toFixed(3),
-      stone_price: stonePrice.toFixed(2),
-      net_weight: netWeight.toFixed(3),
-      weight_bw: weightBW.toFixed(3),
-      wastage_weight: wastageWeight.toFixed(3),
-      total_weight_av: totalWeight.toFixed(3),
-      rate: rate.toFixed(2),
-      rate_amt: rateAmount.toFixed(2),
-      making_charges: makingCharges.toFixed(2),
-      tax_percent: taxPercent,
-      tax_amt: taxAmount.toFixed(2),
-      total_price: totalPrice.toFixed(2),
-      va_percent: vaPercent,
-      va_on: vaOn,
-      mc_per_gram: mcPerGram,
-      mc_on: mcOn,
-      hm_charges: hmCharges,
-      qty: qty,
-      pricing: pricing
-    };
+  return {
+    gross_weight: grossWeight.toFixed(3),
+    stone_weight: stoneWeight.toFixed(3),
+    stone_price: stonePrice.toFixed(2),
+    net_weight: netWeight.toFixed(3),
+    weight_bw: weightBW.toFixed(3),
+    wastage_weight: wastageWeight.toFixed(3),
+    total_weight_av: totalWeight.toFixed(3),
+    rate: rate.toFixed(2),
+    rate_amt: rateAmount.toFixed(2),
+    making_charges: makingCharges.toFixed(2),
+    tax_percent: taxPercent,
+    tax_amt: taxAmount.toFixed(2),
+    total_price: totalPrice.toFixed(2),
+    va_percent: vaPercent,
+    va_on: vaOn,
+    mc_per_gram: mcPerGram,
+    mc_on: mcOn,
+    hm_charges: hmCharges,
+    qty: qty,
+    pricing: pricing,
+    // Add the new fields to the return object
+    cover_wt: coverWt.toFixed(3),
+    card_wt: cardWt.toFixed(3),
+    packing_wt: packingWt.toFixed(3)
   };
+};
 
   // Handle product QR scan success with assignment check
   const handleQRScanSuccess = async (decodedText) => {
@@ -1023,182 +1033,190 @@ const processWeightImage = async (imageFile) => {
     }
   };
 
-  const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
-    try {
-      if (!barcode) {
-        alert("Invalid barcode");
-        return null;
-      }
-
-      const currentFormData = formDataRef.current;
-
-      if (!currentFormData.customer_name || !currentFormData.customer_id) {
-        alert("Please select a customer first");
-        return null;
-      }
-
-      const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
-
-      if (!selectedProduct) {
-        alert("Product not found with this barcode");
-        return null;
-      }
-
-      if (selectedProduct.status !== 'Available') {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Product Already Selected',
-          text: `Product "${selectedProduct.product_name}" has already been selected and cannot be scanned again.`,
-          confirmButtonText: 'OK'
-        });
-        return null;
-      }
-
-      const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch product details');
-      }
-
-      const productDetails = await response.json();
-      
-      const calculatedValues = calculateProductTotals(productDetails);
-
-      let finalPacketBarcode = null;
-      let finalPacketWt = null;
-
-      console.log("=== PACKET REF VALUES ===");
-      console.log("isPacketScannedRef.current:", isPacketScannedRef.current);
-      console.log("sharedPacketBarcodeRef.current:", sharedPacketBarcodeRef.current);
-
-      if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
-        finalPacketBarcode = sharedPacketBarcodeRef.current;
-        finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
-        console.log("✅ Using packet barcode from ref:", finalPacketBarcode);
-      } else {
-        console.log("ℹ️ No packet scanned - setting packet_barcode to NULL");
-      }
-
-      const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
-
-      const entryData = {
-        date: currentFormData.date,
-        estimate_number: estimateNum,
-        customer_id: currentFormData.customer_id,
-        cust_id: currentFormData.cust_id || currentFormData.customer_id,
-        customer_name: currentFormData.customer_name,
-        salesperson_id: salespersonId,
-        source_by: sourceBy,
-        
-        product_id: productDetails.product_id,
-        product_name: productDetails.product_name,
-        barcode: productDetails.barcode,
-        code: productDetails.barcode,
-        metal_type: productDetails.metal_type,
-        purity: productDetails.purity,
-        design_name: productDetails.design,
-        category: productDetails.category_id,
-        sub_category: productDetails.product_name,
-        
-        gross_weight: calculatedValues.gross_weight,
-        stone_weight: calculatedValues.stone_weight,
-        stone_price: calculatedValues.stone_price,
-        weight_bw: calculatedValues.weight_bw,
-        
-        va_on: calculatedValues.va_on,
-        va_percent: calculatedValues.va_percent,
-        wastage_weight: calculatedValues.wastage_weight,
-        total_weight_av: calculatedValues.total_weight_av,
-        
-        mc_on: calculatedValues.mc_on,
-        mc_per_gram: calculatedValues.mc_per_gram,
-        making_charges: calculatedValues.making_charges,
-        
-        rate: calculatedValues.rate,
-        rate_amt: calculatedValues.rate_amt,
-        
-        tax_percent: calculatedValues.tax_percent,
-        tax_amt: calculatedValues.tax_amt,
-        total_price: calculatedValues.total_price,
-        hm_charges: calculatedValues.hm_charges,
-        
-        total_amount: calculatedValues.rate_amt,
-        taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
-        tax_amount: calculatedValues.tax_amt,
-        net_amount: calculatedValues.total_price,
-        
-        pricing: calculatedValues.pricing,
-        qty: calculatedValues.qty,
-        
-        packet_barcode: finalPacketBarcode,
-        packet_wt: finalPacketWt,
-        
-        opentag_id: 0,
-        pcode: null,
-        original_total_price: calculatedValues.total_price,
-        estimate_status: "Pending",
-        
-        force_insert: true,
-        
-        assigned_number: assignedProduct?.assigned_number || null,
-        assigned_item_id: assignedProduct?.item_id || null
-      };
-
-      console.log("=== SENDING TO BACKEND ===");
-      console.log("customer_id:", entryData.customer_id);
-      console.log("cust_id:", entryData.cust_id);
-      console.log("packet_barcode:", entryData.packet_barcode);
-      console.log("estimate_number:", entryData.estimate_number);
-      console.log("total_price:", entryData.total_price);
-      console.log("net_amount:", entryData.net_amount);
-
-      const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
-
-      console.log("Backend response:", saveResponse.data);
-
-      try {
-        const statusResponse = await axios.post(`${baseURL}/update-product-status-on-estimate`, {
-          product_id: productDetails.product_id,
-          status: "Selected"
-        });
-        
-        if (statusResponse.data.success) {
-          console.log(`✅ Product ${productDetails.product_name} status updated to Selected`);
-          
-          setAllProducts(prevProducts => 
-            prevProducts.filter(product => product.product_id !== productDetails.product_id)
-          );
-          
-          allProductsRef.current = allProductsRef.current.filter(
-            product => product.product_id !== productDetails.product_id
-          );
-        } else {
-          console.warn(`⚠️ Failed to update product status:`, statusResponse.data.message);
-        }
-      } catch (statusError) {
-        console.error("Error updating product status:", statusError);
-      }
-
-      if (saveResponse.data.estimate_number) {
-        setSavedEstimateNumber(saveResponse.data.estimate_number);
-        setIsEstimateSaved(true);
-        if (!currentEstimateNumberRef.current) {
-          currentEstimateNumberRef.current = saveResponse.data.estimate_number;
-          setCurrentEstimateNumber(saveResponse.data.estimate_number);
-        }
-      }
-
-      return {
-        ...productDetails,
-        ...calculatedValues,
-        product_name: productDetails.product_name,
-        barcode: productDetails.barcode
-      };
-    } catch (error) {
-      console.error('Error adding product:', error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
+const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
+  try {
+    if (!barcode) {
+      alert("Invalid barcode");
       return null;
     }
-  };
+
+    const currentFormData = formDataRef.current;
+
+    if (!currentFormData.customer_name || !currentFormData.customer_id) {
+      alert("Please select a customer first");
+      return null;
+    }
+
+    const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
+
+    if (!selectedProduct) {
+      alert("Product not found with this barcode");
+      return null;
+    }
+
+    if (selectedProduct.status !== 'Available') {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Product Already Selected',
+        text: `Product "${selectedProduct.product_name}" has already been selected and cannot be scanned again.`,
+        confirmButtonText: 'OK'
+      });
+      return null;
+    }
+
+    const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch product details');
+    }
+
+    const productDetails = await response.json();
+    
+    const calculatedValues = calculateProductTotals(productDetails);
+
+    let finalPacketBarcode = null;
+    let finalPacketWt = null;
+
+    console.log("=== PACKET REF VALUES ===");
+    console.log("isPacketScannedRef.current:", isPacketScannedRef.current);
+    console.log("sharedPacketBarcodeRef.current:", sharedPacketBarcodeRef.current);
+
+    if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
+      finalPacketBarcode = sharedPacketBarcodeRef.current;
+      finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
+      console.log("✅ Using packet barcode from ref:", finalPacketBarcode);
+    } else {
+      console.log("ℹ️ No packet scanned - setting packet_barcode to NULL");
+    }
+
+    const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
+
+    const entryData = {
+      date: currentFormData.date,
+      estimate_number: estimateNum,
+      customer_id: currentFormData.customer_id,
+      cust_id: currentFormData.cust_id || currentFormData.customer_id,
+      customer_name: currentFormData.customer_name,
+      salesperson_id: salespersonId,
+      source_by: sourceBy,
+      
+      product_id: productDetails.product_id,
+      product_name: productDetails.product_name,
+      barcode: productDetails.barcode,
+      code: productDetails.barcode,
+      metal_type: productDetails.metal_type,
+      purity: productDetails.purity,
+      design_name: productDetails.design,
+      category: productDetails.category_id,
+      sub_category: productDetails.product_name,
+      
+      gross_weight: calculatedValues.gross_weight,
+      stone_weight: calculatedValues.stone_weight,
+      stone_price: calculatedValues.stone_price,
+      weight_bw: calculatedValues.weight_bw,
+      
+      va_on: calculatedValues.va_on,
+      va_percent: calculatedValues.va_percent,
+      wastage_weight: calculatedValues.wastage_weight,
+      total_weight_av: calculatedValues.total_weight_av,
+      
+      mc_on: calculatedValues.mc_on,
+      mc_per_gram: calculatedValues.mc_per_gram,
+      making_charges: calculatedValues.making_charges,
+      
+      rate: calculatedValues.rate,
+      rate_amt: calculatedValues.rate_amt,
+      
+      tax_percent: calculatedValues.tax_percent,
+      tax_amt: calculatedValues.tax_amt,
+      total_price: calculatedValues.total_price,
+      hm_charges: calculatedValues.hm_charges,
+      
+      total_amount: calculatedValues.rate_amt,
+      taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
+      tax_amount: calculatedValues.tax_amt,
+      net_amount: calculatedValues.total_price,
+      
+      pricing: calculatedValues.pricing,
+      qty: calculatedValues.qty,
+      
+      packet_barcode: finalPacketBarcode,
+      packet_wt: finalPacketWt,
+      
+      opentag_id: 0,
+      pcode: null,
+      original_total_price: calculatedValues.total_price,
+      estimate_status: "Pending",
+      
+      force_insert: true,
+      
+      assigned_number: assignedProduct?.assigned_number || null,
+      assigned_item_id: assignedProduct?.item_id || null,
+      
+      // Add the new fields here
+      cover_wt: calculatedValues.cover_wt,
+      card_wt: calculatedValues.card_wt,
+      packing_wt: calculatedValues.packing_wt
+    };
+
+    console.log("=== SENDING TO BACKEND ===");
+    console.log("customer_id:", entryData.customer_id);
+    console.log("cust_id:", entryData.cust_id);
+    console.log("packet_barcode:", entryData.packet_barcode);
+    console.log("estimate_number:", entryData.estimate_number);
+    console.log("total_price:", entryData.total_price);
+    console.log("net_amount:", entryData.net_amount);
+    console.log("cover_wt:", entryData.cover_wt);
+    console.log("card_wt:", entryData.card_wt);
+    console.log("packing_wt:", entryData.packing_wt);
+
+    const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
+
+    console.log("Backend response:", saveResponse.data);
+
+    try {
+      const statusResponse = await axios.post(`${baseURL}/update-product-status-on-estimate`, {
+        product_id: productDetails.product_id,
+        status: "Selected"
+      });
+      
+      if (statusResponse.data.success) {
+        console.log(`✅ Product ${productDetails.product_name} status updated to Selected`);
+        
+        setAllProducts(prevProducts => 
+          prevProducts.filter(product => product.product_id !== productDetails.product_id)
+        );
+        
+        allProductsRef.current = allProductsRef.current.filter(
+          product => product.product_id !== productDetails.product_id
+        );
+      } else {
+        console.warn(`⚠️ Failed to update product status:`, statusResponse.data.message);
+      }
+    } catch (statusError) {
+      console.error("Error updating product status:", statusError);
+    }
+
+    if (saveResponse.data.estimate_number) {
+      setSavedEstimateNumber(saveResponse.data.estimate_number);
+      setIsEstimateSaved(true);
+      if (!currentEstimateNumberRef.current) {
+        currentEstimateNumberRef.current = saveResponse.data.estimate_number;
+        setCurrentEstimateNumber(saveResponse.data.estimate_number);
+      }
+    }
+
+    return {
+      ...productDetails,
+      ...calculatedValues,
+      product_name: productDetails.product_name,
+      barcode: productDetails.barcode
+    };
+  } catch (error) {
+    console.error('Error adding product:', error);
+    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
+    return null;
+  }
+};
 
   const stopScanner = () => {
     if (scannerRef.current) {
