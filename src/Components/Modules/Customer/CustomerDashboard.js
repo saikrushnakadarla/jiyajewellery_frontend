@@ -1,4 +1,4 @@
-// CustomerDashboard.jsx (Complete Fixed Version - Notification ID Resolution Fix)
+// CustomerDashboard.jsx - Complete Fixed Version
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -41,10 +41,10 @@ function Dashboard() {
   const sseRef2 = useRef(null);
   const pollingIntervalRef = useRef(null);
 
-  // NEW: holds the resolved account_details.account_id used for notifications.
-  // This is DIFFERENT from users.id / users.customer_id and must be resolved
-  // by matching against the account_details table.
+  // Holds the resolved account_details.account_id used for notifications
   const customerAccountIdRef = useRef(null);
+  // Holds the user's email for matching estimates
+  const userEmailRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [estimatesCount, setEstimatesCount] = useState({
@@ -93,28 +93,7 @@ function Dashboard() {
     };
   }, []);
 
-  // ------------------------------------------------------------------
-  // NEW: Resolve the account_details.account_id for the logged-in customer.
-  //
-  // Why this is needed:
-  // - Customers log in via the `users` table. localStorage's `user` object
-  //   contains `users.id` and (sometimes) `users.customer_id` (e.g. "CUST-001").
-  // - But the backend (visitLogsWarehouseRoutes / visitLogsScheduleRoutes)
-  //   writes notifications with `user_id = customer_account_id`, which is
-  //   actually `account_details.account_id` (e.g. 53, 57) - a totally
-  //   different ID space created separately when the customer registered
-  //   (see storeInAccountsDB in CustomerRegistration.jsx).
-  // - Salesman notifications "just work" because salesman login reads
-  //   directly from account_details and returns account_id as user.id -
-  //   there's no ID-space mismatch there.
-  //
-  // Matching strategy (in priority order):
-  // 1. Match on customer_id (works for newer customers that have a
-  //    generated "CUST-XXX" id stored on both users and account_details).
-  // 2. Match on phone/mobile (works for older customers where
-  //    account_details.customer_id is NULL, e.g. "krishna").
-  // 3. Match on email (last-resort fallback).
-  // ------------------------------------------------------------------
+  // Resolve the account_details.account_id for the logged-in customer
   const resolveCustomerAccountId = async (user) => {
     try {
       const response = await fetch(`${baseURL2}/get/account-details`);
@@ -150,15 +129,11 @@ function Dashboard() {
       }
 
       if (!matched) {
-        console.warn('⚠️ Could not resolve account_details.account_id for this customer. Notifications will not load.');
+        console.warn('⚠️ Could not resolve account_details.account_id for this customer.');
         return null;
       }
 
-      console.log(`✅ Resolved customer account_id: ${matched.account_id} (matched via ${
-        user.customer_id && matched.customer_id === user.customer_id ? 'customer_id' :
-        (matched.mobile === user.phone || matched.phone === user.phone) ? 'phone' : 'email'
-      })`);
-
+      console.log(`✅ Resolved customer account_id: ${matched.account_id}`);
       return matched.account_id;
     } catch (error) {
       console.error('❌ Error resolving customer account_id:', error);
@@ -166,15 +141,13 @@ function Dashboard() {
     }
   };
 
-  // Connect to SSE for real-time notifications from both servers
+  // Connect to SSE for real-time notifications
   useEffect(() => {
     const setupNotifications = async () => {
       const userData = localStorage.getItem("user");
       if (!userData) return;
 
       const user = JSON.parse(userData);
-
-      // Resolve the correct account_details.account_id (NOT users.id / users.customer_id)
       const accountId = await resolveCustomerAccountId(user);
 
       if (!accountId) return;
@@ -199,7 +172,6 @@ function Dashboard() {
                 return;
               }
 
-              // Handle incoming notification
               if (data.title && data.message) {
                 handleNewNotification(data);
               }
@@ -211,11 +183,7 @@ function Dashboard() {
           eventSource.onerror = (error) => {
             console.error('SSE connection error (port 5000):', error);
             eventSource.close();
-
-            // Reconnect after 5 seconds
-            setTimeout(() => {
-              connectSSE();
-            }, 5000);
+            setTimeout(() => connectSSE(), 5000);
           };
 
           sseRef.current = eventSource;
@@ -242,7 +210,6 @@ function Dashboard() {
                 return;
               }
 
-              // Handle incoming notification
               if (data.title && data.message) {
                 handleNewNotification(data);
               }
@@ -254,11 +221,7 @@ function Dashboard() {
           eventSource.onerror = (error) => {
             console.error('SSE connection error (port 5001):', error);
             eventSource.close();
-
-            // Reconnect after 5 seconds
-            setTimeout(() => {
-              connectSSE2();
-            }, 5000);
+            setTimeout(() => connectSSE2(), 5000);
           };
 
           sseRef2.current = eventSource;
@@ -270,10 +233,10 @@ function Dashboard() {
       connectSSE();
       connectSSE2();
 
-      // Fetch initial notifications from both servers using the resolved accountId
+      // Fetch initial notifications
       await fetchNotifications(accountId);
 
-      // Set up polling as backup (every 30 seconds)
+      // Polling backup (every 30 seconds)
       pollingIntervalRef.current = setInterval(() => {
         fetchNotifications(accountId, true);
       }, 30000);
@@ -282,6 +245,7 @@ function Dashboard() {
     setupNotifications();
   }, []);
 
+  // Fetch dashboard data - FIXED to match estimates correctly
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -296,27 +260,89 @@ function Dashboard() {
         const user = JSON.parse(userData);
         setCurrentUser(user);
 
-        const customerId = user.customer_id || user.id || user.userId || user.customerId;
+        // Store user email for matching
+        userEmailRef.current = user.email_id || user.email;
 
-        if (!customerId) {
-          console.error("Customer ID not found in user data");
+        // Get user ID from users table (this is what estimates use as customer_id)
+        const userId = user.id;
+        // Get customer_id from user (e.g., "CUST-005")
+        const customerId = user.customer_id;
+
+        console.log('🔍 User data:', { userId, customerId, email: userEmailRef.current });
+
+        if (!userId) {
+          console.error("User ID not found in user data");
           setLoading(false);
           return;
         }
 
-        await checkFaceRegistration(customerId);
+        await checkFaceRegistration(userId);
 
+        // Fetch estimates
         const estimatesResponse = await fetch(`${baseURL}/get-unique-estimates`);
         if (!estimatesResponse.ok) {
           throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
         }
         const estimates = await estimatesResponse.json();
 
-        const customerEstimates = estimates.filter(estimate =>
-          estimate.customer_id && estimate.customer_id.toString() === customerId.toString()
-        );
+        console.log(`📊 Total estimates fetched: ${estimates.length}`);
 
-        const processedEstimates = customerEstimates.map(estimate => {
+        // Filter estimates by matching customer_id with user ID
+        // The estimates table stores customer_id as the users.id (e.g., "3" for krishna)
+        // We need to match by the logged-in user's ID from the users table
+        const customerEstimates = estimates.filter(estimate => {
+          const estimateCustomerId = estimate.customer_id ? estimate.customer_id.toString() : '';
+          const userIdStr = userId.toString();
+          const customerIdStr = customerId ? customerId.toString() : '';
+
+          // Check if estimate belongs to this user by:
+          // 1. Matching users.id (e.g., "26")
+          // 2. Matching customer_id (e.g., "CUST-005")
+          // 3. Matching email (if available in estimate)
+          const matchesById = estimateCustomerId === userIdStr;
+          const matchesByCustomerId = customerIdStr && estimateCustomerId === customerIdStr;
+          const matchesByEmail = userEmailRef.current && estimate.customer_name && 
+            estimate.customer_name.toLowerCase().includes(user.full_name?.toLowerCase() || '');
+
+          // Also check if the estimate has cust_id or other fields
+          const custIdMatch = estimate.cust_id && estimate.cust_id.toString() === userIdStr;
+
+          return matchesById || matchesByCustomerId || matchesByEmail || custIdMatch;
+        });
+
+        console.log(`📊 Found ${customerEstimates.length} estimates for user ${userId}`);
+
+        // If no estimates found by direct match, try to find by email in account_details
+        if (customerEstimates.length === 0 && userEmailRef.current) {
+          console.log('🔍 No estimates found by ID, trying to match by email...');
+          // Try to find estimates where customer_name matches user's full name
+          const emailEstimates = estimates.filter(estimate => {
+            // Check if estimate has customer_name that matches user's name
+            if (estimate.customer_name && user.full_name) {
+              return estimate.customer_name.toLowerCase().includes(user.full_name.toLowerCase()) ||
+                     user.full_name.toLowerCase().includes(estimate.customer_name.toLowerCase());
+            }
+            return false;
+          });
+          if (emailEstimates.length > 0) {
+            console.log(`📊 Found ${emailEstimates.length} estimates by name/email match`);
+            customerEstimates.push(...emailEstimates);
+          }
+        }
+
+        // Remove duplicates
+        const uniqueEstimates = [];
+        const seenIds = new Set();
+        customerEstimates.forEach(est => {
+          if (!seenIds.has(est.estimate_id)) {
+            seenIds.add(est.estimate_id);
+            uniqueEstimates.push(est);
+          }
+        });
+
+        console.log(`📊 Unique estimates count: ${uniqueEstimates.length}`);
+
+        const processedEstimates = uniqueEstimates.map(estimate => {
           let status = estimate.estimate_status || estimate.status;
 
           if (!status) {
@@ -353,11 +379,13 @@ function Dashboard() {
           estimate.processed_status === "Rejected"
         ).length;
 
+        console.log(`📊 Counts - Pending: ${pending}, Ordered: ${ordered}, Rejected: ${rejected}, Total: ${processedEstimates.length}`);
+
         setEstimatesCount({
           pending,
           ordered,
           rejected,
-          total: customerEstimates.length
+          total: processedEstimates.length
         });
 
         const monthlyStats = processMonthlyData(processedEstimates);
@@ -372,11 +400,12 @@ function Dashboard() {
           .slice(0, 5);
         setRecentEstimates(recentEst);
 
+        // Fetch user profile
         const usersResponse = await fetch(`${baseURL}/api/users`);
         if (usersResponse.ok) {
           const allUsers = await usersResponse.json();
           const currentCustomer = allUsers.filter(u =>
-            u.id && u.id.toString() === customerId.toString()
+            u.id && u.id.toString() === userId.toString()
           );
           setRecentCustomers(currentCustomer);
         }
@@ -392,7 +421,7 @@ function Dashboard() {
     fetchData();
   }, []);
 
-  // Combined email verification and account status check - FIXED VERSION
+  // Email verification and account status check
   useEffect(() => {
     const checkAuthStatus = async () => {
       const userData = localStorage.getItem("user");
@@ -401,7 +430,6 @@ function Dashboard() {
       const user = JSON.parse(userData);
       const needsVerification = localStorage.getItem("needsEmailVerification");
 
-      // If user is not approved, redirect to login
       if (user.status !== 'approved') {
         localStorage.removeItem("user");
         localStorage.removeItem("needsEmailVerification");
@@ -417,7 +445,6 @@ function Dashboard() {
         return;
       }
 
-      // Check email verification - only for approved accounts
       if (needsVerification === 'true' || user.email_verified === 'Not Verified') {
         navigate("/email-verification");
         return;
@@ -437,7 +464,6 @@ function Dashboard() {
   // Fetch notifications from both APIs
   const fetchNotifications = async (userId, silent = false) => {
     try {
-      // Fetch from Jiya Jewellery (port 5000)
       const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=customer&limit=50`);
       let notifications1 = [];
       if (response1.ok) {
@@ -447,7 +473,6 @@ function Dashboard() {
         }
       }
 
-      // Fetch from Jiya Jewellery ERP (port 5001)
       const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=customer&limit=50`);
       let notifications2 = [];
       if (response2.ok) {
@@ -457,17 +482,14 @@ function Dashboard() {
         }
       }
 
-      // Merge notifications from both sources
       const allNotifications = [...notifications1, ...notifications2];
 
-      // Sort by created_at (newest first)
       allNotifications.sort((a, b) => {
         const dateA = new Date(a.created_at || 0);
         const dateB = new Date(b.created_at || 0);
         return dateB - dateA;
       });
 
-      // Calculate total unread count
       const totalUnread = allNotifications.filter(n => !n.is_read).length;
 
       setNotifications(allNotifications);
@@ -497,7 +519,7 @@ function Dashboard() {
     }
   };
 
-  // Handle toast close and show next in queue
+  // Handle toast close
   const handleToastClose = () => {
     setShowToast(false);
 
@@ -516,7 +538,6 @@ function Dashboard() {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      // Try to mark as read on both servers
       await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
@@ -537,7 +558,6 @@ function Dashboard() {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    // Use the resolved account_details.account_id (NOT users.id / users.customer_id)
     const accountId = customerAccountIdRef.current;
 
     if (!accountId) {
@@ -546,7 +566,6 @@ function Dashboard() {
     }
 
     try {
-      // Mark all as read on both servers
       await fetch(`${baseURL}/api/visit-logs-schedule/notifications/mark-all-read/${accountId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -590,7 +609,7 @@ function Dashboard() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Get notification icon - updated to handle warehouse notifications
+  // Get notification icon
   const getNotificationIcon = (notification) => {
     const msg = notification.message || '';
     const type = notification.type || '';
@@ -603,6 +622,19 @@ function Dashboard() {
     if (msg.includes('Updated')) return '🔄';
     if (msg.includes('assigned') || msg.includes('Assigned')) return '👤';
     return '🔔';
+  };
+
+  // Extract photo URL from notification message
+  const extractPhotoUrl = (message) => {
+    if (!message) return null;
+    const match = message.match(/\[Salesperson Photo:\s*([^\]]+)\]/);
+    return match ? match[1] : null;
+  };
+
+  // Clean notification message (remove photo URL marker)
+  const cleanNotificationMessage = (message) => {
+    if (!message) return '';
+    return message.replace(/\[Salesperson Photo:\s*[^\]]+\]/, '').trim();
   };
 
   const checkFaceRegistration = async (userId) => {
@@ -657,7 +689,7 @@ function Dashboard() {
     try {
       const userData = localStorage.getItem("user");
       const user = JSON.parse(userData);
-      const userId = user.customer_id || user.id || user.userId || user.customerId;
+      const userId = user.id;
 
       const formData = new FormData();
       formData.append('face_descriptor', JSON.stringify(faceData.descriptor));
@@ -1002,7 +1034,7 @@ function Dashboard() {
 
                   <Dropdown.Menu
                     style={{
-                      width: '400px',
+                      width: '420px',
                       maxHeight: '500px',
                       overflowY: 'auto',
                       padding: '0',
@@ -1060,76 +1092,115 @@ function Dashboard() {
                           </p>
                         </div>
                       ) : (
-                        notifications.map(notification => (
-                          <Dropdown.Item
-                            key={notification.id}
-                            onClick={() => !notification.is_read && markAsRead(notification.id)}
-                            style={{
-                              padding: '16px 20px',
-                              backgroundColor: notification.is_read ? 'white' : '#eff6ff',
-                              borderBottom: '1px solid #f3f4f6',
-                              borderLeft: notification.is_read ? '4px solid transparent' : '4px solid #3b82f6',
-                              whiteSpace: 'normal',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            <div style={{ display: 'flex', gap: '14px', width: '100%' }}>
-                              <div style={{
-                                fontSize: '24px',
-                                width: '36px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}>
-                                {getNotificationIcon(notification)}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
+                        notifications.map(notification => {
+                          const photoUrl = extractPhotoUrl(notification.message);
+                          const cleanMessage = cleanNotificationMessage(notification.message);
+
+                          return (
+                            <Dropdown.Item
+                              key={notification.id}
+                              onClick={() => !notification.is_read && markAsRead(notification.id)}
+                              style={{
+                                padding: '16px 20px',
+                                backgroundColor: notification.is_read ? 'white' : '#eff6ff',
+                                borderBottom: '1px solid #f3f4f6',
+                                borderLeft: notification.is_read ? '4px solid transparent' : '4px solid #3b82f6',
+                                whiteSpace: 'normal',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', gap: '14px', width: '100%' }}>
                                 <div style={{
-                                  fontWeight: notification.is_read ? '500' : '600',
-                                  marginBottom: '6px',
-                                  fontSize: '14px',
-                                  color: '#111827',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'flex-start'
-                                }}>
-                                  <span>{notification.title}</span>
-                                  {!notification.is_read && (
-                                    <span style={{
-                                      width: '8px',
-                                      height: '8px',
-                                      backgroundColor: '#3b82f6',
-                                      borderRadius: '50%',
-                                      flexShrink: 0,
-                                      marginTop: '4px'
-                                    }}></span>
-                                  )}
-                                </div>
-                                <div style={{
-                                  fontSize: '13px',
-                                  color: '#6b7280',
-                                  marginBottom: '6px',
-                                  lineHeight: '1.4'
-                                }}>
-                                  {notification.message}
-                                </div>
-                                <div style={{
-                                  fontSize: '11px',
-                                  color: '#9ca3af',
+                                  fontSize: '24px',
+                                  width: '36px',
+                                  height: '36px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px'
+                                  justifyContent: 'center',
+                                  flexShrink: 0
                                 }}>
-                                  <span>🕐</span>
-                                  {formatRelativeTime(notification.created_at)}
+                                  {getNotificationIcon(notification)}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontWeight: notification.is_read ? '500' : '600',
+                                    marginBottom: '6px',
+                                    fontSize: '14px',
+                                    color: '#111827',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start'
+                                  }}>
+                                    <span>{notification.title}</span>
+                                    {!notification.is_read && (
+                                      <span style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        backgroundColor: '#3b82f6',
+                                        borderRadius: '50%',
+                                        flexShrink: 0,
+                                        marginTop: '4px'
+                                      }}></span>
+                                    )}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    marginBottom: '6px',
+                                    lineHeight: '1.4'
+                                  }}>
+                                    {cleanMessage}
+                                  </div>
+                                  
+                                  {/* Display salesman photo if available */}
+                                  {photoUrl && (
+                                    <div style={{ 
+                                      marginTop: '8px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '10px',
+                                      padding: '6px 10px',
+                                      backgroundColor: '#f3f4f6',
+                                      borderRadius: '8px',
+                                      border: '1px solid #e5e7eb'
+                                    }}>
+                                      <img 
+                                        src={photoUrl} 
+                                        alt="Salesperson" 
+                                        style={{ 
+                                          width: '36px', 
+                                          height: '36px', 
+                                          borderRadius: '50%', 
+                                          objectFit: 'cover',
+                                          border: '2px solid #d1d5db'
+                                        }}
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                        }}
+                                      />
+                                      <span style={{ fontSize: '12px', color: '#4b5563', fontWeight: 500 }}>
+                                        👤 Salesperson
+                                      </span>
+                                    </div>
+                                  )}
+                                  
+                                  <div style={{
+                                    fontSize: '11px',
+                                    color: '#9ca3af',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    marginTop: '4px'
+                                  }}>
+                                    <span>🕐</span>
+                                    {formatRelativeTime(notification.created_at)}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </Dropdown.Item>
-                        ))
+                            </Dropdown.Item>
+                          );
+                        })
                       )}
                     </div>
                   </Dropdown.Menu>
