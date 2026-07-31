@@ -1,4 +1,5 @@
-// CustomerDashboard.jsx - Complete Fixed Version
+// CustomerDashboard.jsx - Updated Salesperson Fetching Logic
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -18,7 +19,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCamera, FiBell, FiCheck } from 'react-icons/fi';
-import { Button, Dropdown, Badge, Toast, ToastContainer } from "react-bootstrap";
+import { Button, Dropdown, Badge, Toast, ToastContainer, Modal, Spinner } from "react-bootstrap";
 import baseURL from "../ApiUrl/NodeBaseURL";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
@@ -73,6 +74,14 @@ function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+
+  // Salesperson Modal states
+  const [showSalespersonModal, setShowSalespersonModal] = useState(false);
+  const [selectedSalesperson, setSelectedSalesperson] = useState(null);
+  const [isLoadingSalesperson, setIsLoadingSalesperson] = useState(false);
+
+  // Cache for salesperson details to avoid repeated API calls
+  const salespersonCacheRef = useRef({});
 
   // Initialize screenshot protection
   useEffect(() => {
@@ -141,7 +150,28 @@ function Dashboard() {
     }
   };
 
-  // Connect to SSE for real-time notifications
+  // Fetch all salespersons from account_details
+  const fetchAllSalespersons = async () => {
+    try {
+      const response = await fetch(`${baseURL2}/get/account-details`);
+      if (!response.ok) {
+        console.warn('⚠️ Failed to fetch account details');
+        return [];
+      }
+      const accounts = await response.json();
+      // Filter only SALESMAN group
+      const salespersons = accounts.filter(
+        (acc) => acc.account_group && acc.account_group.toUpperCase() === 'SALESMAN'
+      );
+      console.log(`✅ Found ${salespersons.length} salespersons`);
+      return salespersons;
+    } catch (error) {
+      console.error('❌ Error fetching salespersons:', error);
+      return [];
+    }
+  };
+
+  // Connect to SSE for real-time notifications - FIXED to handle 404 errors gracefully
   useEffect(() => {
     const setupNotifications = async () => {
       const userData = localStorage.getItem("user");
@@ -154,13 +184,28 @@ function Dashboard() {
 
       customerAccountIdRef.current = accountId;
 
-      // Connect to SSE from Jiya Jewellery (port 5000)
+      // Pre-fetch salespersons for quick lookup
+      const salespersons = await fetchAllSalespersons();
+      // Build cache for quick name-based lookup
+      salespersons.forEach(sp => {
+        if (sp.account_name) {
+          // Store multiple variations of the name for better matching
+          const normalizedName = sp.account_name.toLowerCase().trim();
+          salespersonCacheRef.current[normalizedName] = sp;
+          // Also store without extra spaces
+          const compactName = normalizedName.replace(/\s+/g, ' ');
+          salespersonCacheRef.current[compactName] = sp;
+        }
+      });
+      console.log('📦 Salesperson cache built with', Object.keys(salespersonCacheRef.current).length, 'entries');
+
+      // Connect to SSE from Jiya Jewellery (port 5000) - MAIN SERVER
       const connectSSE = () => {
         try {
           const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
 
           eventSource.onopen = () => {
-            console.log('Customer SSE connection established (port 5000)');
+            console.log('✅ Customer SSE connection established (port 5000)');
           };
 
           eventSource.onmessage = (event) => {
@@ -168,7 +213,7 @@ function Dashboard() {
               const data = JSON.parse(event.data);
 
               if (data.type === 'connected') {
-                console.log('Connected to customer notification stream (port 5000)');
+                console.log('✅ Connected to customer notification stream (port 5000)');
                 return;
               }
 
@@ -181,9 +226,12 @@ function Dashboard() {
           };
 
           eventSource.onerror = (error) => {
-            console.error('SSE connection error (port 5000):', error);
+            console.warn('⚠️ SSE connection error (port 5000):', error);
             eventSource.close();
-            setTimeout(() => connectSSE(), 5000);
+            setTimeout(() => {
+              console.log('🔄 Reconnecting SSE (port 5000)...');
+              connectSSE();
+            }, 10000);
           };
 
           sseRef.current = eventSource;
@@ -192,41 +240,57 @@ function Dashboard() {
         }
       };
 
-      // Connect to SSE from Jiya Jewellery ERP (port 5001)
+      // Connect to SSE from Jiya Jewellery ERP (port 5001) - SECONDARY SERVER with fallback
       const connectSSE2 = () => {
         try {
-          const eventSource = new EventSource(`${baseURL2}/api/customer-notifications/${accountId}`);
+          fetch(`${baseURL2}/api/customer-notifications/${accountId}`, { 
+            method: 'HEAD',
+            signal: AbortSignal.timeout(3000)
+          })
+          .then(response => {
+            if (response.ok) {
+              const eventSource = new EventSource(`${baseURL2}/api/customer-notifications/${accountId}`);
 
-          eventSource.onopen = () => {
-            console.log('Customer SSE connection established (port 5001)');
-          };
+              eventSource.onopen = () => {
+                console.log('✅ Customer SSE connection established (port 5001)');
+              };
 
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
+              eventSource.onmessage = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
 
-              if (data.type === 'connected') {
-                console.log('Connected to customer notification stream (port 5001)');
-                return;
-              }
+                  if (data.type === 'connected') {
+                    console.log('✅ Connected to customer notification stream (port 5001)');
+                    return;
+                  }
 
-              if (data.title && data.message) {
-                handleNewNotification(data);
-              }
-            } catch (error) {
-              console.error('Error parsing SSE message:', error);
+                  if (data.title && data.message) {
+                    handleNewNotification(data);
+                  }
+                } catch (error) {
+                  console.error('Error parsing SSE message (port 5001):', error);
+                }
+              };
+
+              eventSource.onerror = (error) => {
+                console.warn('⚠️ SSE connection error (port 5001):', error);
+                eventSource.close();
+                setTimeout(() => {
+                  console.log('🔄 Reconnecting SSE (port 5001)...');
+                  connectSSE2();
+                }, 15000);
+              };
+
+              sseRef2.current = eventSource;
+            } else {
+              console.warn('⚠️ Server on port 5001 not responding, skipping SSE connection');
             }
-          };
-
-          eventSource.onerror = (error) => {
-            console.error('SSE connection error (port 5001):', error);
-            eventSource.close();
-            setTimeout(() => connectSSE2(), 5000);
-          };
-
-          sseRef2.current = eventSource;
+          })
+          .catch(() => {
+            console.warn('⚠️ Server on port 5001 unreachable, skipping SSE connection');
+          });
         } catch (error) {
-          console.error('Error setting up SSE (port 5001):', error);
+          console.warn('⚠️ Error setting up SSE (port 5001):', error.message);
         }
       };
 
@@ -243,9 +307,21 @@ function Dashboard() {
     };
 
     setupNotifications();
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+      if (sseRef2.current) {
+        sseRef2.current.close();
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
   }, []);
 
-  // Fetch dashboard data - FIXED to match estimates correctly
+  // Fetch dashboard data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -260,12 +336,9 @@ function Dashboard() {
         const user = JSON.parse(userData);
         setCurrentUser(user);
 
-        // Store user email for matching
         userEmailRef.current = user.email_id || user.email;
 
-        // Get user ID from users table (this is what estimates use as customer_id)
         const userId = user.id;
-        // Get customer_id from user (e.g., "CUST-005")
         const customerId = user.customer_id;
 
         console.log('🔍 User data:', { userId, customerId, email: userEmailRef.current });
@@ -278,7 +351,6 @@ function Dashboard() {
 
         await checkFaceRegistration(userId);
 
-        // Fetch estimates
         const estimatesResponse = await fetch(`${baseURL}/get-unique-estimates`);
         if (!estimatesResponse.ok) {
           throw new Error(`HTTP error! status: ${estimatesResponse.status}`);
@@ -287,24 +359,16 @@ function Dashboard() {
 
         console.log(`📊 Total estimates fetched: ${estimates.length}`);
 
-        // Filter estimates by matching customer_id with user ID
-        // The estimates table stores customer_id as the users.id (e.g., "3" for krishna)
-        // We need to match by the logged-in user's ID from the users table
         const customerEstimates = estimates.filter(estimate => {
           const estimateCustomerId = estimate.customer_id ? estimate.customer_id.toString() : '';
           const userIdStr = userId.toString();
           const customerIdStr = customerId ? customerId.toString() : '';
 
-          // Check if estimate belongs to this user by:
-          // 1. Matching users.id (e.g., "26")
-          // 2. Matching customer_id (e.g., "CUST-005")
-          // 3. Matching email (if available in estimate)
           const matchesById = estimateCustomerId === userIdStr;
           const matchesByCustomerId = customerIdStr && estimateCustomerId === customerIdStr;
           const matchesByEmail = userEmailRef.current && estimate.customer_name && 
             estimate.customer_name.toLowerCase().includes(user.full_name?.toLowerCase() || '');
 
-          // Also check if the estimate has cust_id or other fields
           const custIdMatch = estimate.cust_id && estimate.cust_id.toString() === userIdStr;
 
           return matchesById || matchesByCustomerId || matchesByEmail || custIdMatch;
@@ -312,12 +376,9 @@ function Dashboard() {
 
         console.log(`📊 Found ${customerEstimates.length} estimates for user ${userId}`);
 
-        // If no estimates found by direct match, try to find by email in account_details
         if (customerEstimates.length === 0 && userEmailRef.current) {
           console.log('🔍 No estimates found by ID, trying to match by email...');
-          // Try to find estimates where customer_name matches user's full name
           const emailEstimates = estimates.filter(estimate => {
-            // Check if estimate has customer_name that matches user's name
             if (estimate.customer_name && user.full_name) {
               return estimate.customer_name.toLowerCase().includes(user.full_name.toLowerCase()) ||
                      user.full_name.toLowerCase().includes(estimate.customer_name.toLowerCase());
@@ -330,7 +391,6 @@ function Dashboard() {
           }
         }
 
-        // Remove duplicates
         const uniqueEstimates = [];
         const seenIds = new Set();
         customerEstimates.forEach(est => {
@@ -400,7 +460,6 @@ function Dashboard() {
           .slice(0, 5);
         setRecentEstimates(recentEst);
 
-        // Fetch user profile
         const usersResponse = await fetch(`${baseURL}/api/users`);
         if (usersResponse.ok) {
           const allUsers = await usersResponse.json();
@@ -464,22 +523,32 @@ function Dashboard() {
   // Fetch notifications from both APIs
   const fetchNotifications = async (userId, silent = false) => {
     try {
-      const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=customer&limit=50`);
       let notifications1 = [];
-      if (response1.ok) {
-        const data = await response1.json();
-        if (data.success) {
-          notifications1 = data.notifications || [];
+      try {
+        const response1 = await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${userId}?userType=customer&limit=50`);
+        if (response1.ok) {
+          const data = await response1.json();
+          if (data.success) {
+            notifications1 = data.notifications || [];
+          }
         }
+      } catch (e) {
+        if (!silent) console.warn('⚠️ Failed to fetch from port 5000:', e.message);
       }
 
-      const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=customer&limit=50`);
       let notifications2 = [];
-      if (response2.ok) {
-        const data = await response2.json();
-        if (data.success) {
-          notifications2 = data.notifications || [];
+      try {
+        const response2 = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${userId}?userType=customer&limit=50`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        if (response2.ok) {
+          const data = await response2.json();
+          if (data.success) {
+            notifications2 = data.notifications || [];
+          }
         }
+      } catch (e) {
+        if (!silent) console.warn('⚠️ Server on port 5001 not available:', e.message);
       }
 
       const allNotifications = [...notifications1, ...notifications2];
@@ -540,10 +609,11 @@ function Dashboard() {
     try {
       await fetch(`${baseURL}/api/visit-logs-schedule/notifications/${notificationId}/read`, {
         method: 'PUT'
-      });
+      }).catch(() => {});
+      
       await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/${notificationId}/read`, {
         method: 'PUT'
-      });
+      }).catch(() => {});
 
       setNotifications(prev =>
         prev.map(notif =>
@@ -570,12 +640,13 @@ function Dashboard() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userType: 'customer' })
-      });
+      }).catch(() => {});
+      
       await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/notifications/mark-all-read/${accountId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userType: 'customer' })
-      });
+      }).catch(() => {});
 
       setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
       setUnreadCount(0);
@@ -629,6 +700,168 @@ function Dashboard() {
     if (!message) return null;
     const match = message.match(/\[Salesperson Photo:\s*([^\]]+)\]/);
     return match ? match[1] : null;
+  };
+
+  // Extract salesperson name from notification message
+  const extractSalespersonName = (message) => {
+    if (!message) return null;
+    // Pattern: "Salesperson: [Name]" or "Salesperson Name: [Name]"
+    const match = message.match(/Salesperson:\s*([^\n]+)/i) || 
+                  message.match(/Salesperson Name:\s*([^\n]+)/i);
+    if (match) {
+      let name = match[1].trim();
+      // Clean up the name - remove any extra text after it
+      const cleanMatch = name.match(/^([a-zA-Z\s]+)/);
+      return cleanMatch ? cleanMatch[1].trim() : name;
+    }
+    
+    // Try to find name after "Salesperson:" in the message
+    const lines = message.split('\n');
+    for (const line of lines) {
+      if (line.includes('Salesperson:')) {
+        const parts = line.split('Salesperson:');
+        if (parts.length > 1) {
+          let name = parts[1].trim();
+          const cleanMatch = name.match(/^([a-zA-Z\s]+)/);
+          return cleanMatch ? cleanMatch[1].trim() : name;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Get salesperson details from cache or fetch from API
+  const getSalespersonDetails = async (salespersonName) => {
+    if (!salespersonName) return null;
+
+    const normalizedName = salespersonName.toLowerCase().trim();
+    const compactName = normalizedName.replace(/\s+/g, ' ');
+
+    // Check cache first
+    if (salespersonCacheRef.current[normalizedName]) {
+      const cached = salespersonCacheRef.current[normalizedName];
+      console.log(`✅ Found salesperson in cache: ${cached.account_name}`);
+      return {
+        name: cached.account_name,
+        phone: cached.mobile || cached.phone || 'N/A',
+        email: cached.email || 'N/A',
+        photo: null,
+        role: 'Sales Representative',
+        title: 'Salesperson Details',
+        account_id: cached.account_id,
+        account_group: cached.account_group
+      };
+    }
+
+    if (salespersonCacheRef.current[compactName]) {
+      const cached = salespersonCacheRef.current[compactName];
+      console.log(`✅ Found salesperson in cache (compact): ${cached.account_name}`);
+      return {
+        name: cached.account_name,
+        phone: cached.mobile || cached.phone || 'N/A',
+        email: cached.email || 'N/A',
+        photo: null,
+        role: 'Sales Representative',
+        title: 'Salesperson Details',
+        account_id: cached.account_id,
+        account_group: cached.account_group
+      };
+    }
+
+    // If not in cache, try to fetch from API
+    console.log(`🔍 Salesperson "${salespersonName}" not in cache, fetching from API...`);
+    try {
+      const response = await fetch(`${baseURL2}/get/account-details`);
+      if (response.ok) {
+        const accounts = await response.json();
+        const salespersons = accounts.filter(
+          (acc) => acc.account_group && acc.account_group.toUpperCase() === 'SALESMAN'
+        );
+
+        // Try to find matching salesperson
+        for (const sp of salespersons) {
+          const spName = sp.account_name?.toLowerCase().trim() || '';
+          const spCompact = spName.replace(/\s+/g, ' ');
+          
+          if (spName === normalizedName || spCompact === compactName ||
+              spName.includes(normalizedName) || normalizedName.includes(spName)) {
+            // Cache for future use
+            salespersonCacheRef.current[normalizedName] = sp;
+            salespersonCacheRef.current[compactName] = sp;
+            
+            console.log(`✅ Found salesperson: ${sp.account_name}`);
+            return {
+              name: sp.account_name,
+              phone: sp.mobile || sp.phone || 'N/A',
+              email: sp.email || 'N/A',
+              photo: null,
+              role: 'Sales Representative',
+              title: 'Salesperson Details',
+              account_id: sp.account_id,
+              account_group: sp.account_group
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Error fetching salesperson details from API:', error);
+    }
+
+    // Return basic info if no match found
+    console.log(`⚠️ No salesperson found for: ${salespersonName}`);
+    return {
+      name: salespersonName,
+      phone: 'N/A',
+      email: 'N/A',
+      photo: null,
+      role: 'Sales Representative',
+      title: 'Salesperson Details'
+    };
+  };
+
+  // Handle salesperson image click
+  const handleSalespersonClick = async (notification) => {
+    setIsLoadingSalesperson(true);
+    setShowSalespersonModal(true);
+    
+    try {
+      const name = extractSalespersonName(notification.message);
+      const photoUrl = extractPhotoUrl(notification.message);
+      
+      let details = null;
+      if (name) {
+        details = await getSalespersonDetails(name);
+      }
+      
+      if (details) {
+        setSelectedSalesperson({
+          ...details,
+          photo: photoUrl || details.photo,
+        });
+      } else {
+        // Fallback
+        setSelectedSalesperson({
+          name: name || 'Salesperson',
+          photo: photoUrl,
+          phone: 'N/A',
+          email: 'N/A',
+          role: 'Sales Representative',
+          title: notification.title || 'Salesperson Details'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading salesperson details:', error);
+      setSelectedSalesperson({
+        name: extractSalespersonName(notification.message) || 'Salesperson',
+        photo: extractPhotoUrl(notification.message),
+        phone: 'N/A',
+        email: 'N/A',
+        role: 'Sales Representative',
+        title: notification.title || 'Salesperson Details'
+      });
+    } finally {
+      setIsLoadingSalesperson(false);
+    }
   };
 
   // Clean notification message (remove photo URL marker)
@@ -1095,6 +1328,7 @@ function Dashboard() {
                         notifications.map(notification => {
                           const photoUrl = extractPhotoUrl(notification.message);
                           const cleanMessage = cleanNotificationMessage(notification.message);
+                          const salespersonName = extractSalespersonName(notification.message);
 
                           return (
                             <Dropdown.Item
@@ -1153,35 +1387,96 @@ function Dashboard() {
                                     {cleanMessage}
                                   </div>
                                   
-                                  {/* Display salesman photo if available */}
-                                  {photoUrl && (
-                                    <div style={{ 
-                                      marginTop: '8px', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      gap: '10px',
-                                      padding: '6px 10px',
-                                      backgroundColor: '#f3f4f6',
-                                      borderRadius: '8px',
-                                      border: '1px solid #e5e7eb'
-                                    }}>
-                                      <img 
-                                        src={photoUrl} 
-                                        alt="Salesperson" 
-                                        style={{ 
-                                          width: '36px', 
-                                          height: '36px', 
-                                          borderRadius: '50%', 
-                                          objectFit: 'cover',
-                                          border: '2px solid #d1d5db'
-                                        }}
-                                        onError={(e) => {
-                                          e.target.style.display = 'none';
-                                        }}
-                                      />
-                                      <span style={{ fontSize: '12px', color: '#4b5563', fontWeight: 500 }}>
-                                        👤 Salesperson
-                                      </span>
+                                  {/* Display salesman photo with click handler */}
+                                  {(photoUrl || salespersonName) && (
+                                    <div 
+                                      style={{ 
+                                        marginTop: '8px', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '10px',
+                                        padding: '6px 10px',
+                                        backgroundColor: '#f3f4f6',
+                                        borderRadius: '8px',
+                                        border: '1px solid #e5e7eb',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSalespersonClick(notification);
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#e5e7eb';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                      }}
+                                    >
+                                      {photoUrl ? (
+                                        <img 
+                                          src={photoUrl} 
+                                          alt="Salesperson" 
+                                          style={{ 
+                                            width: '40px', 
+                                            height: '40px', 
+                                            borderRadius: '50%', 
+                                            objectFit: 'cover',
+                                            border: '2px solid #3b82f6'
+                                          }}
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            const parent = e.target.parentElement;
+                                            if (parent) {
+                                              const fallback = document.createElement('span');
+                                              fallback.textContent = '👤';
+                                              fallback.style.fontSize = '24px';
+                                              fallback.style.width = '40px';
+                                              fallback.style.height = '40px';
+                                              fallback.style.display = 'flex';
+                                              fallback.style.alignItems = 'center';
+                                              fallback.style.justifyContent = 'center';
+                                              fallback.style.backgroundColor = '#d1d5db';
+                                              fallback.style.borderRadius = '50%';
+                                              parent.insertBefore(fallback, e.target);
+                                              e.target.remove();
+                                            }
+                                          }}
+                                        />
+                                      ) : (
+                                        <div style={{
+                                          width: '40px',
+                                          height: '40px',
+                                          borderRadius: '50%',
+                                          backgroundColor: '#3b82f6',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          fontSize: '20px',
+                                          color: 'white',
+                                          flexShrink: 0
+                                        }}>
+                                          👤
+                                        </div>
+                                      )}
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ 
+                                          fontSize: '13px', 
+                                          fontWeight: 600, 
+                                          color: '#1f2937'
+                                        }}>
+                                          {salespersonName || 'Salesperson'}
+                                        </div>
+                                        <div style={{ 
+                                          fontSize: '11px', 
+                                          color: '#3b82f6',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          <span>👆</span> Click to view details
+                                        </div>
+                                      </div>
                                     </div>
                                   )}
                                   
@@ -1515,6 +1810,281 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Salesperson Details Modal */}
+      <Modal
+        show={showSalespersonModal}
+        onHide={() => setShowSalespersonModal(false)}
+        centered
+        size="lg"
+        style={{
+          zIndex: 9999
+        }}
+      >
+        <Modal.Header closeButton style={{
+          backgroundColor: '#f8fafc',
+          borderBottom: '2px solid #e5e7eb',
+          padding: '20px 24px'
+        }}>
+          <Modal.Title style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '20px',
+            fontWeight: 600,
+            color: '#1f2937'
+          }}>
+            <span style={{ fontSize: '28px' }}>👤</span>
+            Salesperson Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{
+          padding: '24px',
+          backgroundColor: 'white'
+        }}>
+          {isLoadingSalesperson ? (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <Spinner animation="border" variant="primary" />
+              <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading salesperson details...</p>
+            </div>
+          ) : selectedSalesperson && (
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              {/* Profile Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '4px solid #3b82f6',
+                  flexShrink: 0,
+                  backgroundColor: '#e5e7eb'
+                }}>
+                  {selectedSalesperson.photo ? (
+                    <img
+                      src={selectedSalesperson.photo}
+                      alt={selectedSalesperson.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `
+                          <div style="
+                            width: 100%;
+                            height: 100%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 48px;
+                            color: #9ca3af;
+                          ">👤</div>
+                        `;
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '48px',
+                      color: '#9ca3af'
+                    }}>
+                      👤
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{
+                    fontSize: '22px',
+                    fontWeight: 600,
+                    color: '#1f2937',
+                    marginBottom: '4px'
+                  }}>
+                    {selectedSalesperson.name}
+                  </h3>
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#6b7280',
+                    marginBottom: '4px'
+                  }}>
+                    {selectedSalesperson.role || 'Sales Representative'}
+                  </p>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    marginTop: '8px'
+                  }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 12px',
+                      backgroundColor: '#dbeafe',
+                      color: '#1e40af',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 500
+                    }}>
+                      <span>✅</span> Verified
+                    </span>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 12px',
+                      backgroundColor: '#d1fae5',
+                      color: '#065f46',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 500
+                    }}>
+                      <span>⭐</span> Top Rated
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Details */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '16px'
+              }}>
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#6b7280',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '6px'
+                  }}>
+                    📱 Phone
+                  </div>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    color: '#1f2937'
+                  }}>
+                    {selectedSalesperson.phone || 'N/A'}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#6b7280',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '6px'
+                  }}>
+                    ✉️ Email
+                  </div>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    color: '#1f2937'
+                  }}>
+                    {selectedSalesperson.email || 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Info */}
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#f0fdf4',
+                borderRadius: '10px',
+                border: '1px solid #bbf7d0'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '4px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>💬</span>
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#065f46'
+                  }}>
+                    About this Salesperson
+                  </span>
+                </div>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#4b5563',
+                  margin: '4px 0 0 0',
+                  lineHeight: '1.6'
+                }}>
+                  {selectedSalesperson.name} is a dedicated sales professional who will assist you with your inquiries and help you find the best solutions for your needs.
+                </p>
+              </div>
+
+              {/* Notification Context */}
+              <div style={{
+                padding: '12px 16px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                fontSize: '13px',
+                color: '#6b7280'
+              }}>
+                <span style={{ fontWeight: 500, color: '#374151' }}>📌 Context: </span>
+                {selectedSalesperson.title || 'Salesperson assigned for your visit'}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{
+          padding: '16px 24px',
+          borderTop: '1px solid #e5e7eb',
+          backgroundColor: '#f8fafc'
+        }}>
+          <Button
+            variant="primary"
+            onClick={() => setShowSalespersonModal(false)}
+            style={{
+              backgroundColor: '#3b82f6',
+              border: 'none',
+              padding: '8px 24px',
+              fontWeight: 500
+            }}
+          >
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* Face Capture Modal */}
       {showFaceCapture && (
         <FaceCapture
@@ -1547,6 +2117,11 @@ function Dashboard() {
 
         .notification-list::-webkit-scrollbar-thumb:hover {
           background: #555;
+        }
+
+        /* Modal overlay fix */
+        .modal-backdrop.show {
+          opacity: 0.7;
         }
       `}</style>
     </>
