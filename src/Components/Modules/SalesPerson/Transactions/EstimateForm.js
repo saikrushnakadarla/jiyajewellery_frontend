@@ -13,7 +13,6 @@ import PDFContent from "./EstimateReceipt";
 import Navbar from "../../../Pages/Navbar/SalesNavbar";
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import Swal from 'sweetalert2';
-import Tesseract from 'tesseract.js';
 
 const EstimateForm = () => {
   const navigate = useNavigate();
@@ -40,51 +39,48 @@ const EstimateForm = () => {
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Weight Machine Camera states
+  // Weight Machine states - GEMINI API INTEGRATION
   const [showWeightCamera, setShowWeightCamera] = useState(false);
   const [weightCameraStream, setWeightCameraStream] = useState(null);
   const weightVideoRef = useRef(null);
   const weightCanvasRef = useRef(null);
+  const weightFileInputRef = useRef(null);
   const [extractedWeight, setExtractedWeight] = useState(null);
   const [isProcessingWeight, setIsProcessingWeight] = useState(false);
   const [weightCaptureError, setWeightCaptureError] = useState(null);
+  
+  // Fields for Gemini extraction
+  const [extractedGrams, setExtractedGrams] = useState(null);
+  const [extractedMilligrams, setExtractedMilligrams] = useState(null);
+  const [extractedTotalGrams, setExtractedTotalGrams] = useState(null);
+  const [extractedRawText, setExtractedRawText] = useState(null);
+  const [extractedConfidence, setExtractedConfidence] = useState(null);
 
   // Packet images state
   const [packetImages, setPacketImages] = useState([]);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Packet level state - SINGLE packet for ALL products
+  // Packet level state
   const [packetDetails, setPacketDetails] = useState(null);
   const [isPacketScanned, setIsPacketScanned] = useState(false);
   const [sharedPacketBarcode, setSharedPacketBarcode] = useState(null);
   const [sharedPacketWt, setSharedPacketWt] = useState(null);
 
-  // Refs for latest values
   const sharedPacketBarcodeRef = useRef(null);
   const sharedPacketWtRef = useRef(null);
   const isPacketScannedRef = useRef(false);
 
-  // Store the saved estimate number for updates
   const [savedEstimateNumber, setSavedEstimateNumber] = useState("");
   const [isEstimateSaved, setIsEstimateSaved] = useState(false);
-
-  // Total quantity state
   const [totalQuantity, setTotalQuantity] = useState(0);
-
-  // Store scanned products for receipt
   const [scannedProducts, setScannedProducts] = useState([]);
-
-  // Store the current estimate number for session
   const [currentEstimateNumber, setCurrentEstimateNumber] = useState("");
   const currentEstimateNumberRef = useRef("");
-
-  // Success message state
   const [successMessage, setSuccessMessage] = useState("");
   const [packetSuccessMessage, setPacketSuccessMessage] = useState("");
   const [lastAddedProduct, setLastAddedProduct] = useState("");
 
-  // Store assigned products for the salesman
   const [assignedProducts, setAssignedProducts] = useState([]);
   const [assignedProductsMap, setAssignedProductsMap] = useState(new Map());
   const assignedProductsRef = useRef(new Map());
@@ -122,7 +118,6 @@ const EstimateForm = () => {
   const [customers, setCustomers] = useState([]);
   const [customerOptions, setCustomerOptions] = useState([]);
 
-  // Keep refs in sync with state
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
@@ -135,7 +130,6 @@ const EstimateForm = () => {
     assignedProductsRef.current = assignedProductsMap;
   }, [assignedProductsMap]);
 
-  // Auto-hide success message after 3 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -155,7 +149,7 @@ const EstimateForm = () => {
     }
   }, [packetSuccessMessage]);
 
-  // Fetch assigned products for the logged-in salesman
+  // Fetch assigned products
   useEffect(() => {
     const fetchAssignedProducts = async () => {
       if (!salespersonId) return;
@@ -290,7 +284,7 @@ const EstimateForm = () => {
     fetchLastEstimateNumber();
   }, [salespersonId, sourceBy]);
 
-  // Initialize product scanner when modal opens
+  // Initialize product scanner
   useEffect(() => {
     if (showScanner && !isScannerInitialized) {
       const timer = setTimeout(() => {
@@ -374,413 +368,117 @@ const EstimateForm = () => {
   };
 
   // ============================================
-  // ENHANCED OCR WEIGHT EXTRACTION FUNCTIONS
+  // GEMINI API WEIGHT EXTRACTION
   // ============================================
 
-  // Preprocess image: upscale + grayscale + threshold
-  // Dramatically improves Tesseract's accuracy on LCD digit displays
-  const preprocessImageForOCR = (file) => {
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        img.onload = () => {
-          const scale = 2;
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  // Process weight machine image using Gemini API backend
+  const processWeightImage = async (imageFile) => {
+    setIsProcessingWeight(true);
+    setExtractedWeight(null);
+    setExtractedGrams(null);
+    setExtractedMilligrams(null);
+    setExtractedTotalGrams(null);
+    setExtractedRawText(null);
+    setExtractedConfidence(null);
+    setWeightCaptureError(null);
 
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          for (let i = 0; i < data.length; i += 4) {
-            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            const contrasted = avg > 140 ? 255 : (avg < 90 ? 0 : avg);
-            data[i] = data[i + 1] = data[i + 2] = contrasted;
-          }
-          ctx.putImageData(imageData, 0, 0);
-          canvas.toBlob((blob) => resolve(blob), 'image/png');
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Extracts BOTH Gross Weight and Net/Wastage weight, handling:
-  // - labeled scale displays (even garbled OCR like "Grost Weight"/"Nol Height")
-  // - handwritten shorthand like "GW 50gms  WAW 450m"
- // Extracts BOTH Gross Weight and Net/Wastage weight
-// Extracts BOTH Gross Weight and Net/Wastage weight from OCR text
-const extractWeightsFromText = (text) => {
-  console.log('=== EXTRACTING WEIGHTS FROM OCR ===');
-  console.log('Raw OCR Text:', text);
-  
-  // Clean the text - remove extra spaces and normalize
-  const cleaned = text.replace(/\r/g, '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-  console.log('Cleaned Text:', cleaned);
-  
-  let grossWeight = null;
-  let secondaryWeight = null;
-  let secondaryLabel = 'wastage_weight';
-
-  // Extract all numbers with decimals
-  const numberMatches = cleaned.match(/\d+\.\d+|\d+/g);
-  console.log('All numbers found:', numberMatches);
-  
-  if (!numberMatches || numberMatches.length === 0) {
-    console.log('No numbers found in text');
-    return null;
-  }
-
-  // Parse all numbers to float
-  const allNumbers = numberMatches.map(num => parseFloat(num));
-  console.log('Parsed numbers:', allNumbers);
-
-  // === STRATEGY 1: Find weights using specific patterns from your image ===
-  
-  // Look for "Grost Weight" pattern (your image has "Grost Weight 56.4")
-  const grossMatch = cleaned.match(/Grost\s*Weight\s*(\d+\.?\d*)/i);
-  if (grossMatch) {
-    grossWeight = parseFloat(grossMatch[1]);
-    console.log(`✅ Found Gross Weight via "Grost Weight" pattern: ${grossWeight}`);
-  }
-
-  // Look for "GABR" pattern (your image has "GABR" near the weight)
-  if (grossWeight === null) {
-    const gabrMatch = cleaned.match(/GABR\s*(\d+\.?\d*)/i);
-    if (gabrMatch) {
-      grossWeight = parseFloat(gabrMatch[1]);
-      console.log(`✅ Found Gross Weight via "GABR" pattern: ${grossWeight}`);
-    }
-  }
-
-  // Look for "Nol Height" pattern (your image has "Nol Height 50.7")
-  const netMatch = cleaned.match(/Nol\s*Height\s*(\d+\.?\d*)/i);
-  if (netMatch) {
-    secondaryWeight = parseFloat(netMatch[1]);
-    secondaryLabel = 'net_weight';
-    console.log(`✅ Found Net Weight via "Nol Height" pattern: ${secondaryWeight}`);
-  }
-
-  // Look for "ONTLP" pattern (your image has "ONTLP" near the weight)
-  if (secondaryWeight === null) {
-    const ontlpMatch = cleaned.match(/ONTLP\s*(\d+\.?\d*)/i);
-    if (ontlpMatch) {
-      secondaryWeight = parseFloat(ontlpMatch[1]);
-      secondaryLabel = 'wastage_weight';
-      console.log(`✅ Found Weight via "ONTLP" pattern: ${secondaryWeight}`);
-    }
-  }
-
-  // === STRATEGY 2: Look for labels with numbers in close proximity ===
-  
-  // If gross not found, look for any variation of "gross", "grost", "grs"
-  if (grossWeight === null) {
-    const grossVariations = /g\s*r\s*o\s*s\s*t|g\s*r\s*o\s*s\s*s|gross|grs|gabr/i;
-    const match = cleaned.match(grossVariations);
-    if (match) {
-      const startIndex = match.index + match[0].length;
-      const substring = cleaned.substring(startIndex, startIndex + 30);
-      const numMatch = substring.match(/\d+\.?\d*/);
-      if (numMatch) {
-        grossWeight = parseFloat(numMatch[0]);
-        console.log(`✅ Found Gross Weight via pattern "${match[0]}": ${grossWeight}`);
-      }
-    }
-  }
-
-  // If net/secondary not found, look for any variation of "net", "nol", "height"
-  if (secondaryWeight === null) {
-    const netVariations = /n\s*o\s*l|nol|height|net|ontlp|wastage|waw/i;
-    const match = cleaned.match(netVariations);
-    if (match) {
-      const startIndex = match.index + match[0].length;
-      const substring = cleaned.substring(startIndex, startIndex + 30);
-      const numMatch = substring.match(/\d+\.?\d*/);
-      if (numMatch) {
-        secondaryWeight = parseFloat(numMatch[0]);
-        secondaryLabel = 'net_weight';
-        console.log(`✅ Found Secondary Weight via pattern "${match[0]}": ${secondaryWeight}`);
-      }
-    }
-  }
-
-  // === STRATEGY 3: If only one number is found, use it as gross weight ===
-  if (grossWeight === null && allNumbers.length === 1) {
-    grossWeight = allNumbers[0];
-    console.log(`ℹ️ Only one number found, using as Gross Weight: ${grossWeight}`);
-  }
-
-  // === STRATEGY 4: If two numbers found and neither is assigned ===
-  if (grossWeight === null && allNumbers.length >= 2) {
-    // First number is usually gross weight
-    grossWeight = allNumbers[0];
-    console.log(`ℹ️ Using first number as Gross Weight: ${grossWeight}`);
-    
-    // Second number is secondary
-    if (secondaryWeight === null) {
-      secondaryWeight = allNumbers[1];
-      secondaryLabel = 'wastage_weight';
-      console.log(`ℹ️ Using second number as Secondary Weight: ${secondaryWeight}`);
-    }
-  }
-
-  // === STRATEGY 5: Try to find numbers based on position in text ===
-  if (grossWeight === null && secondaryWeight === null) {
-    // Look for numbers that are together (like "56.4" and "50.7")
-    const numberPairs = cleaned.match(/(\d+\.?\d*)\s+(\d+\.?\d*)/);
-    if (numberPairs) {
-      grossWeight = parseFloat(numberPairs[1]);
-      secondaryWeight = parseFloat(numberPairs[2]);
-      secondaryLabel = 'wastage_weight';
-      console.log(`✅ Found number pair - Gross: ${grossWeight}, Secondary: ${secondaryWeight}`);
-    }
-  }
-
-  // === Final check and return ===
-  console.log('=== FINAL EXTRACTED WEIGHTS ===');
-  console.log(`Gross Weight: ${grossWeight}`);
-  console.log(`Secondary Weight: ${secondaryWeight} (${secondaryLabel})`);
-  
-  if (grossWeight !== null) {
-    return { 
-      grossWeight, 
-      secondaryWeight, 
-      secondaryLabel, 
-      rawText: text 
-    };
-  }
-
-  console.log('❌ No weights could be extracted');
-  return null;
-};
-  // Save weight to estimate via API
-  // Save weight to estimate via API - FIXED
-const saveWeightToEstimate = async (weights) => {
-  const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
-  if (!estimateNum) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'No Estimate Number',
-      text: 'Please create an estimate first before saving weight.',
-      confirmButtonText: 'OK'
-    });
-    return false;
-  }
-
-  try {
-    // Build payload with proper values
-    const payload = {
-      estimate_number: estimateNum,
-      gross_weight: weights.grossWeight !== null && weights.grossWeight !== undefined ? parseFloat(weights.grossWeight) : null,
-      weight_machine_raw: weights.rawText || null,
-      weight_machine_unit: 'g'
-    };
-
-    // Handle secondary weight based on label
-    if (weights.secondaryLabel === 'net_weight') {
-      payload.net_weight = weights.secondaryWeight !== null && weights.secondaryWeight !== undefined ? parseFloat(weights.secondaryWeight) : null;
-    } else if (weights.secondaryLabel === 'wastage_weight') {
-      payload.wastage_weight = weights.secondaryWeight !== null && weights.secondaryWeight !== undefined ? parseFloat(weights.secondaryWeight) : null;
-    }
-
-    console.log('Saving weight payload:', payload);
-
-    const response = await axios.post(`${baseURL}/update/estimate-weight`, payload);
-    
-    if (response.data.success) {
-      console.log(`✅ Weight saved to estimate ${estimateNum}`);
-      
+    try {
       Swal.fire({
-        icon: 'success',
-        title: 'Weight Saved!',
-        text: `Weight data saved successfully to estimate #${estimateNum}`,
-        timer: 2000,
-        showConfirmButton: false
+        title: 'Processing Image with AI...',
+        text: 'Gemini AI is analyzing the weight machine display...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
       });
-      
-      return true;
-    } else {
-      throw new Error(response.data.message || 'Failed to save weight');
-    }
-  } catch (err) {
-    console.error('Failed to save weight:', err);
-    Swal.fire({
-      icon: 'error',
-      title: 'Save Failed',
-      text: err.response?.data?.message || 'Failed to save weight to estimate. Please try again.',
-      confirmButtonText: 'OK'
-    });
-    return false;
-  }
-};
 
-  // Process weight machine image with enhanced OCR
-// Process weight machine image with enhanced OCR
-const processWeightImage = async (imageFile) => {
-  setIsProcessingWeight(true);
-  setExtractedWeight(null);
-  setWeightCaptureError(null);
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('estimate_number', currentEstimateNumberRef.current || formDataRef.current.estimate_number);
 
-  try {
-    // Show processing indicator
-    Swal.fire({
-      title: 'Processing Image...',
-      text: 'Reading weight from image...',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
-
-    // Preprocess image for better OCR accuracy
-    const preprocessed = await preprocessImageForOCR(imageFile);
-
-    console.log('=== STARTING OCR PROCESS ===');
-    
-    // Try multiple OCR passes with different settings
-    let recognizedText = '';
-    
-    // First pass - standard
-    const result1 = await Tesseract.recognize(
-      preprocessed,
-      'eng',
-      {
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-          }
-        },
-        tessedit_pageseg_mode: '6', // Assume uniform text block
-        tessedit_char_whitelist: '0123456789.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
-      }
-    );
-    
-    recognizedText = result1.data.text;
-    console.log('=== OCR PASS 1 OUTPUT ===');
-    console.log(recognizedText);
-    
-    // If no good results, try second pass with different settings
-    if (!recognizedText.match(/\d+\.?\d*/)) {
-      console.log('No numbers found in first pass, trying second pass...');
-      const result2 = await Tesseract.recognize(
-        preprocessed,
-        'eng',
-        {
-          tessedit_pageseg_mode: '3', // Fully automatic page segmentation
-          tessedit_char_whitelist: '0123456789.'
+      const response = await axios.post(`${baseURL}/api/extract-weight-gemini`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
-      );
-      recognizedText = result2.data.text;
-      console.log('=== OCR PASS 2 OUTPUT ===');
-      console.log(recognizedText);
-    }
-
-    Swal.close();
-
-    const weights = extractWeightsFromText(recognizedText);
-
-    if (weights && weights.grossWeight !== null) {
-      // Successfully extracted weight
-      const extractedData = {
-        ...weights,
-        manualEntryNeeded: false,
-        value: weights.grossWeight,
-        unit: 'g'
-      };
-      setExtractedWeight(extractedData);
-
-      // Auto-save to estimate
-      await saveWeightToEstimate(weights);
-
-      // Show success message with big numbers
-      const grossDisplay = weights.grossWeight !== null ? weights.grossWeight.toFixed(1) : '—';
-      const secondaryDisplay = weights.secondaryWeight !== null ? weights.secondaryWeight.toFixed(1) : '—';
-      const labelDisplay = weights.secondaryLabel === 'net_weight' ? 'Net' : 'Wastage/Total';
-
-      Swal.fire({
-        icon: 'success',
-        title: '✅ Weight Extracted Successfully!',
-        html: `
-          <div style="font-size: 24px; padding: 20px 0;">
-            <div><strong>Gross Weight:</strong> <span style="color: #0d47a1; font-size: 32px;">${grossDisplay}</span> g</div>
-            <div style="margin-top: 10px;"><strong>${labelDisplay}:</strong> <span style="color: #0d47a1; font-size: 32px;">${secondaryDisplay}</span> g</div>
-          </div>
-        `,
-        timer: 3000,
-        showConfirmButton: false
       });
-    } else {
-      // No weight detected - show what was read
-      Swal.fire({
-        icon: 'warning',
-        title: 'Could Not Detect Weight',
-        html: `
-          <div style="text-align: left; padding: 10px;">
-            <p>OCR could not find weight values in the image.</p>
-            <p style="font-size: 12px; color: #666; background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 10px;">
-              <strong>OCR Read:</strong><br>${recognizedText.substring(0, 200) || 'No text detected'}
-            </p>
-            <p style="margin-top: 10px;">Please enter the values manually below.</p>
-          </div>
-        `,
-        confirmButtonText: 'Enter Manually'
-      });
+
+      Swal.close();
+
+      if (response.data.success && response.data.record) {
+        const record = response.data.record;
+        
+        setExtractedRawText(record.raw_text);
+        setExtractedGrams(record.grams);
+        setExtractedMilligrams(record.milligrams);
+        setExtractedTotalGrams(record.total_grams);
+        setExtractedConfidence(record.confidence);
+        
+        setExtractedWeight({
+          grossWeight: record.total_grams,
+          secondaryWeight: null,
+          secondaryLabel: 'wastage_weight',
+          rawText: record.raw_text,
+          manualEntryNeeded: false,
+          value: record.total_grams,
+          unit: 'g',
+          grams: record.grams,
+          milligrams: record.milligrams,
+          total_grams: record.total_grams,
+          confidence: record.confidence
+        });
+
+        Swal.fire({
+          icon: 'success',
+          title: '✅ Weight Extracted Successfully!',
+          html: `
+            <div style="font-size: 24px; padding: 20px 0;">
+              <div><strong>Total Weight:</strong> <span style="color: #0d47a1; font-size: 32px;">${record.total_grams.toFixed(3)}</span> g</div>
+              <div style="margin-top: 10px;"><strong>Grams:</strong> ${record.grams} g | <strong>Milligrams:</strong> ${record.milligrams} mg</div>
+              <div style="margin-top: 5px; font-size: 14px; color: #666;">Confidence: ${record.confidence}%</div>
+              <div style="margin-top: 5px; font-size: 12px; color: #888;">Raw: ${record.raw_text}</div>
+            </div>
+          `,
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Could Not Detect Weight',
+          text: response.data.message || 'Gemini AI could not extract weight from the image.',
+          confirmButtonText: 'OK'
+        });
+        setWeightCaptureError('Could not read weight from image. Please try a clearer photo.');
+      }
+    } catch (error) {
+      Swal.close();
+      console.error('Gemini API Error:', error);
       
-      setExtractedWeight({
-        grossWeight: null,
-        secondaryWeight: null,
-        secondaryLabel: 'wastage_weight',
-        rawText: recognizedText,
-        manualEntryNeeded: true,
-        value: null,
-        unit: 'g'
-      });
-      setWeightCaptureError('Could not read weight from image. Please enter the values manually below.');
-    }
-  } catch (error) {
-    Swal.close();
-    console.error('OCR Error:', error);
-    setExtractedWeight({
-      grossWeight: null,
-      secondaryWeight: null,
-      secondaryLabel: 'wastage_weight',
-      manualEntryNeeded: true,
-      value: null,
-      unit: 'g'
-    });
-    setWeightCaptureError('Error processing image. Please enter the weight manually below.');
-  } finally {
-    setIsProcessingWeight(false);
-  }
-};
-
-  // Handle manual weight save
-  const handleManualWeightSave = async () => {
-    if (!extractedWeight) return;
-
-    const weights = {
-      grossWeight: extractedWeight.grossWeight,
-      secondaryWeight: extractedWeight.secondaryWeight,
-      secondaryLabel: extractedWeight.secondaryLabel || 'wastage_weight',
-      rawText: extractedWeight.rawText || 'Manual entry'
-    };
-
-    if (weights.grossWeight === null && weights.secondaryWeight === null) {
+      let errorMessage = 'Error processing image with Gemini AI.';
+      if (error.response) {
+        errorMessage = error.response.data?.message || error.response.data?.error || errorMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setWeightCaptureError(errorMessage);
+      
       Swal.fire({
-        icon: 'warning',
-        title: 'No Weight Entered',
-        text: 'Please enter at least one weight value before saving.',
+        icon: 'error',
+        title: 'Extraction Failed',
+        text: errorMessage,
         confirmButtonText: 'OK'
       });
-      return;
+    } finally {
+      setIsProcessingWeight(false);
     }
+  };
 
-    await saveWeightToEstimate(weights);
-    
-    // Mark manual entry as saved
-    setExtractedWeight(prev => ({ ...prev, manualEntryNeeded: false }));
-    setWeightCaptureError(null);
+  // Handle weight file upload
+  const handleWeightFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      processWeightImage(file);
+    }
+    event.target.value = '';
   };
 
   // Handle Packet QR scan success
@@ -852,99 +550,96 @@ const processWeightImage = async (imageFile) => {
     }
   };
 
-  // Function to calculate all product values
-// Function to calculate all product values
-const calculateProductTotals = (productDetails) => {
-  const grossWeight = parseFloat(productDetails.gross_wt) || 0;
-  const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
-  const stonePrice = parseFloat(productDetails.stone_price) || 0;
-  const rate = parseFloat(productDetails.rate) || 0;
-  const vaPercent = parseFloat(productDetails.va_percent) || 0;
-  const vaOn = productDetails.va_on || "Gross Weight";
-  const mcPerGram = parseFloat(productDetails.mc_per_gram) || 0;
-  const mcOn = productDetails.mc_on || "MC %";
-  const hmCharges = parseFloat(productDetails.hm_charges) || 60.00;
-  const taxPercent = productDetails.tax_percent || "0.9% GST";
-  const pricing = productDetails.pricing || "By Weight";
-  const qty = parseFloat(productDetails.qty) || 1;
+  // Calculate product totals
+  const calculateProductTotals = (productDetails) => {
+    const grossWeight = parseFloat(productDetails.gross_wt) || 0;
+    const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
+    const stonePrice = parseFloat(productDetails.stone_price) || 0;
+    const rate = parseFloat(productDetails.rate) || 0;
+    const vaPercent = parseFloat(productDetails.va_percent) || 0;
+    const vaOn = productDetails.va_on || "Gross Weight";
+    const mcPerGram = parseFloat(productDetails.mc_per_gram) || 0;
+    const mcOn = productDetails.mc_on || "MC %";
+    const hmCharges = parseFloat(productDetails.hm_charges) || 60.00;
+    const taxPercent = productDetails.tax_percent || "0.9% GST";
+    const pricing = productDetails.pricing || "By Weight";
+    const qty = parseFloat(productDetails.qty) || 1;
 
-  // Extract the new fields
-  const coverWt = parseFloat(productDetails.Cover_Wt) || 0;
-  const cardWt = parseFloat(productDetails.Card_Wt) || 0;
-  const packingWt = parseFloat(productDetails.Packing_Wt) || 0;
+    const coverWt = parseFloat(productDetails.Cover_Wt) || 0;
+    const cardWt = parseFloat(productDetails.Card_Wt) || 0;
+    const packingWt = parseFloat(productDetails.Packing_Wt) || 0;
 
-  const netWeight = grossWeight - stoneWeight;
+    const netWeight = grossWeight - stoneWeight;
 
-  let wastageWeight = 0;
-  let totalWeight = netWeight;
+    let wastageWeight = 0;
+    let totalWeight = netWeight;
 
-  if (vaOn === "Gross Weight") {
-    wastageWeight = (grossWeight * vaPercent) / 100;
-    totalWeight = netWeight + wastageWeight;
-  } else if (vaOn === "Weight BW") {
-    wastageWeight = (netWeight * vaPercent) / 100;
-    totalWeight = netWeight + wastageWeight;
-  }
-
-  let rateAmount = 0;
-  if (pricing === "By Weight") {
-    rateAmount = rate * totalWeight;
-  } else if (pricing === "By fixed") {
-    rateAmount = rate * qty;
-  }
-
-  let makingCharges = 0;
-  if (mcOn === "MC / Gram") {
-    makingCharges = mcPerGram * totalWeight;
-  } else if (mcOn === "MC %") {
-    makingCharges = (mcPerGram * rateAmount) / 100;
-  } else if (mcOn === "MC / Piece") {
-    makingCharges = mcPerGram * qty;
-  }
-
-  let taxPercentNum = 0;
-  if (taxPercent) {
-    const taxMatch = taxPercent.match(/(\d+(?:\.\d+)?)/);
-    if (taxMatch) {
-      taxPercentNum = parseFloat(taxMatch[1]);
+    if (vaOn === "Gross Weight") {
+      wastageWeight = (grossWeight * vaPercent) / 100;
+      totalWeight = netWeight + wastageWeight;
+    } else if (vaOn === "Weight BW") {
+      wastageWeight = (netWeight * vaPercent) / 100;
+      totalWeight = netWeight + wastageWeight;
     }
-  }
 
-  const totalBeforeTax = rateAmount + stonePrice + makingCharges + hmCharges;
-  const taxAmount = (totalBeforeTax * taxPercentNum) / 100;
-  const totalPrice = totalBeforeTax + taxAmount;
+    let rateAmount = 0;
+    if (pricing === "By Weight") {
+      rateAmount = rate * totalWeight;
+    } else if (pricing === "By fixed") {
+      rateAmount = rate * qty;
+    }
 
-  const weightBW = netWeight;
+    let makingCharges = 0;
+    if (mcOn === "MC / Gram") {
+      makingCharges = mcPerGram * totalWeight;
+    } else if (mcOn === "MC %") {
+      makingCharges = (mcPerGram * rateAmount) / 100;
+    } else if (mcOn === "MC / Piece") {
+      makingCharges = mcPerGram * qty;
+    }
 
-  return {
-    gross_weight: grossWeight.toFixed(3),
-    stone_weight: stoneWeight.toFixed(3),
-    stone_price: stonePrice.toFixed(2),
-    net_weight: netWeight.toFixed(3),
-    weight_bw: weightBW.toFixed(3),
-    wastage_weight: wastageWeight.toFixed(3),
-    total_weight_av: totalWeight.toFixed(3),
-    rate: rate.toFixed(2),
-    rate_amt: rateAmount.toFixed(2),
-    making_charges: makingCharges.toFixed(2),
-    tax_percent: taxPercent,
-    tax_amt: taxAmount.toFixed(2),
-    total_price: totalPrice.toFixed(2),
-    va_percent: vaPercent,
-    va_on: vaOn,
-    mc_per_gram: mcPerGram,
-    mc_on: mcOn,
-    hm_charges: hmCharges,
-    qty: qty,
-    pricing: pricing,
-    // Add the new fields to the return object
-    cover_wt: coverWt.toFixed(3),
-    card_wt: cardWt.toFixed(3),
-    packing_wt: packingWt.toFixed(3)
+    let taxPercentNum = 0;
+    if (taxPercent) {
+      const taxMatch = taxPercent.match(/(\d+(?:\.\d+)?)/);
+      if (taxMatch) {
+        taxPercentNum = parseFloat(taxMatch[1]);
+      }
+    }
+
+    const totalBeforeTax = rateAmount + stonePrice + makingCharges + hmCharges;
+    const taxAmount = (totalBeforeTax * taxPercentNum) / 100;
+    const totalPrice = totalBeforeTax + taxAmount;
+
+    const weightBW = netWeight;
+
+    return {
+      gross_weight: grossWeight.toFixed(3),
+      stone_weight: stoneWeight.toFixed(3),
+      stone_price: stonePrice.toFixed(2),
+      net_weight: netWeight.toFixed(3),
+      weight_bw: weightBW.toFixed(3),
+      wastage_weight: wastageWeight.toFixed(3),
+      total_weight_av: totalWeight.toFixed(3),
+      rate: rate.toFixed(2),
+      rate_amt: rateAmount.toFixed(2),
+      making_charges: makingCharges.toFixed(2),
+      tax_percent: taxPercent,
+      tax_amt: taxAmount.toFixed(2),
+      total_price: totalPrice.toFixed(2),
+      va_percent: vaPercent,
+      va_on: vaOn,
+      mc_per_gram: mcPerGram,
+      mc_on: mcOn,
+      hm_charges: hmCharges,
+      qty: qty,
+      pricing: pricing,
+      cover_wt: coverWt.toFixed(3),
+      card_wt: cardWt.toFixed(3),
+      packing_wt: packingWt.toFixed(3)
+    };
   };
-};
 
-  // Handle product QR scan success with assignment check
+  // Handle QR scan success
   const handleQRScanSuccess = async (decodedText) => {
     try {
       stopScanner();
@@ -1033,190 +728,164 @@ const calculateProductTotals = (productDetails) => {
     }
   };
 
-const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
-  try {
-    if (!barcode) {
-      alert("Invalid barcode");
-      return null;
-    }
-
-    const currentFormData = formDataRef.current;
-
-    if (!currentFormData.customer_name || !currentFormData.customer_id) {
-      alert("Please select a customer first");
-      return null;
-    }
-
-    const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
-
-    if (!selectedProduct) {
-      alert("Product not found with this barcode");
-      return null;
-    }
-
-    if (selectedProduct.status !== 'Available') {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Product Already Selected',
-        text: `Product "${selectedProduct.product_name}" has already been selected and cannot be scanned again.`,
-        confirmButtonText: 'OK'
-      });
-      return null;
-    }
-
-    const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch product details');
-    }
-
-    const productDetails = await response.json();
-    
-    const calculatedValues = calculateProductTotals(productDetails);
-
-    let finalPacketBarcode = null;
-    let finalPacketWt = null;
-
-    console.log("=== PACKET REF VALUES ===");
-    console.log("isPacketScannedRef.current:", isPacketScannedRef.current);
-    console.log("sharedPacketBarcodeRef.current:", sharedPacketBarcodeRef.current);
-
-    if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
-      finalPacketBarcode = sharedPacketBarcodeRef.current;
-      finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
-      console.log("✅ Using packet barcode from ref:", finalPacketBarcode);
-    } else {
-      console.log("ℹ️ No packet scanned - setting packet_barcode to NULL");
-    }
-
-    const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
-
-    const entryData = {
-      date: currentFormData.date,
-      estimate_number: estimateNum,
-      customer_id: currentFormData.customer_id,
-      cust_id: currentFormData.cust_id || currentFormData.customer_id,
-      customer_name: currentFormData.customer_name,
-      salesperson_id: salespersonId,
-      source_by: sourceBy,
-      
-      product_id: productDetails.product_id,
-      product_name: productDetails.product_name,
-      barcode: productDetails.barcode,
-      code: productDetails.barcode,
-      metal_type: productDetails.metal_type,
-      purity: productDetails.purity,
-      design_name: productDetails.design,
-      category: productDetails.category_id,
-      sub_category: productDetails.product_name,
-      
-      gross_weight: calculatedValues.gross_weight,
-      stone_weight: calculatedValues.stone_weight,
-      stone_price: calculatedValues.stone_price,
-      weight_bw: calculatedValues.weight_bw,
-      
-      va_on: calculatedValues.va_on,
-      va_percent: calculatedValues.va_percent,
-      wastage_weight: calculatedValues.wastage_weight,
-      total_weight_av: calculatedValues.total_weight_av,
-      
-      mc_on: calculatedValues.mc_on,
-      mc_per_gram: calculatedValues.mc_per_gram,
-      making_charges: calculatedValues.making_charges,
-      
-      rate: calculatedValues.rate,
-      rate_amt: calculatedValues.rate_amt,
-      
-      tax_percent: calculatedValues.tax_percent,
-      tax_amt: calculatedValues.tax_amt,
-      total_price: calculatedValues.total_price,
-      hm_charges: calculatedValues.hm_charges,
-      
-      total_amount: calculatedValues.rate_amt,
-      taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
-      tax_amount: calculatedValues.tax_amt,
-      net_amount: calculatedValues.total_price,
-      
-      pricing: calculatedValues.pricing,
-      qty: calculatedValues.qty,
-      
-      packet_barcode: finalPacketBarcode,
-      packet_wt: finalPacketWt,
-      
-      opentag_id: 0,
-      pcode: null,
-      original_total_price: calculatedValues.total_price,
-      estimate_status: "Pending",
-      
-      force_insert: true,
-      
-      assigned_number: assignedProduct?.assigned_number || null,
-      assigned_item_id: assignedProduct?.item_id || null,
-      
-      // Add the new fields here
-      cover_wt: calculatedValues.cover_wt,
-      card_wt: calculatedValues.card_wt,
-      packing_wt: calculatedValues.packing_wt
-    };
-
-    console.log("=== SENDING TO BACKEND ===");
-    console.log("customer_id:", entryData.customer_id);
-    console.log("cust_id:", entryData.cust_id);
-    console.log("packet_barcode:", entryData.packet_barcode);
-    console.log("estimate_number:", entryData.estimate_number);
-    console.log("total_price:", entryData.total_price);
-    console.log("net_amount:", entryData.net_amount);
-    console.log("cover_wt:", entryData.cover_wt);
-    console.log("card_wt:", entryData.card_wt);
-    console.log("packing_wt:", entryData.packing_wt);
-
-    const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
-
-    console.log("Backend response:", saveResponse.data);
-
+  const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
     try {
-      const statusResponse = await axios.post(`${baseURL}/update-product-status-on-estimate`, {
-        product_id: productDetails.product_id,
-        status: "Selected"
-      });
+      if (!barcode) {
+        alert("Invalid barcode");
+        return null;
+      }
+
+      const currentFormData = formDataRef.current;
+
+      if (!currentFormData.customer_name || !currentFormData.customer_id) {
+        alert("Please select a customer first");
+        return null;
+      }
+
+      const selectedProduct = allProductsRef.current.find(p => p.barcode === barcode);
+
+      if (!selectedProduct) {
+        alert("Product not found with this barcode");
+        return null;
+      }
+
+      if (selectedProduct.status !== 'Available') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Product Already Selected',
+          text: `Product "${selectedProduct.product_name}" has already been selected and cannot be scanned again.`,
+          confirmButtonText: 'OK'
+        });
+        return null;
+      }
+
+      const response = await fetch(`${baseURL}/get/product/${selectedProduct.product_id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch product details');
+      }
+
+      const productDetails = await response.json();
       
-      if (statusResponse.data.success) {
-        console.log(`✅ Product ${productDetails.product_name} status updated to Selected`);
-        
-        setAllProducts(prevProducts => 
-          prevProducts.filter(product => product.product_id !== productDetails.product_id)
-        );
-        
-        allProductsRef.current = allProductsRef.current.filter(
-          product => product.product_id !== productDetails.product_id
-        );
-      } else {
-        console.warn(`⚠️ Failed to update product status:`, statusResponse.data.message);
-      }
-    } catch (statusError) {
-      console.error("Error updating product status:", statusError);
-    }
+      const calculatedValues = calculateProductTotals(productDetails);
 
-    if (saveResponse.data.estimate_number) {
-      setSavedEstimateNumber(saveResponse.data.estimate_number);
-      setIsEstimateSaved(true);
-      if (!currentEstimateNumberRef.current) {
-        currentEstimateNumberRef.current = saveResponse.data.estimate_number;
-        setCurrentEstimateNumber(saveResponse.data.estimate_number);
-      }
-    }
+      let finalPacketBarcode = null;
+      let finalPacketWt = null;
 
-    return {
-      ...productDetails,
-      ...calculatedValues,
-      product_name: productDetails.product_name,
-      barcode: productDetails.barcode
-    };
-  } catch (error) {
-    console.error('Error adding product:', error);
-    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
-    return null;
-  }
-};
+      if (isPacketScannedRef.current && sharedPacketBarcodeRef.current) {
+        finalPacketBarcode = sharedPacketBarcodeRef.current;
+        finalPacketWt = sharedPacketWtRef.current ? parseFloat(sharedPacketWtRef.current) : null;
+      }
+
+      const estimateNum = currentEstimateNumberRef.current || currentFormData.estimate_number;
+
+      const entryData = {
+        date: currentFormData.date,
+        estimate_number: estimateNum,
+        customer_id: currentFormData.customer_id,
+        cust_id: currentFormData.cust_id || currentFormData.customer_id,
+        customer_name: currentFormData.customer_name,
+        salesperson_id: salespersonId,
+        source_by: sourceBy,
+        
+        product_id: productDetails.product_id,
+        product_name: productDetails.product_name,
+        barcode: productDetails.barcode,
+        code: productDetails.barcode,
+        metal_type: productDetails.metal_type,
+        purity: productDetails.purity,
+        design_name: productDetails.design,
+        category: productDetails.category_id,
+        sub_category: productDetails.product_name,
+        
+        gross_weight: calculatedValues.gross_weight,
+        stone_weight: calculatedValues.stone_weight,
+        stone_price: calculatedValues.stone_price,
+        weight_bw: calculatedValues.weight_bw,
+        
+        va_on: calculatedValues.va_on,
+        va_percent: calculatedValues.va_percent,
+        wastage_weight: calculatedValues.wastage_weight,
+        total_weight_av: calculatedValues.total_weight_av,
+        
+        mc_on: calculatedValues.mc_on,
+        mc_per_gram: calculatedValues.mc_per_gram,
+        making_charges: calculatedValues.making_charges,
+        
+        rate: calculatedValues.rate,
+        rate_amt: calculatedValues.rate_amt,
+        
+        tax_percent: calculatedValues.tax_percent,
+        tax_amt: calculatedValues.tax_amt,
+        total_price: calculatedValues.total_price,
+        hm_charges: calculatedValues.hm_charges,
+        
+        total_amount: calculatedValues.rate_amt,
+        taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
+        tax_amount: calculatedValues.tax_amt,
+        net_amount: calculatedValues.total_price,
+        
+        pricing: calculatedValues.pricing,
+        qty: calculatedValues.qty,
+        
+        packet_barcode: finalPacketBarcode,
+        packet_wt: finalPacketWt,
+        
+        opentag_id: 0,
+        pcode: null,
+        original_total_price: calculatedValues.total_price,
+        estimate_status: "Pending",
+        
+        force_insert: true,
+        
+        assigned_number: assignedProduct?.assigned_number || null,
+        assigned_item_id: assignedProduct?.item_id || null,
+        
+        cover_wt: calculatedValues.cover_wt,
+        card_wt: calculatedValues.card_wt,
+        packing_wt: calculatedValues.packing_wt
+      };
+
+      const saveResponse = await axios.post(`${baseURL}/add/estimate`, entryData);
+
+      try {
+        const statusResponse = await axios.post(`${baseURL}/update-product-status-on-estimate`, {
+          product_id: productDetails.product_id,
+          status: "Selected"
+        });
+        
+        if (statusResponse.data.success) {
+          setAllProducts(prevProducts => 
+            prevProducts.filter(product => product.product_id !== productDetails.product_id)
+          );
+          allProductsRef.current = allProductsRef.current.filter(
+            product => product.product_id !== productDetails.product_id
+          );
+        }
+      } catch (statusError) {
+        console.error("Error updating product status:", statusError);
+      }
+
+      if (saveResponse.data.estimate_number) {
+        setSavedEstimateNumber(saveResponse.data.estimate_number);
+        setIsEstimateSaved(true);
+        if (!currentEstimateNumberRef.current) {
+          currentEstimateNumberRef.current = saveResponse.data.estimate_number;
+          setCurrentEstimateNumber(saveResponse.data.estimate_number);
+        }
+      }
+
+      return {
+        ...productDetails,
+        ...calculatedValues,
+        product_name: productDetails.product_name,
+        barcode: productDetails.barcode
+      };
+    } catch (error) {
+      console.error('Error adding product:', error);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to add product. Please try again.' });
+      return null;
+    }
+  };
 
   const stopScanner = () => {
     if (scannerRef.current) {
@@ -1314,9 +983,13 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
       canvas.toBlob((blob) => {
         const file = new File([blob], `weight_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
         processWeightImage(file);
-        stopWeightCamera();
       }, 'image/jpeg');
     }
+  };
+
+  // Trigger weight file upload
+  const triggerWeightFileUpload = () => {
+    weightFileInputRef.current?.click();
   };
 
   const handleFileUpload = (event) => {
@@ -1462,6 +1135,11 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
     setIsPacketUsed(false);
     packetIdRef.current = null;
     setExtractedWeight(null);
+    setExtractedGrams(null);
+    setExtractedMilligrams(null);
+    setExtractedTotalGrams(null);
+    setExtractedRawText(null);
+    setExtractedConfidence(null);
     setWeightCaptureError(null);
 
     sharedPacketBarcodeRef.current = null;
@@ -1511,6 +1189,11 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
         setIsPacketUsed(false);
         packetIdRef.current = null;
         setExtractedWeight(null);
+        setExtractedGrams(null);
+        setExtractedMilligrams(null);
+        setExtractedTotalGrams(null);
+        setExtractedRawText(null);
+        setExtractedConfidence(null);
         setWeightCaptureError(null);
 
         sharedPacketBarcodeRef.current = null;
@@ -1608,6 +1291,18 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
                     <FaWeightHanging /> Capture Weight
                   </Button>
 
+                  <Button onClick={triggerWeightFileUpload} className="action-btn upload-weight-btn" style={{ backgroundColor: '#6f42c1', borderColor: '#6f42c1' }}>
+                    <FaUpload /> Upload Weight
+                  </Button>
+
+                  <input
+                    ref={weightFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleWeightFileUpload}
+                    style={{ display: 'none' }}
+                  />
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1627,155 +1322,98 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
               </Col>
             </Row>
 
-            {/* Enhanced Weight Display with Manual Entry */}
-        {/* Enhanced Weight Display with READ-ONLY values */}
-{extractedWeight && (
-  <Row className="mb-3">
-    <Col xs={12} className="d-flex justify-content-end">
-      <div style={{ 
-        background: extractedWeight.manualEntryNeeded ? '#fff3cd' : '#e8f4fd', 
-        border: extractedWeight.manualEntryNeeded ? '1px solid #ffc107' : '1px solid #90caf9', 
-        borderRadius: 8, 
-        padding: 16, 
-        minWidth: 350,
-        animation: 'slideIn 0.3s ease-out'
-      }}>
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <strong>⚖️ Weight Machine Reading</strong>
-          {extractedWeight.manualEntryNeeded && (
-            <span className="badge bg-warning text-dark">Manual Entry Required</span>
-          )}
-          {!extractedWeight.manualEntryNeeded && (
-            <span className="badge bg-success">Auto-Extracted</span>
-          )}
-        </div>
+            {/* GEMINI API WEIGHT DISPLAY */}
+            {extractedWeight && (
+              <Row className="mb-3">
+                <Col xs={12} className="d-flex justify-content-end">
+                  <div style={{ 
+                    background: '#e8f4fd', 
+                    border: '1px solid #90caf9', 
+                    borderRadius: 8, 
+                    padding: 16, 
+                    minWidth: 350,
+                    animation: 'slideIn 0.3s ease-out'
+                  }}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <strong>⚖️ Weight Machine Reading (Gemini AI)</strong>
+                      <span className="badge bg-success">AI Extracted</span>
+                    </div>
 
-        {!extractedWeight.manualEntryNeeded ? (
-          // READ-ONLY DISPLAY - No editing allowed
-          <>
-            <div className="d-flex gap-4 mt-2 flex-wrap">
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Gross Weight</label>
-                <div style={{ 
-                  fontSize: 24, 
-                  fontWeight: 'bold', 
-                  color: '#0d47a1',
-                  padding: '8px 0',
-                  borderBottom: '2px solid #90caf9'
-                }}>
-                  {extractedWeight.grossWeight !== null ? `${extractedWeight.grossWeight} g` : '—'}
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>
-                  {extractedWeight.secondaryLabel === 'net_weight' ? 'Net Weight' : 'Wastage/Total Wt'}
-                </label>
-                <div style={{ 
-                  fontSize: 24, 
-                  fontWeight: 'bold', 
-                  color: '#0d47a1',
-                  padding: '8px 0',
-                  borderBottom: '2px solid #90caf9'
-                }}>
-                  {extractedWeight.secondaryWeight !== null ? `${extractedWeight.secondaryWeight} g` : '—'}
-                </div>
-              </div>
-            </div>
-            <div className="mt-2 d-flex gap-2">
-              <Button 
-                size="sm" 
-                variant="success" 
-                disabled
-                style={{ opacity: 0.7 }}
-              >
-                <FaSave /> ✓ Auto-Saved
-              </Button>
-              <Button 
-                size="sm" 
-                variant="secondary" 
-                onClick={() => {
-                  setExtractedWeight(null);
-                  setWeightCaptureError(null);
-                }}
-              >
-                <FaTimes /> Close
-              </Button>
-            </div>
-          </>
-        ) : (
-          // MANUAL ENTRY MODE - Editable fields (only when OCR fails)
-          <>
-            <div className="d-flex gap-2 mt-2 flex-wrap">
-              <div style={{ flex: 1, minWidth: '100px' }}>
-                <label style={{ fontSize: 12, fontWeight: 500 }}>Gross Weight (g)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-control form-control-sm"
-                  value={extractedWeight.grossWeight ?? ''}
-                  onChange={(e) => setExtractedWeight(prev => ({ 
-                    ...prev, 
-                    grossWeight: e.target.value ? parseFloat(e.target.value) : null 
-                  }))}
-                  placeholder="e.g., 56.4"
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: '100px' }}>
-                <label style={{ fontSize: 12, fontWeight: 500 }}>
-                  {extractedWeight.secondaryLabel === 'net_weight' ? 'Net Weight (g)' : 'Wastage/Total Wt (g)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-control form-control-sm"
-                  value={extractedWeight.secondaryWeight ?? ''}
-                  onChange={(e) => setExtractedWeight(prev => ({ 
-                    ...prev, 
-                    secondaryWeight: e.target.value ? parseFloat(e.target.value) : null 
-                  }))}
-                  placeholder="e.g., 50.7"
-                />
-              </div>
-            </div>
-            <div className="mt-2 d-flex gap-2">
-              <Button 
-                size="sm" 
-                variant="primary" 
-                onClick={handleManualWeightSave}
-                disabled={!extractedWeight.grossWeight && !extractedWeight.secondaryWeight}
-              >
-                <FaSave /> Save Weight to Estimate
-              </Button>
-              <Button 
-                size="sm" 
-                variant="secondary" 
-                onClick={() => {
-                  setExtractedWeight(null);
-                  setWeightCaptureError(null);
-                }}
-              >
-                <FaTimes /> Close
-              </Button>
-            </div>
-          </>
-        )}
+                    <div className="d-flex gap-4 mt-2 flex-wrap">
+                      <div style={{ flex: 1, minWidth: '120px' }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Total Weight</label>
+                        <div style={{ 
+                          fontSize: 24, 
+                          fontWeight: 'bold', 
+                          color: '#0d47a1',
+                          padding: '8px 0',
+                          borderBottom: '2px solid #90caf9'
+                        }}>
+                          {extractedTotalGrams !== null ? `${extractedTotalGrams.toFixed(3)} g` : '—'}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: '120px' }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Grams</label>
+                        <div style={{ 
+                          fontSize: 20, 
+                          fontWeight: 'bold', 
+                          color: '#0d47a1',
+                          padding: '8px 0',
+                          borderBottom: '2px solid #90caf9'
+                        }}>
+                          {extractedGrams !== null ? `${extractedGrams} g` : '—'}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: '120px' }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Milligrams</label>
+                        <div style={{ 
+                          fontSize: 20, 
+                          fontWeight: 'bold', 
+                          color: '#0d47a1',
+                          padding: '8px 0',
+                          borderBottom: '2px solid #90caf9'
+                        }}>
+                          {extractedMilligrams !== null ? `${extractedMilligrams} mg` : '—'}
+                        </div>
+                      </div>
+                    </div>
 
-        {extractedWeight.rawText && !extractedWeight.manualEntryNeeded && (
-          <div className="mt-2" style={{ fontSize: 11, color: '#666' }}>
-            <small>OCR Read: {extractedWeight.rawText.substring(0, 100)}...</small>
-          </div>
-        )}
-        {extractedWeight.rawText && extractedWeight.manualEntryNeeded && (
-          <div className="mt-2" style={{ fontSize: 11, color: '#856404' }}>
-            <small>⚠️ Could not auto-detect. Please enter values manually below.</small>
-          </div>
-        )}
-      </div>
-    </Col>
-  </Row>
-)}
+                    <div className="mt-2 d-flex gap-3 flex-wrap" style={{ fontSize: 13, color: '#666' }}>
+                      <div><strong>Confidence:</strong> {extractedConfidence || 100}%</div>
+                      <div><strong>Raw:</strong> {extractedRawText || 'N/A'}</div>
+                    </div>
 
-            {weightCaptureError && !extractedWeight?.manualEntryNeeded && (
+                    <div className="mt-2 d-flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="success" 
+                        disabled
+                        style={{ opacity: 0.7 }}
+                      >
+                        <FaSave /> ✓ Auto-Saved
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        onClick={() => {
+                          setExtractedWeight(null);
+                          setExtractedGrams(null);
+                          setExtractedMilligrams(null);
+                          setExtractedTotalGrams(null);
+                          setExtractedRawText(null);
+                          setExtractedConfidence(null);
+                          setWeightCaptureError(null);
+                        }}
+                      >
+                        <FaTimes /> Close
+                      </Button>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+            )}
+
+            {weightCaptureError && (
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
                   <div className="error-message-container">
@@ -1823,7 +1461,7 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
                       <span className="visually-hidden">Processing...</span>
                     </div>
                     <span style={{ color: '#0d47a1', fontSize: '14px', fontWeight: '500' }}>
-                      Processing weight machine image...
+                      Processing weight machine image with Gemini AI...
                     </span>
                   </div>
                 </Col>
@@ -1971,7 +1609,8 @@ const handleBarcodeAndAddEntry = async (barcode, assignedProduct) => {
         <Modal.Body style={{ textAlign: 'center' }}>
           <video ref={weightVideoRef} autoPlay playsInline style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
           <canvas ref={weightCanvasRef} style={{ display: 'none' }} />
-          <p className="mt-2 text-muted">Point the camera at the weight machine display to capture and extract the weight value</p>
+          <p className="mt-2 text-muted">Point the camera at the weight machine display to capture and extract the weight using Gemini AI</p>
+          <p className="text-muted" style={{ fontSize: '12px' }}>Or use the "Upload Weight" button on the main page to select an image from your device</p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={stopWeightCamera}>Cancel</Button>
