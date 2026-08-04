@@ -85,6 +85,14 @@ const EstimateForm = () => {
   const [assignedProductsMap, setAssignedProductsMap] = useState(new Map());
   const assignedProductsRef = useRef(new Map());
 
+  // NEW: Track mandatory actions completion status
+  const [mandatoryActions, setMandatoryActions] = useState({
+    scanProduct: false,
+    scanPacket: false,
+    captureImage: false,
+    uploadWeight: false
+  });
+
   // Form data
   const getUserData = () => {
     try {
@@ -425,6 +433,9 @@ const EstimateForm = () => {
           confidence: record.confidence
         });
 
+        // Mark Upload Weight as completed
+        setMandatoryActions(prev => ({ ...prev, uploadWeight: true }));
+
         Swal.fire({
           icon: 'success',
           title: '✅ Weight Extracted Successfully!',
@@ -513,6 +524,9 @@ const EstimateForm = () => {
         sharedPacketBarcodeRef.current = packet.qr_code;
         sharedPacketWtRef.current = packet.packet_wt || null;
         isPacketScannedRef.current = true;
+
+        // Mark Scan Packet as completed
+        setMandatoryActions(prev => ({ ...prev, scanPacket: true }));
 
         const estimateNum = currentEstimateNumberRef.current || formDataRef.current.estimate_number;
         if (estimateNum) {
@@ -674,6 +688,9 @@ const EstimateForm = () => {
         if (product) {
           setScannedProducts(prev => [...prev, product]);
           setTotalQuantity(prev => prev + 1);
+
+          // Mark Scan Product as completed
+          setMandatoryActions(prev => ({ ...prev, scanProduct: true }));
 
           setSuccessMessage(`✓ Product Added Successfully!`);
           setLastAddedProduct(product.product_name);
@@ -942,6 +959,8 @@ const EstimateForm = () => {
       canvas.toBlob((blob) => {
         const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
         handleImageUpload(file);
+        // Mark Capture Image as completed
+        setMandatoryActions(prev => ({ ...prev, captureImage: true }));
       }, 'image/jpeg');
 
       stopCamera();
@@ -1008,6 +1027,14 @@ const EstimateForm = () => {
   const removeImage = (index) => setPacketImages(prev => prev.filter((_, i) => i !== index));
   const triggerFileUpload = () => fileInputRef.current?.click();
 
+  // Check if all mandatory actions are completed
+  const areAllMandatoryActionsCompleted = () => {
+    return mandatoryActions.scanProduct && 
+           mandatoryActions.scanPacket && 
+           mandatoryActions.captureImage && 
+           mandatoryActions.uploadWeight;
+  };
+
   // Handle Save & Print
   const handleSaveAndPrint = async () => {
     try {
@@ -1018,6 +1045,12 @@ const EstimateForm = () => {
 
       if (!formData.customer_name || !formData.customer_id) {
         alert("Please select a customer first");
+        return;
+      }
+
+      // Check if all mandatory actions are completed
+      if (!areAllMandatoryActionsCompleted()) {
+        alert("Please complete all mandatory actions: Scan Product, Scan Packet, Capture Image, and Upload Weight before saving.");
         return;
       }
 
@@ -1142,6 +1175,14 @@ const EstimateForm = () => {
     setExtractedConfidence(null);
     setWeightCaptureError(null);
 
+    // Reset mandatory actions
+    setMandatoryActions({
+      scanProduct: false,
+      scanPacket: false,
+      captureImage: false,
+      uploadWeight: false
+    });
+
     sharedPacketBarcodeRef.current = null;
     sharedPacketWtRef.current = null;
     isPacketScannedRef.current = false;
@@ -1196,6 +1237,14 @@ const EstimateForm = () => {
         setExtractedConfidence(null);
         setWeightCaptureError(null);
 
+        // Reset mandatory actions when customer changes
+        setMandatoryActions({
+          scanProduct: false,
+          scanPacket: false,
+          captureImage: false,
+          uploadWeight: false
+        });
+
         sharedPacketBarcodeRef.current = null;
         sharedPacketWtRef.current = null;
         isPacketScannedRef.current = false;
@@ -1225,6 +1274,11 @@ const EstimateForm = () => {
         navigate("/salesperson-transactions");
       }
     });
+  };
+
+  // Check if all mandatory actions are completed for button disable logic
+  const isSaveDisabled = () => {
+    return scannedProducts.length === 0 || !areAllMandatoryActionsCompleted();
   };
 
   return (
@@ -1275,24 +1329,36 @@ const EstimateForm = () => {
 
               <Col xs={12} md={7}>
                 <div className="action-buttons-row">
-                  <Button onClick={startScanner} className="action-btn scan-product-btn">
-                    <FaQrcode /> Scan Product
+                  <Button 
+                    onClick={startScanner} 
+                    className={`action-btn scan-product-btn ${mandatoryActions.scanProduct ? 'btn-success' : ''}`}
+                    style={mandatoryActions.scanProduct ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
+                  >
+                    <FaQrcode /> {mandatoryActions.scanProduct ? '✓' : ''} Scan Product
                   </Button>
 
-                  <Button onClick={startPacketScanner} className="action-btn scan-packet-btn">
-                    <FaBarcode /> Scan Packet
+                  <Button 
+                    onClick={startPacketScanner} 
+                    className={`action-btn scan-packet-btn ${mandatoryActions.scanPacket ? 'btn-success' : ''}`}
+                    style={mandatoryActions.scanPacket ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
+                  >
+                    <FaBarcode /> {mandatoryActions.scanPacket ? '✓' : ''} Scan Packet
                   </Button>
 
-                  <Button onClick={startCamera} className="action-btn capture-btn">
-                    <FaCamera /> Capture Image
+                  <Button 
+                    onClick={startCamera} 
+                    className={`action-btn capture-btn ${mandatoryActions.captureImage ? 'btn-success' : ''}`}
+                    style={mandatoryActions.captureImage ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
+                  >
+                    <FaCamera /> {mandatoryActions.captureImage ? '✓' : ''} Capture Image
                   </Button>
 
-                  <Button onClick={startWeightCamera} className="action-btn weight-capture-btn">
-                    <FaWeightHanging /> Capture Weight
-                  </Button>
-
-                  <Button onClick={triggerWeightFileUpload} className="action-btn upload-weight-btn" style={{ backgroundColor: '#6f42c1', borderColor: '#6f42c1' }}>
-                    <FaUpload /> Upload Weight
+                  <Button 
+                    onClick={triggerWeightFileUpload} 
+                    className={`action-btn upload-weight-btn ${mandatoryActions.uploadWeight ? 'btn-success' : ''}`}
+                    style={mandatoryActions.uploadWeight ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
+                  >
+                    <FaUpload /> {mandatoryActions.uploadWeight ? '✓' : ''} Upload Weight
                   </Button>
 
                   <input
@@ -1318,6 +1384,78 @@ const EstimateForm = () => {
                 <div className="total-qty-container">
                   <span className="total-qty-label">Total Qty:</span>
                   <span className="total-qty-value">{totalQuantity}</span>
+                </div>
+              </Col>
+            </Row>
+
+            {/* Mandatory Actions Status Bar */}
+            <Row className="mb-3">
+              <Col xs={12}>
+                <div style={{
+                  display: 'flex',
+                  gap: '15px',
+                  flexWrap: 'wrap',
+                  padding: '10px 15px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #dee2e6',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#495057' }}>
+                    Required Actions:
+                  </span>
+                  <span style={{ 
+                    color: mandatoryActions.scanProduct ? '#28a745' : '#dc3545',
+                    fontWeight: mandatoryActions.scanProduct ? 'bold' : 'normal',
+                    fontSize: '13px'
+                  }}>
+                    {mandatoryActions.scanProduct ? '✅' : '⬜'} Scan Product
+                  </span>
+                  <span style={{ 
+                    color: mandatoryActions.scanPacket ? '#28a745' : '#dc3545',
+                    fontWeight: mandatoryActions.scanPacket ? 'bold' : 'normal',
+                    fontSize: '13px'
+                  }}>
+                    {mandatoryActions.scanPacket ? '✅' : '⬜'} Scan Packet
+                  </span>
+                  <span style={{ 
+                    color: mandatoryActions.captureImage ? '#28a745' : '#dc3545',
+                    fontWeight: mandatoryActions.captureImage ? 'bold' : 'normal',
+                    fontSize: '13px'
+                  }}>
+                    {mandatoryActions.captureImage ? '✅' : '⬜'} Capture Image
+                  </span>
+                  <span style={{ 
+                    color: mandatoryActions.uploadWeight ? '#28a745' : '#dc3545',
+                    fontWeight: mandatoryActions.uploadWeight ? 'bold' : 'normal',
+                    fontSize: '13px'
+                  }}>
+                    {mandatoryActions.uploadWeight ? '✅' : '⬜'} Upload Weight
+                  </span>
+                  {!areAllMandatoryActionsCompleted() && (
+                    <span style={{ 
+                      color: '#dc3545', 
+                      fontSize: '12px',
+                      marginLeft: 'auto',
+                      backgroundColor: '#f8d7da',
+                      padding: '2px 10px',
+                      borderRadius: '12px'
+                    }}>
+                      ⚠️ Complete all actions to enable Save
+                    </span>
+                  )}
+                  {areAllMandatoryActionsCompleted() && (
+                    <span style={{ 
+                      color: '#28a745', 
+                      fontSize: '12px',
+                      marginLeft: 'auto',
+                      backgroundColor: '#d4edda',
+                      padding: '2px 10px',
+                      borderRadius: '12px'
+                    }}>
+                      ✅ All actions completed
+                    </span>
+                  )}
                 </div>
               </Col>
             </Row>
@@ -1559,7 +1697,12 @@ const EstimateForm = () => {
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
                 <Button className="cancel-btn me-2" onClick={handleCancel} style={{marginBottom:"2px"}}>Cancel</Button>
-                <Button className="save-btn" onClick={handleSaveAndPrint} disabled={scannedProducts.length === 0}>
+                <Button 
+                  className="save-btn" 
+                  onClick={handleSaveAndPrint} 
+                  disabled={isSaveDisabled()}
+                  style={{ opacity: isSaveDisabled() ? 0.6 : 1 }}
+                >
                   <FaSave /> Save
                 </Button>
               </Col>
