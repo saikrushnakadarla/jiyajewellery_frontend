@@ -1,4 +1,4 @@
-// CustomerDashboard.jsx - Updated Salesperson Fetching Logic
+// CustomerDashboard.jsx - Fixed with proper API calls
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import EstimateStatusChart from "./EstimatePieChart";
 import { FiFileText, FiClock, FiShoppingBag, FiXCircle, FiCamera, FiBell, FiCheck } from 'react-icons/fi';
-import { Button, Dropdown, Badge, Toast, ToastContainer, Modal, Spinner } from "react-bootstrap";
+import { Button, Dropdown, Badge, Toast, ToastContainer, Modal, Spinner, Form } from "react-bootstrap";
 import baseURL from "../ApiUrl/NodeBaseURL";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
@@ -75,10 +75,18 @@ function Dashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
-  // Salesperson Modal states
-  const [showSalespersonModal, setShowSalespersonModal] = useState(false);
-  const [selectedSalesperson, setSelectedSalesperson] = useState(null);
-  const [isLoadingSalesperson, setIsLoadingSalesperson] = useState(false);
+  // Combined Modal states (Salesperson + Visit Details)
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDetails, setSelectedDetails] = useState(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Reschedule Modal states
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
+    reschedule_date: '',
+    reschedule_notes: ''
+  });
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
 
   // Cache for salesperson details to avoid repeated API calls
   const salespersonCacheRef = useRef({});
@@ -730,7 +738,7 @@ function Dashboard() {
     return null;
   };
 
-  // Get salesperson details from cache or fetch from API
+  // Get salesperson details from cache or fetch from API (without phone and email)
   const getSalespersonDetails = async (salespersonName) => {
     if (!salespersonName) return null;
 
@@ -743,8 +751,6 @@ function Dashboard() {
       console.log(`✅ Found salesperson in cache: ${cached.account_name}`);
       return {
         name: cached.account_name,
-        phone: cached.mobile || cached.phone || 'N/A',
-        email: cached.email || 'N/A',
         photo: null,
         role: 'Sales Representative',
         title: 'Salesperson Details',
@@ -758,8 +764,6 @@ function Dashboard() {
       console.log(`✅ Found salesperson in cache (compact): ${cached.account_name}`);
       return {
         name: cached.account_name,
-        phone: cached.mobile || cached.phone || 'N/A',
-        email: cached.email || 'N/A',
         photo: null,
         role: 'Sales Representative',
         title: 'Salesperson Details',
@@ -792,8 +796,6 @@ function Dashboard() {
             console.log(`✅ Found salesperson: ${sp.account_name}`);
             return {
               name: sp.account_name,
-              phone: sp.mobile || sp.phone || 'N/A',
-              email: sp.email || 'N/A',
               photo: null,
               role: 'Sales Representative',
               title: 'Salesperson Details',
@@ -811,58 +813,352 @@ function Dashboard() {
     console.log(`⚠️ No salesperson found for: ${salespersonName}`);
     return {
       name: salespersonName,
-      phone: 'N/A',
-      email: 'N/A',
       photo: null,
       role: 'Sales Representative',
       title: 'Salesperson Details'
     };
   };
 
-  // Handle salesperson image click
-  const handleSalespersonClick = async (notification) => {
-    setIsLoadingSalesperson(true);
-    setShowSalespersonModal(true);
+  // ============ COMBINED DETAILS MODAL FUNCTIONS ============
+
+  // Handle click on notification to show combined details
+  // Handle click on notification to show combined details - FIXED
+const handleViewDetails = async (notification) => {
+  setIsLoadingDetails(true);
+  setShowDetailsModal(true);
+  
+  try {
+    const visitId = notification.related_id;
+    const salespersonName = extractSalespersonName(notification.message);
+    const photoUrl = extractPhotoUrl(notification.message);
+    
+    // Fetch salesperson details
+    let salespersonDetails = null;
+    if (salespersonName) {
+      salespersonDetails = await getSalespersonDetails(salespersonName);
+    }
+    
+    // Fetch visit details - try both ways
+    let visitData = null;
+    
+    // First try: use the related_id directly (if it's a valid schedule ID)
+    try {
+      const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success !== false && data.id) {
+          visitData = data;
+          console.log('✅ Found schedule by ID:', visitId);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to fetch by ID:', e.message);
+    }
+    
+    // Second try: If not found by ID, try to find by customer account ID (for backward compatibility)
+    if (!visitData && customerAccountIdRef.current) {
+      try {
+        const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/customer/${customerAccountIdRef.current}`);
+        if (response.ok) {
+          const schedules = await response.json();
+          // Find the schedule that matches the barcode or date from the notification
+          if (schedules && schedules.length > 0) {
+            // Try to find matching schedule by barcode
+            const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
+            if (barcodeMatch) {
+              const barcode = barcodeMatch[1];
+              const matchedSchedule = schedules.find(s => s.barcode === barcode);
+              if (matchedSchedule) {
+                visitData = matchedSchedule;
+                console.log('✅ Found schedule by barcode:', barcode);
+              }
+            }
+            // If still not found, use the most recent schedule
+            if (!visitData) {
+              visitData = schedules[0];
+              console.log('✅ Using most recent schedule:', visitData.id);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Failed to fetch by customer:', e.message);
+      }
+    }
+    
+    // Build combined details
+    let combinedDetails = {
+      id: visitId || Date.now(),
+      visit: {},
+      salesperson: {}
+    };
+    
+    if (visitData) {
+      const scheduledDate = new Date(visitData.scheduled_date);
+      const formattedDate = scheduledDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const formattedTime = scheduledDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      combinedDetails.visit = {
+        id: visitData.id,
+        scheduled_date: formattedDate,
+        scheduled_time: formattedTime,
+        warehouse_name: visitData.warehouse_name || 'Warehouse',
+        barcode: visitData.barcode || 'N/A',
+        salesman_name: visitData.salesman_name || 'Not assigned',
+        customer_status: visitData.customer_status || 'Scheduled',
+        reschedule_date: visitData.reschedule_date || null,
+        reschedule_notes: visitData.reschedule_notes || null
+      };
+    } else {
+      // Fallback: extract from notification
+      const dateMatch = notification.message.match(/on\s+([A-Za-z]+,\s+[A-Za-z]+\s+\d+,\s+\d+)/);
+      const timeMatch = notification.message.match(/at\s+(\d+:\d+\s+[AP]M)/);
+      const warehouseMatch = notification.message.match(/at\s+([A-Z\s]+)\s+on/);
+      const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
+      
+      combinedDetails.visit = {
+        id: visitId || Date.now(),
+        scheduled_date: dateMatch ? dateMatch[1] : 'N/A',
+        scheduled_time: timeMatch ? timeMatch[1] : 'N/A',
+        warehouse_name: warehouseMatch ? warehouseMatch[1].trim() : 'Warehouse',
+        barcode: barcodeMatch ? barcodeMatch[1] : 'N/A',
+        salesman_name: salespersonName || 'Not assigned',
+        customer_status: 'Scheduled',
+        reschedule_date: null,
+        reschedule_notes: null
+      };
+    }
+    
+    // Add salesperson details
+    if (salespersonDetails) {
+      combinedDetails.salesperson = {
+        name: salespersonDetails.name,
+        photo: photoUrl || salespersonDetails.photo,
+        role: salespersonDetails.role || 'Sales Representative'
+      };
+    } else {
+      combinedDetails.salesperson = {
+        name: salespersonName || 'Salesperson',
+        photo: photoUrl,
+        role: 'Sales Representative'
+      };
+    }
+    
+    setSelectedDetails(combinedDetails);
+  } catch (error) {
+    console.error('Error loading details:', error);
+    // Fallback
+    setSelectedDetails({
+      id: notification.id || Date.now(),
+      visit: {
+        scheduled_date: 'N/A',
+        scheduled_time: 'N/A',
+        warehouse_name: 'Warehouse',
+        barcode: 'N/A',
+        salesman_name: 'Not assigned',
+        customer_status: 'Scheduled',
+        reschedule_date: null,
+        reschedule_notes: null
+      },
+      salesperson: {
+        name: 'Salesperson',
+        photo: null,
+        role: 'Sales Representative'
+      }
+    });
+  } finally {
+    setIsLoadingDetails(false);
+  }
+};
+
+  // Handle customer status update (Available) - FIXED
+  // Handle customer status update (Available) - FIXED
+const handleCustomerAvailable = async () => {
+  if (!selectedDetails?.visit?.id) return;
+  
+  const visitId = selectedDetails.visit.id;
+  
+  try {
+    console.log(`📝 Marking visit ${visitId} as Available...`);
+    
+    const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}/customer-status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customer_status: 'Available'
+      })
+    });
+    
+    console.log('Response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Status Updated',
+          text: 'You have been marked as available for the visit.',
+          timer: 3000,
+          showConfirmButton: false
+        });
+        
+        // Update local state
+        setSelectedDetails(prev => ({
+          ...prev,
+          visit: {
+            ...prev.visit,
+            customer_status: 'Available'
+          }
+        }));
+        
+        // Refresh notifications
+        if (customerAccountIdRef.current) {
+          fetchNotifications(customerAccountIdRef.current);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to update status');
+      }
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Server responded with status ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error updating status:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Update Failed',
+      text: error.message || 'Failed to update your status. Please try again.'
+    });
+  }
+};
+
+  // Handle Not Available - Open reschedule modal
+  const handleNotAvailable = () => {
+    setShowDetailsModal(false);
+    setShowRescheduleModal(true);
+    
+    // Pre-fill reschedule date with current date + 3 days as default
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 3);
+    defaultDate.setHours(10, 0, 0, 0);
+    
+    const formattedDate = defaultDate.toISOString().slice(0, 16);
+    setRescheduleData({
+      reschedule_date: formattedDate,
+      reschedule_notes: ''
+    });
+  };
+
+  // Submit reschedule request - FIXED
+  const handleRescheduleSubmit = async () => {
+    if (!selectedDetails?.visit?.id) return;
+    
+    if (!rescheduleData.reschedule_date) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Information',
+        text: 'Please select a reschedule date and time.'
+      });
+      return;
+    }
+    
+    setSubmittingReschedule(true);
     
     try {
-      const name = extractSalespersonName(notification.message);
-      const photoUrl = extractPhotoUrl(notification.message);
+      const visitId = selectedDetails.visit.id;
+      console.log(`📝 Submitting reschedule for visit ${visitId}...`);
       
-      let details = null;
-      if (name) {
-        details = await getSalespersonDetails(name);
-      }
+      const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}/not-available-reschedule`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reschedule_date: rescheduleData.reschedule_date,
+          reschedule_notes: rescheduleData.reschedule_notes
+        })
+      });
       
-      if (details) {
-        setSelectedSalesperson({
-          ...details,
-          photo: photoUrl || details.photo,
-        });
+      console.log('Reschedule response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Reschedule response data:', data);
+        
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Reschedule Requested',
+            text: 'Your reschedule request has been submitted. The salesperson will be notified.',
+            timer: 3000,
+            showConfirmButton: false
+          });
+          
+          setShowRescheduleModal(false);
+          
+          // Update local state
+          const rescheduleDateTime = new Date(rescheduleData.reschedule_date);
+          const formattedReschedule = rescheduleDateTime.toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+          
+          setSelectedDetails(prev => ({
+            ...prev,
+            visit: {
+              ...prev.visit,
+              customer_status: 'Not Available',
+              reschedule_date: formattedReschedule
+            }
+          }));
+          
+          // Refresh notifications
+          if (customerAccountIdRef.current) {
+            fetchNotifications(customerAccountIdRef.current);
+          }
+          
+          // Reset form
+          setRescheduleData({
+            reschedule_date: '',
+            reschedule_notes: ''
+          });
+        } else {
+          throw new Error(data.message || 'Failed to submit reschedule request');
+        }
       } else {
-        // Fallback
-        setSelectedSalesperson({
-          name: name || 'Salesperson',
-          photo: photoUrl,
-          phone: 'N/A',
-          email: 'N/A',
-          role: 'Sales Representative',
-          title: notification.title || 'Salesperson Details'
-        });
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server responded with status ${response.status}`);
       }
     } catch (error) {
-      console.error('Error loading salesperson details:', error);
-      setSelectedSalesperson({
-        name: extractSalespersonName(notification.message) || 'Salesperson',
-        photo: extractPhotoUrl(notification.message),
-        phone: 'N/A',
-        email: 'N/A',
-        role: 'Sales Representative',
-        title: notification.title || 'Salesperson Details'
+      console.error('Error submitting reschedule:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Submission Failed',
+        text: error.message || 'Failed to submit reschedule request. Please try again.'
       });
     } finally {
-      setIsLoadingSalesperson(false);
+      setSubmittingReschedule(false);
     }
   };
+
+  // ============ END COMBINED DETAILS FUNCTIONS ============
 
   // Clean notification message (remove photo URL marker)
   const cleanNotificationMessage = (message) => {
@@ -1329,11 +1625,22 @@ function Dashboard() {
                           const photoUrl = extractPhotoUrl(notification.message);
                           const cleanMessage = cleanNotificationMessage(notification.message);
                           const salespersonName = extractSalespersonName(notification.message);
+                          const isWarehouseSchedule = notification.type === 'warehouse_schedule' || 
+                            notification.title?.includes('Warehouse Visit') || 
+                            notification.message?.includes('warehouse visit');
 
                           return (
                             <Dropdown.Item
                               key={notification.id}
-                              onClick={() => !notification.is_read && markAsRead(notification.id)}
+                              onClick={() => {
+                                if (!notification.is_read) {
+                                  markAsRead(notification.id);
+                                }
+                                // Check if this is a warehouse schedule notification - open combined modal
+                                if (isWarehouseSchedule) {
+                                  handleViewDetails(notification);
+                                }
+                              }}
                               style={{
                                 padding: '16px 20px',
                                 backgroundColor: notification.is_read ? 'white' : '#eff6ff',
@@ -1404,7 +1711,7 @@ function Dashboard() {
                                       }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleSalespersonClick(notification);
+                                        handleViewDetails(notification);
                                       }}
                                       onMouseEnter={(e) => {
                                         e.currentTarget.style.backgroundColor = '#e5e7eb';
@@ -1810,15 +2117,13 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Salesperson Details Modal */}
+      {/* Combined Details Modal - Salesperson + Visit Details */}
       <Modal
-        show={showSalespersonModal}
-        onHide={() => setShowSalespersonModal(false)}
+        show={showDetailsModal}
+        onHide={() => setShowDetailsModal(false)}
         centered
         size="lg"
-        style={{
-          zIndex: 9999
-        }}
+        style={{ zIndex: 9999 }}
       >
         <Modal.Header closeButton style={{
           backgroundColor: '#f8fafc',
@@ -1833,48 +2138,45 @@ function Dashboard() {
             fontWeight: 600,
             color: '#1f2937'
           }}>
-            <span style={{ fontSize: '28px' }}>👤</span>
-            Salesperson Details
+            <span style={{ fontSize: '28px' }}>📦</span>
+            Warehouse Visit Details
           </Modal.Title>
         </Modal.Header>
         <Modal.Body style={{
           padding: '24px',
           backgroundColor: 'white'
         }}>
-          {isLoadingSalesperson ? (
+          {isLoadingDetails ? (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <Spinner animation="border" variant="primary" />
-              <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading salesperson details...</p>
+              <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading details...</p>
             </div>
-          ) : selectedSalesperson && (
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              gap: '20px'
-            }}>
-              {/* Profile Header */}
+          ) : selectedDetails && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Salesperson Profile Section */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '20px',
-                padding: '16px',
+                padding: '20px',
                 backgroundColor: '#f8fafc',
                 borderRadius: '12px',
                 border: '1px solid #e5e7eb'
               }}>
                 <div style={{
-                  width: '100px',
-                  height: '100px',
+                  width: '80px',
+                  height: '80px',
                   borderRadius: '50%',
                   overflow: 'hidden',
-                  border: '4px solid #3b82f6',
+                  border: '3px solid #3b82f6',
                   flexShrink: 0,
                   backgroundColor: '#e5e7eb'
                 }}>
-                  {selectedSalesperson.photo ? (
+                  {selectedDetails.salesperson?.photo ? (
                     <img
-                      src={selectedSalesperson.photo}
-                      alt={selectedSalesperson.name}
+                      src={selectedDetails.salesperson.photo}
+                      alt={selectedDetails.salesperson.name}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1889,7 +2191,7 @@ function Dashboard() {
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            font-size: 48px;
+                            font-size: 40px;
                             color: #9ca3af;
                           ">👤</div>
                         `;
@@ -1902,7 +2204,7 @@ function Dashboard() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '48px',
+                      fontSize: '40px',
                       color: '#9ca3af'
                     }}>
                       👤
@@ -1911,36 +2213,35 @@ function Dashboard() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <h3 style={{
-                    fontSize: '22px',
+                    fontSize: '20px',
                     fontWeight: 600,
                     color: '#1f2937',
-                    marginBottom: '4px'
+                    marginBottom: '2px'
                   }}>
-                    {selectedSalesperson.name}
+                    {selectedDetails.salesperson?.name || 'Salesperson'}
                   </h3>
                   <p style={{
                     fontSize: '14px',
                     color: '#6b7280',
-                    marginBottom: '4px'
+                    marginBottom: '6px'
                   }}>
-                    {selectedSalesperson.role || 'Sales Representative'}
+                    {selectedDetails.salesperson?.role || 'Sales Representative'}
                   </p>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                    marginTop: '8px'
+                    gap: '10px',
+                    flexWrap: 'wrap'
                   }}>
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      padding: '4px 12px',
+                      padding: '3px 10px',
                       backgroundColor: '#dbeafe',
                       color: '#1e40af',
                       borderRadius: '20px',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 500
                     }}>
                       <span>✅</span> Verified
@@ -1949,11 +2250,11 @@ function Dashboard() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      padding: '4px 12px',
+                      padding: '3px 10px',
                       backgroundColor: '#d1fae5',
                       color: '#065f46',
                       borderRadius: '20px',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 500
                     }}>
                       <span>⭐</span> Top Rated
@@ -1962,97 +2263,167 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Contact Details */}
+              {/* Visit Information */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: '16px'
+                gap: '12px'
               }}>
                 <div style={{
-                  padding: '16px',
+                  padding: '14px',
                   backgroundColor: '#f9fafb',
                   borderRadius: '10px',
                   border: '1px solid #e5e7eb'
                 }}>
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '6px'
-                  }}>
-                    📱 Phone
+                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
+                    📅 Date
                   </div>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    color: '#1f2937'
-                  }}>
-                    {selectedSalesperson.phone || 'N/A'}
+                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937' }}>
+                    {selectedDetails.visit?.scheduled_date || 'N/A'}
                   </div>
                 </div>
                 <div style={{
-                  padding: '16px',
+                  padding: '14px',
                   backgroundColor: '#f9fafb',
                   borderRadius: '10px',
                   border: '1px solid #e5e7eb'
                 }}>
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '6px'
-                  }}>
-                    ✉️ Email
+                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
+                    🕐 Time
                   </div>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    color: '#1f2937'
-                  }}>
-                    {selectedSalesperson.email || 'N/A'}
+                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937' }}>
+                    {selectedDetails.visit?.scheduled_time || 'N/A'}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '14px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
+                    🏢 Warehouse
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937' }}>
+                    {selectedDetails.visit?.warehouse_name || 'N/A'}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '14px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
+                    🔢 Barcode
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937', fontFamily: 'monospace' }}>
+                    {selectedDetails.visit?.barcode || 'N/A'}
                   </div>
                 </div>
               </div>
 
-              {/* Additional Info */}
+              {/* Customer Status Section */}
               <div style={{
                 padding: '16px',
-                backgroundColor: '#f0fdf4',
+                backgroundColor: '#f8fafc',
                 borderRadius: '10px',
-                border: '1px solid #bbf7d0'
+                border: '1px solid #e5e7eb'
               }}>
                 <div style={{
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px'
+                  marginBottom: '12px'
                 }}>
-                  <span style={{ fontSize: '18px' }}>💬</span>
                   <span style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#065f46'
+                    color: '#374151'
                   }}>
-                    About this Salesperson
+                    Your Status
+                  </span>
+                  <span style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    backgroundColor: selectedDetails.visit?.customer_status === 'Available' ? '#d1fae5' :
+                                   selectedDetails.visit?.customer_status === 'Not Available' ? '#fee2e2' :
+                                   '#fef3c7',
+                    color: selectedDetails.visit?.customer_status === 'Available' ? '#065f46' :
+                           selectedDetails.visit?.customer_status === 'Not Available' ? '#991b1b' :
+                           '#92400e'
+                  }}>
+                    {selectedDetails.visit?.customer_status || 'Scheduled'}
                   </span>
                 </div>
-                <p style={{
-                  fontSize: '14px',
-                  color: '#4b5563',
-                  margin: '4px 0 0 0',
-                  lineHeight: '1.6'
-                }}>
-                  {selectedSalesperson.name} is a dedicated sales professional who will assist you with your inquiries and help you find the best solutions for your needs.
-                </p>
+                
+                {selectedDetails.visit?.customer_status === 'Scheduled' && (
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <Button
+                      variant="success"
+                      onClick={handleCustomerAvailable}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        fontWeight: 500,
+                        backgroundColor: '#22c55e',
+                        border: 'none'
+                      }}
+                    >
+                      ✅ Available
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={handleNotAvailable}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        fontWeight: 500,
+                        backgroundColor: '#ef4444',
+                        border: 'none'
+                      }}
+                    >
+                      ❌ Not Available
+                    </Button>
+                  </div>
+                )}
+                
+                {selectedDetails.visit?.customer_status === 'Available' && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#d1fae5',
+                    borderRadius: '8px',
+                    color: '#065f46',
+                    textAlign: 'center',
+                    fontSize: '14px'
+                  }}>
+                    ✅ You are marked as available for this visit. The salesperson will be notified.
+                  </div>
+                )}
+                
+                {selectedDetails.visit?.customer_status === 'Not Available' && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fee2e2',
+                    borderRadius: '8px',
+                    color: '#991b1b',
+                    fontSize: '14px'
+                  }}>
+                    <div>❌ You are marked as not available for this visit.</div>
+                    {selectedDetails.visit?.reschedule_date && (
+                      <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                        Reschedule requested for: {selectedDetails.visit.reschedule_date}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Notification Context */}
+              {/* Context Note */}
               <div style={{
-                padding: '12px 16px',
+                padding: '10px 16px',
                 backgroundColor: '#f8fafc',
                 borderRadius: '8px',
                 border: '1px solid #e5e7eb',
@@ -2060,7 +2431,7 @@ function Dashboard() {
                 color: '#6b7280'
               }}>
                 <span style={{ fontWeight: 500, color: '#374151' }}>📌 Context: </span>
-                {selectedSalesperson.title || 'Salesperson assigned for your visit'}
+                Salesperson assigned for your warehouse visit
               </div>
             </div>
           )}
@@ -2071,16 +2442,141 @@ function Dashboard() {
           backgroundColor: '#f8fafc'
         }}>
           <Button
-            variant="primary"
-            onClick={() => setShowSalespersonModal(false)}
+            variant="secondary"
+            onClick={() => setShowDetailsModal(false)}
             style={{
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#6b7280',
               border: 'none',
               padding: '8px 24px',
               fontWeight: 500
             }}
           >
             Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reschedule Modal */}
+      <Modal
+        show={showRescheduleModal}
+        onHide={() => setShowRescheduleModal(false)}
+        centered
+        size="md"
+        style={{ zIndex: 9999 }}
+      >
+        <Modal.Header closeButton style={{
+          backgroundColor: '#f8fafc',
+          borderBottom: '2px solid #e5e7eb',
+          padding: '20px 24px'
+        }}>
+          <Modal.Title style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '20px',
+            fontWeight: 600,
+            color: '#1f2937'
+          }}>
+            <span style={{ fontSize: '28px' }}>📅</span>
+            Reschedule Visit
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{
+          padding: '24px',
+          backgroundColor: 'white'
+        }}>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label style={{ fontWeight: 500 }}>
+                Select New Date & Time <span style={{ color: '#ef4444' }}>*</span>
+              </Form.Label>
+              <Form.Control
+                type="datetime-local"
+                value={rescheduleData.reschedule_date}
+                onChange={(e) => setRescheduleData(prev => ({
+                  ...prev,
+                  reschedule_date: e.target.value
+                }))}
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db'
+                }}
+                required
+              />
+            </Form.Group>
+            
+            <Form.Group className="mb-3">
+              <Form.Label style={{ fontWeight: 500 }}>
+                Additional Notes
+              </Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={rescheduleData.reschedule_notes}
+                onChange={(e) => setRescheduleData(prev => ({
+                  ...prev,
+                  reschedule_notes: e.target.value
+                }))}
+                placeholder="Please provide any additional information about the reschedule request..."
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  resize: 'vertical'
+                }}
+              />
+            </Form.Group>
+            
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fef3c7',
+              borderRadius: '8px',
+              border: '1px solid #fcd34d',
+              fontSize: '13px',
+              color: '#92400e'
+            }}>
+              <span style={{ fontWeight: 600 }}>📌 Note:</span> The salesperson will be notified of your reschedule request. They will confirm the new time with you.
+            </div>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer style={{
+          padding: '16px 24px',
+          borderTop: '1px solid #e5e7eb',
+          backgroundColor: '#f8fafc'
+        }}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowRescheduleModal(false)}
+            style={{
+              backgroundColor: '#6b7280',
+              border: 'none',
+              padding: '8px 20px',
+              fontWeight: 500
+            }}
+            disabled={submittingReschedule}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleRescheduleSubmit}
+            style={{
+              backgroundColor: '#3b82f6',
+              border: 'none',
+              padding: '8px 20px',
+              fontWeight: 500
+            }}
+            disabled={submittingReschedule || !rescheduleData.reschedule_date}
+          >
+            {submittingReschedule ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Submitting...
+              </>
+            ) : (
+              'Submit Reschedule Request'
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
