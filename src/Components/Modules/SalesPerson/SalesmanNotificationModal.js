@@ -20,26 +20,26 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
   const safeToFixed2 = (value) => safeToFixed(value, 2);
 
   const extractTransferId = () => {
-  if (!notification) return null;
-  
-  // If related_id exists, use it directly
-  if (notification.related_id) return notification.related_id;
-  
-  // Try to extract from message
-  const message = notification.message || '';
-  // Look for ASN number
-  const asnMatch = message.match(/#(ASN\d+)/);
-  if (asnMatch) {
-    return asnMatch[1];
-  }
-  
-  // If it's an assignment notification with _assignmentData
-  if (notification._assignmentData && notification._assignmentData.assigned_id) {
-    return notification._assignmentData.assigned_id;
-  }
-  
-  return null;
-};
+    if (!notification) return null;
+    
+    // If related_id exists, use it directly
+    if (notification.related_id) return notification.related_id;
+    
+    // Try to extract from message
+    const message = notification.message || '';
+    // Look for ASN number
+    const asnMatch = message.match(/#(ASN\d+)/);
+    if (asnMatch) {
+      return asnMatch[1];
+    }
+    
+    // If it's an assignment notification with _assignmentData
+    if (notification._assignmentData && notification._assignmentData.assigned_id) {
+      return notification._assignmentData.assigned_id;
+    }
+    
+    return null;
+  };
 
   useEffect(() => {
     if (show && notification) {
@@ -202,6 +202,14 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
     }
   };
 
+  // Check if any item has weight captured
+  const hasWeights = (items) => {
+    return items.some(item => 
+      item.weight_machine_reading && 
+      parseFloat(item.weight_machine_reading) > 0
+    );
+  };
+
   const transferDetails = assignmentDetails?.transfer_details;
   const items = assignmentDetails?.transfer_items || [];
 
@@ -257,32 +265,73 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
                     <th>Qty</th>
                     <th>Rate</th>
                     <th>Total Price</th>
+                    <th>Weight</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length > 0 ? (
-                    items.map((item, index) => (
-                      <tr key={item.item_id || index}>
-                        <td>{index + 1}</td>
-                        <td><Badge bg="dark">{item.PCode_BarCode}</Badge></td>
-                        <td>{item.product_name || 'N/A'}</td>
-                        <td>{item.metal_type || 'N/A'}</td>
-                        <td>{item.purity || 'N/A'}</td>
-                        <td>{safeToFixed(item.gross_weight)}</td>
-                        <td>{safeToFixed(item.net_weight)}</td>
-                        <td>{safeToFixed(item.qty, 0)}</td>
-                        <td>{safeToFixed2(item.rate)}</td>
-                        <td>{safeToFixed2(item.total_price)}</td>
-                      </tr>
-                    ))
+                    items.map((item, index) => {
+                      const hasWeight = item.weight_machine_reading && parseFloat(item.weight_machine_reading) > 0;
+                      return (
+                        <tr key={item.item_id || index}>
+                          <td>{index + 1}</td>
+                          <td><Badge bg="dark">{item.PCode_BarCode}</Badge></td>
+                          <td>{item.product_name || 'N/A'}</td>
+                          <td>{item.metal_type || 'N/A'}</td>
+                          <td>{item.purity || 'N/A'}</td>
+                          <td>{safeToFixed(item.gross_weight)}</td>
+                          <td>{safeToFixed(item.net_weight)}</td>
+                          <td>{safeToFixed(item.qty, 0)}</td>
+                          <td>{safeToFixed2(item.rate)}</td>
+                          <td>{safeToFixed2(item.total_price)}</td>
+                          <td>
+                            {hasWeight ? (
+                              <Badge bg="success" style={{ fontSize: '12px' }}>
+                                ✅ {safeToFixed(item.weight_machine_reading)} g
+                                <br />
+                                <small style={{ fontSize: '9px', opacity: 0.8 }}>
+                                  ({item.weight_machine_grams || 0}g / {item.weight_machine_milligrams || 0}mg)
+                                </small>
+                              </Badge>
+                            ) : (
+                              <Badge bg="secondary" style={{ fontSize: '12px' }}>
+                                ⏳ Pending
+                              </Badge>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="10" className="text-center text-muted">No items found</td>
+                      <td colSpan="11" className="text-center text-muted">No items found</td>
                     </tr>
                   )}
                 </tbody>
               </Table>
             </div>
+
+            {/* Weight Captured Summary */}
+            {hasWeights(items) && (
+              <div className="mt-3">
+                <div className="p-3 border rounded" style={{ backgroundColor: '#e8f5e9' }}>
+                  <h6 className="mb-2">✅ Weight Capture Summary</h6>
+                  <Row>
+                    <Col md={4}>
+                      <strong>Total Items:</strong> {items.length}
+                    </Col>
+                    <Col md={4}>
+                      <strong>Weights Captured:</strong> {items.filter(item => item.weight_machine_reading > 0).length} / {items.length}
+                    </Col>
+                    <Col md={4}>
+                      <strong>Total Captured Weight:</strong> {
+                        items.reduce((sum, item) => sum + (parseFloat(item.weight_machine_reading) || 0), 0).toFixed(3)
+                      } g
+                    </Col>
+                  </Row>
+                </div>
+              </div>
+            )}
 
             {transferDetails.remarks && (
               <div className="mt-2">
