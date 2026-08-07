@@ -48,7 +48,7 @@ const EstimateForm = () => {
   const [extractedWeight, setExtractedWeight] = useState(null);
   const [isProcessingWeight, setIsProcessingWeight] = useState(false);
   const [weightCaptureError, setWeightCaptureError] = useState(null);
-  
+
   // Fields for Gemini extraction
   const [extractedGrams, setExtractedGrams] = useState(null);
   const [extractedMilligrams, setExtractedMilligrams] = useState(null);
@@ -171,7 +171,7 @@ const EstimateForm = () => {
         });
 
         const response = await axios.get(`${baseURL2}/api/assigned-salesman/get-assigned-transfers`);
-        
+
         if (response.data && Array.isArray(response.data)) {
           const salesmanTransfers = response.data.filter(
             transfer => transfer.to_salesman_id === parseInt(salespersonId) && transfer.status === 'completed'
@@ -206,7 +206,7 @@ const EstimateForm = () => {
 
           setAssignedProducts(allAssignedProducts);
           setAssignedProductsMap(productMap);
-          
+
           Swal.close();
           console.log(`Loaded ${allAssignedProducts.length} assigned products for salesman ${salespersonId}`);
         } else {
@@ -259,7 +259,7 @@ const EstimateForm = () => {
             value: customer.full_name,
             label: customer.full_name,
             customerId: customer.id || customer._id || customer.user_id,
-            custId: customer.customer_id 
+            custId: customer.customer_id
           }));
           setCustomerOptions(customerOpts);
         }
@@ -412,13 +412,13 @@ const EstimateForm = () => {
 
       if (response.data.success && response.data.record) {
         const record = response.data.record;
-        
+
         setExtractedRawText(record.raw_text);
         setExtractedGrams(record.grams);
         setExtractedMilligrams(record.milligrams);
         setExtractedTotalGrams(record.total_grams);
         setExtractedConfidence(record.confidence);
-        
+
         setExtractedWeight({
           grossWeight: record.total_grams,
           secondaryWeight: null,
@@ -462,16 +462,16 @@ const EstimateForm = () => {
     } catch (error) {
       Swal.close();
       console.error('Gemini API Error:', error);
-      
+
       let errorMessage = 'Error processing image with Gemini AI.';
       if (error.response) {
         errorMessage = error.response.data?.message || error.response.data?.error || errorMessage;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setWeightCaptureError(errorMessage);
-      
+
       Swal.fire({
         icon: 'error',
         title: 'Extraction Failed',
@@ -503,7 +503,7 @@ const EstimateForm = () => {
 
       if (response.data.success && response.data.data) {
         const packet = response.data.data;
-        
+
         if (packet.status === 'Used') {
           Swal.fire({
             icon: 'warning',
@@ -551,10 +551,10 @@ const EstimateForm = () => {
           showConfirmButton: false
         });
       } else {
-        Swal.fire({ 
-          icon: 'warning', 
-          title: 'Packet Not Available', 
-          text: response.data.message || `No available packet found for: ${decodedText}` 
+        Swal.fire({
+          icon: 'warning',
+          title: 'Packet Not Available',
+          text: response.data.message || `No available packet found for: ${decodedText}`
         });
       }
     } catch (error) {
@@ -672,7 +672,7 @@ const EstimateForm = () => {
 
       if (barcode) {
         const assignedProduct = assignedProductsRef.current.get(barcode);
-        
+
         if (!assignedProduct) {
           Swal.close();
           Swal.fire({
@@ -782,7 +782,7 @@ const EstimateForm = () => {
       }
 
       const productDetails = await response.json();
-      
+
       const calculatedValues = calculateProductTotals(productDetails);
 
       let finalPacketBarcode = null;
@@ -803,7 +803,7 @@ const EstimateForm = () => {
         customer_name: currentFormData.customer_name,
         salesperson_id: salespersonId,
         source_by: sourceBy,
-        
+
         product_id: productDetails.product_id,
         product_name: productDetails.product_name,
         barcode: productDetails.barcode,
@@ -813,50 +813,50 @@ const EstimateForm = () => {
         design_name: productDetails.design,
         category: productDetails.category_id,
         sub_category: productDetails.product_name,
-        
+
         gross_weight: calculatedValues.gross_weight,
         stone_weight: calculatedValues.stone_weight,
         stone_price: calculatedValues.stone_price,
         weight_bw: calculatedValues.weight_bw,
-        
+
         va_on: calculatedValues.va_on,
         va_percent: calculatedValues.va_percent,
         wastage_weight: calculatedValues.wastage_weight,
         total_weight_av: calculatedValues.total_weight_av,
-        
+
         mc_on: calculatedValues.mc_on,
         mc_per_gram: calculatedValues.mc_per_gram,
         making_charges: calculatedValues.making_charges,
-        
+
         rate: calculatedValues.rate,
         rate_amt: calculatedValues.rate_amt,
-        
+
         tax_percent: calculatedValues.tax_percent,
         tax_amt: calculatedValues.tax_amt,
         total_price: calculatedValues.total_price,
         hm_charges: calculatedValues.hm_charges,
-        
+
         total_amount: calculatedValues.rate_amt,
         taxable_amount: (parseFloat(calculatedValues.rate_amt) + parseFloat(calculatedValues.stone_price) + parseFloat(calculatedValues.making_charges)).toFixed(2),
         tax_amount: calculatedValues.tax_amt,
         net_amount: calculatedValues.total_price,
-        
+
         pricing: calculatedValues.pricing,
         qty: calculatedValues.qty,
-        
+
         packet_barcode: finalPacketBarcode,
         packet_wt: finalPacketWt,
-        
+
         opentag_id: 0,
         pcode: null,
         original_total_price: calculatedValues.total_price,
         estimate_status: "Pending",
-        
+
         force_insert: true,
-        
+
         assigned_number: assignedProduct?.assigned_number || null,
         assigned_item_id: assignedProduct?.item_id || null,
-        
+
         cover_wt: calculatedValues.cover_wt,
         card_wt: calculatedValues.card_wt,
         packing_wt: calculatedValues.packing_wt
@@ -869,9 +869,9 @@ const EstimateForm = () => {
           product_id: productDetails.product_id,
           status: "Selected"
         });
-        
+
         if (statusResponse.data.success) {
-          setAllProducts(prevProducts => 
+          setAllProducts(prevProducts =>
             prevProducts.filter(product => product.product_id !== productDetails.product_id)
           );
           allProductsRef.current = allProductsRef.current.filter(
@@ -1029,10 +1029,10 @@ const EstimateForm = () => {
 
   // Check if all mandatory actions are completed
   const areAllMandatoryActionsCompleted = () => {
-    return mandatoryActions.scanProduct && 
-           mandatoryActions.scanPacket && 
-           mandatoryActions.captureImage && 
-           mandatoryActions.uploadWeight;
+    return mandatoryActions.scanProduct &&
+      mandatoryActions.scanPacket &&
+      mandatoryActions.captureImage &&
+      mandatoryActions.uploadWeight;
   };
 
   // Handle Save & Print
@@ -1329,43 +1329,52 @@ const EstimateForm = () => {
 
               <Col xs={12} md={7}>
                 <div className="action-buttons-row">
-                  <Button 
-                    onClick={startScanner} 
+                  <Button
+                    onClick={startScanner}
                     className={`action-btn scan-product-btn ${mandatoryActions.scanProduct ? 'btn-success' : ''}`}
                     style={mandatoryActions.scanProduct ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
                   >
                     <FaQrcode /> {mandatoryActions.scanProduct ? '✓' : ''} Scan Product
                   </Button>
 
-                  <Button 
-                    onClick={startPacketScanner} 
+                  <Button
+                    onClick={startPacketScanner}
                     className={`action-btn scan-packet-btn ${mandatoryActions.scanPacket ? 'btn-success' : ''}`}
                     style={mandatoryActions.scanPacket ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
                   >
                     <FaBarcode /> {mandatoryActions.scanPacket ? '✓' : ''} Scan Packet
                   </Button>
 
-                  <Button 
-                    onClick={startCamera} 
+                  <Button
+                    onClick={startCamera}
                     className={`action-btn capture-btn ${mandatoryActions.captureImage ? 'btn-success' : ''}`}
                     style={mandatoryActions.captureImage ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
                   >
                     <FaCamera /> {mandatoryActions.captureImage ? '✓' : ''} Capture Image
                   </Button>
 
-                  <Button 
-                    onClick={triggerWeightFileUpload} 
-                    className={`action-btn upload-weight-btn ${mandatoryActions.uploadWeight ? 'btn-success' : ''}`}
+                  <Button
+                    onClick={startWeightCamera}
+                    className={`action-btn capture-weight-btn ${mandatoryActions.uploadWeight ? 'btn-success' : ''}`}
                     style={mandatoryActions.uploadWeight ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}}
                   >
-                    <FaUpload /> {mandatoryActions.uploadWeight ? '✓' : ''} Upload Weight
+                    <FaCamera /> {mandatoryActions.uploadWeight ? '✓' : ''} Capture Weight
                   </Button>
 
-                  <input
+                  {/* <input
                     ref={weightFileInputRef}
                     type="file"
                     accept="image/*"
                     onChange={handleWeightFileUpload}
+                    style={{ display: 'none' }}
+                  /> */}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileUpload}
                     style={{ display: 'none' }}
                   />
 
@@ -1404,37 +1413,37 @@ const EstimateForm = () => {
                   <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#495057' }}>
                     Required Actions:
                   </span>
-                  <span style={{ 
+                  <span style={{
                     color: mandatoryActions.scanProduct ? '#28a745' : '#dc3545',
                     fontWeight: mandatoryActions.scanProduct ? 'bold' : 'normal',
                     fontSize: '13px'
                   }}>
                     {mandatoryActions.scanProduct ? '✅' : '⬜'} Scan Product
                   </span>
-                  <span style={{ 
+                  <span style={{
                     color: mandatoryActions.scanPacket ? '#28a745' : '#dc3545',
                     fontWeight: mandatoryActions.scanPacket ? 'bold' : 'normal',
                     fontSize: '13px'
                   }}>
                     {mandatoryActions.scanPacket ? '✅' : '⬜'} Scan Packet
                   </span>
-                  <span style={{ 
+                  <span style={{
                     color: mandatoryActions.captureImage ? '#28a745' : '#dc3545',
                     fontWeight: mandatoryActions.captureImage ? 'bold' : 'normal',
                     fontSize: '13px'
                   }}>
                     {mandatoryActions.captureImage ? '✅' : '⬜'} Capture Image
                   </span>
-                  <span style={{ 
+                  <span style={{
                     color: mandatoryActions.uploadWeight ? '#28a745' : '#dc3545',
                     fontWeight: mandatoryActions.uploadWeight ? 'bold' : 'normal',
                     fontSize: '13px'
                   }}>
-                    {mandatoryActions.uploadWeight ? '✅' : '⬜'} Upload Weight
+                    {mandatoryActions.uploadWeight ? '✅' : '⬜'} Capture Weight
                   </span>
                   {!areAllMandatoryActionsCompleted() && (
-                    <span style={{ 
-                      color: '#dc3545', 
+                    <span style={{
+                      color: '#dc3545',
                       fontSize: '12px',
                       marginLeft: 'auto',
                       backgroundColor: '#f8d7da',
@@ -1445,8 +1454,8 @@ const EstimateForm = () => {
                     </span>
                   )}
                   {areAllMandatoryActionsCompleted() && (
-                    <span style={{ 
-                      color: '#28a745', 
+                    <span style={{
+                      color: '#28a745',
                       fontSize: '12px',
                       marginLeft: 'auto',
                       backgroundColor: '#d4edda',
@@ -1464,11 +1473,11 @@ const EstimateForm = () => {
             {extractedWeight && (
               <Row className="mb-3">
                 <Col xs={12} className="d-flex justify-content-end">
-                  <div style={{ 
-                    background: '#e8f4fd', 
-                    border: '1px solid #90caf9', 
-                    borderRadius: 8, 
-                    padding: 16, 
+                  <div style={{
+                    background: '#e8f4fd',
+                    border: '1px solid #90caf9',
+                    borderRadius: 8,
+                    padding: 16,
                     minWidth: 350,
                     animation: 'slideIn 0.3s ease-out'
                   }}>
@@ -1480,9 +1489,9 @@ const EstimateForm = () => {
                     <div className="d-flex gap-4 mt-2 flex-wrap">
                       <div style={{ flex: 1, minWidth: '120px' }}>
                         <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Total Weight</label>
-                        <div style={{ 
-                          fontSize: 24, 
-                          fontWeight: 'bold', 
+                        <div style={{
+                          fontSize: 24,
+                          fontWeight: 'bold',
                           color: '#0d47a1',
                           padding: '8px 0',
                           borderBottom: '2px solid #90caf9'
@@ -1492,9 +1501,9 @@ const EstimateForm = () => {
                       </div>
                       <div style={{ flex: 1, minWidth: '120px' }}>
                         <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Grams</label>
-                        <div style={{ 
-                          fontSize: 20, 
-                          fontWeight: 'bold', 
+                        <div style={{
+                          fontSize: 20,
+                          fontWeight: 'bold',
                           color: '#0d47a1',
                           padding: '8px 0',
                           borderBottom: '2px solid #90caf9'
@@ -1504,9 +1513,9 @@ const EstimateForm = () => {
                       </div>
                       <div style={{ flex: 1, minWidth: '120px' }}>
                         <label style={{ fontSize: 12, fontWeight: 500, color: '#666' }}>Milligrams</label>
-                        <div style={{ 
-                          fontSize: 20, 
-                          fontWeight: 'bold', 
+                        <div style={{
+                          fontSize: 20,
+                          fontWeight: 'bold',
                           color: '#0d47a1',
                           padding: '8px 0',
                           borderBottom: '2px solid #90caf9'
@@ -1522,17 +1531,17 @@ const EstimateForm = () => {
                     </div>
 
                     <div className="mt-2 d-flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="success" 
+                      <Button
+                        size="sm"
+                        variant="success"
                         disabled
                         style={{ opacity: 0.7 }}
                       >
                         <FaSave /> ✓ Auto-Saved
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => {
                           setExtractedWeight(null);
                           setExtractedGrams(null);
@@ -1605,6 +1614,8 @@ const EstimateForm = () => {
                 </Col>
               </Row>
             )}
+
+
 
             {packetSuccessMessage && (
               <Row className="mb-3">
@@ -1696,10 +1707,10 @@ const EstimateForm = () => {
 
             <Row className="mt-3">
               <Col xs={12} className="d-flex justify-content-end">
-                <Button className="cancel-btn me-2" onClick={handleCancel} style={{marginBottom:"2px"}}>Cancel</Button>
-                <Button 
-                  className="save-btn" 
-                  onClick={handleSaveAndPrint} 
+                <Button className="cancel-btn me-2" onClick={handleCancel} style={{ marginBottom: "2px" }}>Cancel</Button>
+                <Button
+                  className="save-btn"
+                  onClick={handleSaveAndPrint}
                   disabled={isSaveDisabled()}
                   style={{ opacity: isSaveDisabled() ? 0.6 : 1 }}
                 >
