@@ -457,274 +457,280 @@ function SalespersonRegister() {
   };
 
   // Function to store salesman in accounts database (ERP)
-// Function to store salesman in accounts database (ERP)
-const storeInAccountsDB = async (salesmanData, userId, password, dutyStartTime, dutyEndTime) => {
-  try {
-    const accountsData = {
-      account_name: salesmanData.full_name,
-      print_name: salesmanData.full_name,
-      account_group: "SALESMAN",
-      op_bal: null,
-      metal_balance: null,
-      dr_cr: null,
-      address1: "",
-      address2: "",
-      city: salesmanData.city || "",
-      district: salesmanData.district || "",
-      pincode: salesmanData.pincode || "",
-      state: salesmanData.state || "",
-      state_code: "",
-      phone: salesmanData.phone,
-      mobile: salesmanData.phone,
-      contact_person: null,
-      email: salesmanData.email,
-      birthday: salesmanData.dob || null,
-      anniversary: salesmanData.anniversary || null,
-      bank_account_no: "",
-      bank_name: "",
-      ifsc_code: "",
-      branch: "",
-      gst_in: "",
-      aadhar_card: "",
-      pan_card: "",
-      religion: "",
-      images: null,
-      user_id: userId,
-      password: password,
-      duty_start_time: dutyStartTime,
-      duty_end_time: dutyEndTime
-    };
+  // UPDATED: Now accepts profilePhotoFile and sends as FormData
+  const storeInAccountsDB = async (salesmanData, userId, password, dutyStartTime, dutyEndTime, profilePhotoFile) => {
+    try {
+      const formData = new FormData();
+      formData.append('account_name', salesmanData.full_name);
+      formData.append('print_name', salesmanData.full_name);
+      formData.append('account_group', 'SALESMAN');
+      formData.append('op_bal', '');
+      formData.append('metal_balance', '');
+      formData.append('dr_cr', '');
+      formData.append('address1', '');
+      formData.append('address2', '');
+      formData.append('city', salesmanData.city || '');
+      formData.append('district', salesmanData.district || '');
+      formData.append('pincode', salesmanData.pincode || '');
+      formData.append('state', salesmanData.state || '');
+      formData.append('state_code', '');
+      formData.append('phone', salesmanData.phone);
+      formData.append('mobile', salesmanData.phone);
+      formData.append('contact_person', '');
+      formData.append('email', salesmanData.email);
+      formData.append('birthday', salesmanData.dob || '');
+      formData.append('anniversary', salesmanData.anniversary || '');
+      formData.append('bank_account_no', '');
+      formData.append('bank_name', '');
+      formData.append('ifsc_code', '');
+      formData.append('branch', '');
+      formData.append('gst_in', '');
+      formData.append('aadhar_card', '');
+      formData.append('pan_card', '');
+      formData.append('religion', '');
+      formData.append('user_id', userId);
+      formData.append('password', password);
+      formData.append('duty_start_time', dutyStartTime);
+      formData.append('duty_end_time', dutyEndTime);
+      
+      // Append profile photo
+      if (profilePhotoFile) {
+        formData.append('profile_photo', profilePhotoFile);
+      }
 
-    console.log("Sending to accounts API:", accountsData);
+      console.log("Sending to accounts API with form data");
 
-    const response = await fetch(`${baseURL2}/account-details`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(accountsData),
-    });
+      const response = await fetch(`${baseURL2}/account-details`, {
+        method: "POST",
+        body: formData, // Don't set Content-Type header - browser will set it with boundary
+      });
 
-    if (response.ok) {
-      const result = await response.json();
-      console.log("Account stored successfully in ERP:", result);
-      return true;
-    } else {
-      const errorData = await response.json();
-      console.error("Failed to store account in ERP:", errorData);
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Account stored successfully in ERP:", result);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error("Failed to store account in ERP:", errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error storing in accounts DB:", error);
       return false;
     }
-  } catch (error) {
-    console.error("Error storing in accounts DB:", error);
-    return false;
-  }
-};
+  };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  // Validate DOB year format
-if (formData.dob) {
-  const year = formData.dob.split("-")[0];
+    // Validate DOB year format
+    if (formData.dob) {
+      const year = formData.dob.split("-")[0];
 
-  if (!/^\d{4}$/.test(year)) {
-    Swal.fire({
-      icon: "error",
-      title: "Invalid Date of Birth",
-      text: "DOB year must contain exactly 4 digits (YYYY).",
-      confirmButtonColor: "#3085d6",
-    });
+      if (!/^\d{4}$/.test(year)) {
+        Swal.fire({
+          icon: "error",
+          title: "Invalid Date of Birth",
+          text: "DOB year must contain exactly 4 digits (YYYY).",
+          confirmButtonColor: "#3085d6",
+        });
 
-    setIsSubmitting(false);
-    return;
-  }
-}
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
-// Validate Anniversary year format
-if (formData.anniversary) {
-  const year = formData.anniversary.split("-")[0];
+    // Validate Anniversary year format
+    if (formData.anniversary) {
+      const year = formData.anniversary.split("-")[0];
 
-  if (!/^\d{4}$/.test(year)) {
-    Swal.fire({
-      icon: "error",
-      title: "Invalid Anniversary Date",
-      text: "Anniversary year must contain exactly 4 digits (YYYY).",
-      confirmButtonColor: "#3085d6",
-    });
+      if (!/^\d{4}$/.test(year)) {
+        Swal.fire({
+          icon: "error",
+          title: "Invalid Anniversary Date",
+          text: "Anniversary year must contain exactly 4 digits (YYYY).",
+          confirmButtonColor: "#3085d6",
+        });
 
-    setIsSubmitting(false);
-    return;
-  }
-}
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
-// Validate Phone Number length
-if (!/^\d{10}$/.test(formData.phone)) {
-  Swal.fire({
-    icon: "error",
-    title: "Invalid Phone Number",
-    text: "Phone number must contain exactly 10 digits.",
-    confirmButtonColor: "#3085d6",
-  });
-
-  setIsSubmitting(false);
-  return;
-}
-
-  // Validate passwords match
-  if (formData.password !== formData.confirmPassword) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Password Mismatch',
-      text: 'Passwords do not match. Please try again.',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Validate duty hours
-  if (!formData.duty_start_time || !formData.duty_end_time) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Duty Hours Required',
-      text: 'Please enter both start time and end time for duty hours.',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Validate face capture
-  if (!faceData) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Face Registration Required',
-      text: 'Please capture your face for face login feature.',
-      confirmButtonColor: '#3085d6',
-    });
-    setShowFaceCapture(true);
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Validate mandatory image upload/capture
-  if (!selectedImage) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Profile Photo Required',
-      text: 'Please upload or capture a profile photo. This is mandatory for salesman registration.',
-      confirmButtonColor: '#3085d6',
-    });
-    setIsSubmitting(false);
-    return;
-  }
-
-  // Prepare data for API
-  const apiData = new FormData();
-  apiData.append('full_name', formData.full_name);
-  apiData.append('email_id', formData.email);
-  apiData.append('phone', formData.phone);
-  apiData.append('date_of_birth', formData.dob);
-  apiData.append('gender', formData.gender);
-  apiData.append('designation', formData.designation);
-  apiData.append('date_of_anniversary', formData.anniversary);
-  apiData.append('country', formData.country);
-  apiData.append('state', formData.state);
-  apiData.append('district', formData.district);
-  apiData.append('city', formData.city);
-  apiData.append('password', formData.password);
-  apiData.append('confirm_password', formData.confirmPassword);
-  apiData.append('company_name', formData.company_name);
-  apiData.append('role', formData.role);
-  apiData.append('pincode', formData.pincode);
-  apiData.append('duty_start_time', formData.duty_start_time);
-  apiData.append('duty_end_time', formData.duty_end_time);
-  apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
-  apiData.append('status', 'pending');
-  
-  // Append face photo from face capture (base64 to file)
-  const base64Image = faceData.image;
-  const byteString = atob(base64Image.split(',')[1]);
-  const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  const blob = new Blob([ab], { type: mimeString });
-  const faceFile = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
-  apiData.append('face_photo', faceFile);
-  
-  // Append mandatory profile photo
-  apiData.append('profile_photo', selectedImage);
-
-  try {
-    // First API call - Store in users database (Jiya Jewellery Module)
-    const response = await fetch(`${baseURL}/api/users`, {
-      method: "POST",
-      body: apiData,
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("User registration success:", result);
-      
-      const generatedUserId = result.id;
-      console.log("Generated User ID:", generatedUserId);
-
-      // Second API call - Store in accounts database (ERP Module)
-      const salesmanDataForAccounts = {
-        full_name: formData.full_name,
-        email: formData.email,
-        phone: formData.phone,
-        city: formData.city,
-        district: formData.district,
-        pincode: formData.pincode,
-        state: formData.state,
-        dob: formData.dob,
-        anniversary: formData.anniversary,
-      };
-
-await storeInAccountsDB(
-  salesmanDataForAccounts, 
-  generatedUserId, 
-  formData.password,
-  formData.duty_start_time,
-  formData.duty_end_time
-);
-
+    // Validate Phone Number length
+    if (!/^\d{10}$/.test(formData.phone)) {
       Swal.fire({
-        icon: 'success',
-        title: 'Registration Successful!',
-        text: 'Your salesman account has been created successfully in both systems.',
-        confirmButtonColor: '#3085d6',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          navigate("/");
-        }
+        icon: "error",
+        title: "Invalid Phone Number",
+        text: "Phone number must contain exactly 10 digits.",
+        confirmButtonColor: "#3085d6",
       });
-    } else {
-      const errorData = await response.json();
+
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
       Swal.fire({
         icon: 'error',
-        title: 'Registration Failed',
-        text: errorData.message || 'Registration failed. Please try again.',
+        title: 'Password Mismatch',
+        text: 'Passwords do not match. Please try again.',
         confirmButtonColor: '#3085d6',
       });
+      setIsSubmitting(false);
+      return;
     }
-  } catch (error) {
-    console.error("Error:", error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Network Error',
-      text: 'Please check your connection and try again.',
-      confirmButtonColor: '#3085d6',
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+
+    // Validate duty hours
+    if (!formData.duty_start_time || !formData.duty_end_time) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Duty Hours Required',
+        text: 'Please enter both start time and end time for duty hours.',
+        confirmButtonColor: '#3085d6',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate face capture
+    if (!faceData) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Face Registration Required',
+        text: 'Please capture your face for face login feature.',
+        confirmButtonColor: '#3085d6',
+      });
+      setShowFaceCapture(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate mandatory image upload/capture
+    if (!selectedImage) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Profile Photo Required',
+        text: 'Please upload or capture a profile photo. This is mandatory for salesman registration.',
+        confirmButtonColor: '#3085d6',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Prepare data for API
+    const apiData = new FormData();
+    apiData.append('full_name', formData.full_name);
+    apiData.append('email_id', formData.email);
+    apiData.append('phone', formData.phone);
+    apiData.append('date_of_birth', formData.dob);
+    apiData.append('gender', formData.gender);
+    apiData.append('designation', formData.designation);
+    apiData.append('date_of_anniversary', formData.anniversary);
+    apiData.append('country', formData.country);
+    apiData.append('state', formData.state);
+    apiData.append('district', formData.district);
+    apiData.append('city', formData.city);
+    apiData.append('password', formData.password);
+    apiData.append('confirm_password', formData.confirmPassword);
+    apiData.append('company_name', formData.company_name);
+    apiData.append('role', formData.role);
+    apiData.append('pincode', formData.pincode);
+    apiData.append('duty_start_time', formData.duty_start_time);
+    apiData.append('duty_end_time', formData.duty_end_time);
+    apiData.append('face_descriptor', JSON.stringify(faceData.descriptor));
+    apiData.append('status', 'pending');
+    
+    // Append face photo from face capture (base64 to file)
+    const base64Image = faceData.image;
+    const byteString = atob(base64Image.split(',')[1]);
+    const mimeString = base64Image.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: mimeString });
+    const faceFile = new File([blob], `face-${Date.now()}.jpg`, { type: mimeString });
+    apiData.append('face_photo', faceFile);
+    
+    // Append mandatory profile photo
+    apiData.append('profile_photo', selectedImage);
+
+    try {
+      // First API call - Store in users database (Jiya Jewellery Module)
+      const response = await fetch(`${baseURL}/api/users`, {
+        method: "POST",
+        body: apiData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("User registration success:", result);
+        
+        const generatedUserId = result.id;
+        console.log("Generated User ID:", generatedUserId);
+
+        // Second API call - Store in accounts database (ERP Module)
+        const salesmanDataForAccounts = {
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone,
+          city: formData.city,
+          district: formData.district,
+          pincode: formData.pincode,
+          state: formData.state,
+          dob: formData.dob,
+          anniversary: formData.anniversary,
+        };
+
+        // Pass the selectedImage (profile photo file) to storeInAccountsDB
+        const accountsSuccess = await storeInAccountsDB(
+          salesmanDataForAccounts, 
+          generatedUserId, 
+          formData.password,
+          formData.duty_start_time,
+          formData.duty_end_time,
+          selectedImage // Pass the profile photo file
+        );
+
+        if (!accountsSuccess) {
+          console.warn("Account stored in users DB but failed in ERP. Check ERP logs.");
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Registration Successful!',
+          text: 'Your salesman account has been created successfully in both systems.',
+          confirmButtonColor: '#3085d6',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/");
+          }
+        });
+      } else {
+        const errorData = await response.json();
+        Swal.fire({
+          icon: 'error',
+          title: 'Registration Failed',
+          text: errorData.message || 'Registration failed. Please try again.',
+          confirmButtonColor: '#3085d6',
+        });
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Network Error',
+        text: 'Please check your connection and try again.',
+        confirmButtonColor: '#3085d6',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleBack = () => {
     navigate("/salespersontable");
