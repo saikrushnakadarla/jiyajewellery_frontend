@@ -2324,102 +2324,107 @@ const handleCustomerAvailable = async () => {
               </div>
 
               {/* Customer Status Section */}
-              <div style={{
-                padding: '16px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '10px',
-                border: '1px solid #e5e7eb'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '12px'
-                }}>
-                  <span style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: '#374151'
-                  }}>
-                    Your Status
-                  </span>
-                  <span style={{
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    backgroundColor: selectedDetails.visit?.customer_status === 'Available' ? '#d1fae5' :
-                                   selectedDetails.visit?.customer_status === 'Not Available' ? '#fee2e2' :
-                                   '#fef3c7',
-                    color: selectedDetails.visit?.customer_status === 'Available' ? '#065f46' :
-                           selectedDetails.visit?.customer_status === 'Not Available' ? '#991b1b' :
-                           '#92400e'
-                  }}>
-                    {selectedDetails.visit?.customer_status || 'Scheduled'}
-                  </span>
-                </div>
-                
-                {selectedDetails.visit?.customer_status === 'Scheduled' && (
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <Button
-                      variant="success"
-                      onClick={handleCustomerAvailable}
-                      style={{
-                        flex: 1,
-                        padding: '10px',
-                        fontWeight: 500,
-                        backgroundColor: '#22c55e',
-                        border: 'none'
-                      }}
-                    >
-                      ✅ Available
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={handleNotAvailable}
-                      style={{
-                        flex: 1,
-                        padding: '10px',
-                        fontWeight: 500,
-                        backgroundColor: '#ef4444',
-                        border: 'none'
-                      }}
-                    >
-                      ❌ Not Available
-                    </Button>
-                  </div>
-                )}
-                
-                {selectedDetails.visit?.customer_status === 'Available' && (
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: '#d1fae5',
-                    borderRadius: '8px',
-                    color: '#065f46',
-                    textAlign: 'center',
-                    fontSize: '14px'
-                  }}>
-                    ✅ You are marked as available for this visit. The salesperson will be notified.
-                  </div>
-                )}
-                
-                {selectedDetails.visit?.customer_status === 'Not Available' && (
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: '#fee2e2',
-                    borderRadius: '8px',
-                    color: '#991b1b',
-                    fontSize: '14px'
-                  }}>
-                    <div>❌ You are marked as not available for this visit.</div>
-                    {selectedDetails.visit?.reschedule_date && (
-                      <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                        Reschedule requested for: {selectedDetails.visit.reschedule_date}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Customer Status Section - FIXED to handle Pending status */}
+<div style={{
+  padding: '16px',
+  backgroundColor: '#f8fafc',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb'
+}}>
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px'
+  }}>
+    <span style={{
+      fontSize: '14px',
+      fontWeight: 600,
+      color: '#374151'
+    }}>
+      Your Status
+    </span>
+    <span style={{
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: 500,
+      backgroundColor: selectedDetails.visit?.customer_status === 'Available' ? '#d1fae5' :
+                     selectedDetails.visit?.customer_status === 'Not Available' ? '#fee2e2' :
+                     selectedDetails.visit?.customer_status === 'Pending' ? '#fef3c7' :
+                     '#fef3c7',
+      color: selectedDetails.visit?.customer_status === 'Available' ? '#065f46' :
+             selectedDetails.visit?.customer_status === 'Not Available' ? '#991b1b' :
+             selectedDetails.visit?.customer_status === 'Pending' ? '#92400e' :
+             '#92400e'
+    }}>
+      {selectedDetails.visit?.customer_status || 'Pending'}
+    </span>
+  </div>
+  
+  {/* Show buttons when status is Pending OR Scheduled - FIXED */}
+  {(selectedDetails.visit?.customer_status === 'Pending' || 
+    selectedDetails.visit?.customer_status === 'Scheduled') && (
+    <div style={{ display: 'flex', gap: '12px' }}>
+      <Button
+        variant="success"
+        onClick={handleCustomerAvailable}
+        style={{
+          flex: 1,
+          padding: '10px',
+          fontWeight: 500,
+          backgroundColor: '#22c55e',
+          border: 'none'
+        }}
+      >
+        ✅ Available
+      </Button>
+      <Button
+        variant="danger"
+        onClick={handleNotAvailable}
+        style={{
+          flex: 1,
+          padding: '10px',
+          fontWeight: 500,
+          backgroundColor: '#ef4444',
+          border: 'none'
+        }}
+      >
+        ❌ Not Available
+      </Button>
+    </div>
+  )}
+  
+  {selectedDetails.visit?.customer_status === 'Available' && (
+    <div style={{
+      padding: '12px',
+      backgroundColor: '#d1fae5',
+      borderRadius: '8px',
+      color: '#065f46',
+      textAlign: 'center',
+      fontSize: '14px'
+    }}>
+      ✅ You are marked as available for this visit. The salesperson will be notified.
+    </div>
+  )}
+  
+  {selectedDetails.visit?.customer_status === 'Not Available' && (
+    <div style={{
+      padding: '12px',
+      backgroundColor: '#fee2e2',
+      borderRadius: '8px',
+      color: '#991b1b',
+      fontSize: '14px'
+    }}>
+      <div>❌ You are marked as not available for this visit.</div>
+      {selectedDetails.visit?.reschedule_date && (
+        <div style={{ marginTop: '8px', fontSize: '13px' }}>
+          Reschedule requested for: {selectedDetails.visit.reschedule_date}
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
               {/* Context Note */}
               <div style={{
