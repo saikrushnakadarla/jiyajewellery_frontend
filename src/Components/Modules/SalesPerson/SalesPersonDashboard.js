@@ -1261,28 +1261,57 @@ const fetchNotifications = async (userId, silent = false) => {
                           gap: '6px 16px',
                           fontSize: '18px'
                         }}>
-                          <div>
+                          {/* <div>
                             <span style={{ color: '#94a3b8' }}>📞</span>
                             <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_phone || 'N/A'}</span>
-                          </div>
-                          <div>
+                          </div> */}
+                          {/* <div>
                             <span style={{ color: '#94a3b8' }}>📱</span>
                             <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_mobile || 'N/A'}</span>
-                          </div>
-                          <div style={{ gridColumn: '1 / -1' }}>
+                          </div> */}
+                          {/* <div style={{ gridColumn: '1 / -1' }}>
                             <span style={{ color: '#94a3b8' }}>✉️</span>
                             <span style={{ marginLeft: '4px', color: '#334155', fontSize: '18px' }}>{customer.customer_email || 'N/A'}</span>
-                          </div>
-                          <div style={{ gridColumn: '1 / -1' }}>
-                            <span style={{ color: '#94a3b8' }}>📍</span>
-                            <span style={{ marginLeft: '4px', color: '#334155' }}>
-                              {customer.address1 && customer.address1 !== 'N/A' ? customer.address1 : ''}
-                              {customer.city && customer.city !== 'N/A' ? `, ${customer.city}` : ''}
-                              {customer.state && customer.state !== 'N/A' ? `, ${customer.state}` : ''}
-                              {customer.pincode && customer.pincode !== 'N/A' ? ` - ${customer.pincode}` : ''}
-                              {(!customer.address1 || customer.address1 === 'N/A') && 'No address available'}
-                            </span>
-                          </div>
+                          </div> */}
+                        <div style={{ gridColumn: '1 / -1' }}>
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+    <span style={{ color: '#94a3b8' }}>📍</span>
+    <div style={{ color: '#334155' }}>
+      {customer.address1 && customer.address1 !== 'N/A' && (
+        <div>
+          <span style={{ fontWeight: '600', color: '#1e293b' }}>Address 1: </span>
+          {customer.address1}
+        </div>
+      )}
+      {customer.address2 && customer.address2 !== 'N/A' && (
+        <div>
+          <span style={{ fontWeight: '600', color: '#1e293b' }}>Address 2: </span>
+          {customer.address2}
+        </div>
+      )}
+      {customer.city && customer.city !== 'N/A' && (
+        <div>
+          <span style={{ fontWeight: '600', color: '#1e293b' }}>City: </span>
+          {customer.city}
+        </div>
+      )}
+      {customer.state && customer.state !== 'N/A' && (
+        <div>
+          <span style={{ fontWeight: '600', color: '#1e293b' }}>State: </span>
+          {customer.state}
+        </div>
+      )}
+      {customer.pincode && customer.pincode !== 'N/A' && (
+        <div>
+          <span style={{ fontWeight: '600', color: '#1e293b' }}>Pincode: </span>
+          {customer.pincode}
+        </div>
+      )}
+      {(!customer.address1 || customer.address1 === 'N/A') && 
+       !customer.address2 && 'No address available'}
+    </div>
+  </div>
+</div>
                         </div>
                       </div>
 
@@ -1299,11 +1328,11 @@ const fetchNotifications = async (userId, silent = false) => {
                           alignItems: 'center',
                           marginBottom: '8px'
                         }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
+                          {/* <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
                             📋 {customer.visits.length} Visit{customer.visits.length > 1 ? 's' : ''}
-                          </span>
+                          </span> */}
                         </div>
-                        {customer.visits.map((visit, vIndex) => (
+                        {/* {customer.visits.map((visit, vIndex) => (
                           <div key={vIndex} style={{ 
                             display: 'grid',
                             gridTemplateColumns: 'auto 1fr auto',
@@ -1321,7 +1350,7 @@ const fetchNotifications = async (userId, silent = false) => {
                             </span>
                             <span></span>
                           </div>
-                        ))}
+                        ))} */}
                       </div>
 
                       {/* Footer */}
@@ -1333,10 +1362,10 @@ const fetchNotifications = async (userId, silent = false) => {
                         fontSize: '12px',
                         color: '#94a3b8'
                       }}>
-                        <span>
+                        {/* <span>
                           <span style={{ marginRight: '4px' }}>🕐</span>
                           {customer.visits.length} Visit{customer.visits.length > 1 ? 's' : ''}
-                        </span>
+                        </span> */}
                       </div>
                     </Card.Body>
                   </Card>

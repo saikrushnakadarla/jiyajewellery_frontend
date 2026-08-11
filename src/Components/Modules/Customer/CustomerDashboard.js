@@ -2314,12 +2314,12 @@ const handleCustomerAvailable = async () => {
                   borderRadius: '10px',
                   border: '1px solid #e5e7eb'
                 }}>
-                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
+                  {/* <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
                     🔢 Barcode
                   </div>
                   <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937', fontFamily: 'monospace' }}>
                     {selectedDetails.visit?.barcode || 'N/A'}
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
