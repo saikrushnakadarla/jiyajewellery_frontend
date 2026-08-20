@@ -5,12 +5,11 @@ import { useTable, usePagination, useGlobalFilter, useSortBy } from 'react-table
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaEye, FaBarcode, FaImage, FaFilePdf, FaCalendarAlt } from 'react-icons/fa';
-import { Button, Row, Col, Modal, Table, Badge, OverlayTrigger, Tooltip, Form } from 'react-bootstrap';
-import baseURL from "../../ApiUrl/NodeBaseURL"; 
-import baseURL2 from "../../ApiUrl/NodeBaseURL2";
+import { FaEdit, FaTrash, FaEye, FaBarcode, FaImage, FaFilePdf } from 'react-icons/fa';
+import { Button, Row, Col, Modal, Table, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import baseURL from "../../ApiUrl/NodeBaseURL";
 import Navbar from '../../../Pages/Navbar/Navbar';
-import InvoicePreviewModal from './InvoicePDFPreview'; 
+import InvoicePreviewModal from './InvoicePDFPreview';
 import './EstimateTable.css';
 
 // Global Search Filter Component
@@ -59,15 +58,6 @@ const OrdersTable = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedEstimateNumber, setSelectedEstimateNumber] = useState(null);
-  
-  // State for karigar list and assignments
-  const [karigarList, setKarigarList] = useState([]);
-  const [karigarAssignments, setKarigarAssignments] = useState({});
-  const [updatingKarigar, setUpdatingKarigar] = useState(false);
-
-  // State for delivery dates
-  const [deliveryDates, setDeliveryDates] = useState({});
-  const [updatingDeliveryDate, setUpdatingDeliveryDate] = useState(false);
 
   // Session storage for generated invoices
   const [generatedEstimates, setGeneratedEstimates] = useState(() => {
@@ -82,29 +72,6 @@ const OrdersTable = () => {
   useEffect(() => {
     sessionStorage.setItem('generatedInvoices', JSON.stringify(generatedEstimates));
   }, [generatedEstimates]);
-
-  // Fetch karigar list from account-details
-  const fetchKarigarList = useCallback(async () => {
-    try {
-      const response = await axios.get(`${baseURL2}/get/account-details`);
-      const accounts = response.data || [];
-      
-      // Filter accounts with account_group "Employee Compensation"
-      const employees = accounts.filter(
-        account => account.account_group === "Employee Compensation"
-      );
-      
-      setKarigarList(employees);
-      
-      // Load saved assignments from session storage
-      const savedAssignments = sessionStorage.getItem('karigarAssignments');
-      if (savedAssignments) {
-        setKarigarAssignments(JSON.parse(savedAssignments));
-      }
-    } catch (error) {
-      console.error('Error fetching karigar list:', error);
-    }
-  }, []);
 
   // Fetch only Ordered estimates
   const fetchData = useCallback(async () => {
@@ -121,55 +88,10 @@ const OrdersTable = () => {
       const estimatesWithStatus = orderedEstimates.map(estimate => ({
         ...estimate,
         estimate_status: estimate.estimate_status || estimate.status || 'Ordered',
-        // Preserve existing karigar assignments from database
-        assign_karigar: estimate.assign_karigar || null,
-        assign_karigar_id: estimate.assign_karigar_id || null,
-        // Preserve delivery date from database
-        delivery_date: estimate.delivery_date || null,
       }));
 
       setData(estimatesWithStatus);
       setFilteredData(estimatesWithStatus);
-
-      // Load karigar assignments from the fetched data
-      const assignments = {};
-      const deliveryDatesMap = {};
-      
-      estimatesWithStatus.forEach(estimate => {
-        // Karigar assignments
-        if (estimate.assign_karigar_id) {
-          assignments[estimate.estimate_number] = {
-            id: estimate.assign_karigar_id,
-            name: estimate.assign_karigar
-          };
-        }
-        
-        // Delivery dates
-        if (estimate.delivery_date) {
-          deliveryDatesMap[estimate.estimate_number] = estimate.delivery_date;
-        }
-      });
-      
-      // Merge karigar assignments with session storage (session storage takes priority)
-      const savedAssignments = sessionStorage.getItem('karigarAssignments');
-      if (savedAssignments) {
-        const parsed = JSON.parse(savedAssignments);
-        Object.keys(parsed).forEach(key => {
-          assignments[key] = parsed[key];
-        });
-      }
-      
-      // Load delivery dates from session storage
-      const savedDeliveryDates = sessionStorage.getItem('deliveryDates');
-      if (savedDeliveryDates) {
-        const parsed = JSON.parse(savedDeliveryDates);
-        Object.keys(parsed).forEach(key => {
-          deliveryDatesMap[key] = parsed[key];
-        });
-      }
-      
-      setKarigarAssignments(assignments);
-      setDeliveryDates(deliveryDatesMap);
     } catch (error) {
       console.error('Error fetching order details:', error);
       Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load orders' });
@@ -180,8 +102,7 @@ const OrdersTable = () => {
 
   useEffect(() => {
     fetchData();
-    fetchKarigarList();
-  }, [fetchData, fetchKarigarList]);
+  }, [fetchData]);
 
   // Date Filter Handler
   const handleDateFilter = useCallback((fromDate, toDate) => {
@@ -219,127 +140,6 @@ const OrdersTable = () => {
     }
   }, []);
 
-  // Handle karigar assignment change with API call
-  const handleKarigarChange = useCallback(async (estimateNumber, karigarId, karigarName) => {
-    setUpdatingKarigar(true);
-    try {
-      const finalKarigarId = karigarId || null;
-      const finalKarigarName = karigarName || null;
-
-      const response = await axios.put(`${baseURL}/update-assign-karigar`, {
-        estimate_number: estimateNumber,
-        assign_karigar_id: finalKarigarId,
-        assign_karigar: finalKarigarName
-      });
-
-      if (response.data.success) {
-        setKarigarAssignments(prev => ({
-          ...prev,
-          [estimateNumber]: {
-            id: finalKarigarId,
-            name: finalKarigarName
-          }
-        }));
-        
-        sessionStorage.setItem('karigarAssignments', JSON.stringify({
-          ...karigarAssignments,
-          [estimateNumber]: {
-            id: finalKarigarId,
-            name: finalKarigarName
-          }
-        }));
-
-        Swal.fire({
-          icon: 'success',
-          title: finalKarigarName ? 'Karigar Assigned' : 'Karigar Unassigned',
-          text: finalKarigarName 
-            ? `Assigned to ${finalKarigarName}` 
-            : 'Karigar assignment removed',
-          timer: 1500,
-          showConfirmButton: false,
-        });
-      } else {
-        throw new Error(response.data.message || 'Failed to assign karigar');
-      }
-    } catch (error) {
-      console.error('Error assigning karigar:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.message || 'Failed to assign karigar. Please try again.'
-      });
-      
-      const previousAssignment = karigarAssignments[estimateNumber];
-      if (previousAssignment) {
-        setKarigarAssignments(prev => ({
-          ...prev,
-          [estimateNumber]: previousAssignment
-        }));
-      }
-    } finally {
-      setUpdatingKarigar(false);
-    }
-  }, [karigarAssignments]);
-
-  // Handle delivery date change with API call
-  const handleDeliveryDateChange = useCallback(async (estimateNumber, deliveryDate) => {
-    setUpdatingDeliveryDate(true);
-    try {
-      const finalDeliveryDate = deliveryDate || null;
-
-      // Call the backend API to update the database
-      const response = await axios.put(`${baseURL}/update-delivery-date`, {
-        estimate_number: estimateNumber,
-        delivery_date: finalDeliveryDate
-      });
-
-      if (response.data.success) {
-        // Update local state
-        setDeliveryDates(prev => ({
-          ...prev,
-          [estimateNumber]: finalDeliveryDate
-        }));
-        
-        // Save to session storage
-        sessionStorage.setItem('deliveryDates', JSON.stringify({
-          ...deliveryDates,
-          [estimateNumber]: finalDeliveryDate
-        }));
-
-        // Show success message
-        Swal.fire({
-          icon: 'success',
-          title: 'Delivery Date Updated',
-          text: finalDeliveryDate 
-            ? `Delivery date set to ${new Date(finalDeliveryDate).toLocaleDateString()}` 
-            : 'Delivery date cleared',
-          timer: 1500,
-          showConfirmButton: false,
-        });
-      } else {
-        throw new Error(response.data.message || 'Failed to update delivery date');
-      }
-    } catch (error) {
-      console.error('Error updating delivery date:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.message || 'Failed to update delivery date. Please try again.'
-      });
-      
-      // Revert to previous value
-      const previousDate = deliveryDates[estimateNumber];
-      if (previousDate) {
-        setDeliveryDates(prev => ({
-          ...prev,
-          [estimateNumber]: previousDate
-        }));
-      }
-    } finally {
-      setUpdatingDeliveryDate(false);
-    }
-  }, [deliveryDates]);
-
   // Handle View Details
   const handleViewDetails = useCallback(async (estimate_number) => {
     try {
@@ -357,9 +157,6 @@ const OrdersTable = () => {
         details.uniqueData.packet_barcode = currentEstimate.packet_barcode ?? details.uniqueData.packet_barcode;
         details.uniqueData.packet_wt      = currentEstimate.packet_wt      ?? details.uniqueData.packet_wt;
         details.uniqueData.pack_images    = currentEstimate.pack_images    ?? details.uniqueData.pack_images;
-        details.uniqueData.assign_karigar = currentEstimate.assign_karigar ?? details.uniqueData.assign_karigar;
-        details.uniqueData.assign_karigar_id = currentEstimate.assign_karigar_id ?? details.uniqueData.assign_karigar_id;
-        details.uniqueData.delivery_date = currentEstimate.delivery_date ?? details.uniqueData.delivery_date;
       }
 
       setRepairDetails(details);
@@ -399,12 +196,6 @@ const OrdersTable = () => {
     setShowInvoiceModal(true);
   }, []);
 
-  // Get karigar name by ID
-  const getKarigarName = useCallback((karigarId) => {
-    const karigar = karigarList.find(k => k.account_id === karigarId);
-    return karigar ? karigar.account_name : null;
-  }, [karigarList]);
-
   // Columns Definition
   const columns = useMemo(() => [
     {
@@ -439,10 +230,35 @@ const OrdersTable = () => {
       ),
     },
     {
+      Header: 'Estimate No',
+      accessor: 'estimate_number',
+      width: 110,
+    },
+    {
+      Header: 'Packet Barcode',
+      accessor: 'packet_barcode',
+      width: 140,
+      Cell: ({ value }) =>
+        value ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <FaBarcode style={{ color: '#a36e29' }} />
+            <span style={{ fontWeight: '500' }}>{value}</span>
+          </div>
+        ) : (
+          <span className="text-muted" style={{ fontStyle: 'italic' }}>N/A</span>
+        ),
+    },
+    {
       Header: 'Customer Name',
       accessor: 'customer_name',
       width: 150,
       Cell: ({ value }) => value || 'N/A',
+    },
+    {
+      Header: 'Total Amount',
+      accessor: 'net_amount',
+      width: 120,
+      Cell: ({ value }) => `₹ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: 'Status',
@@ -465,87 +281,6 @@ const OrdersTable = () => {
           }}>
             {status}
           </span>
-        );
-      },
-    },
-    {
-      Header: 'Assign Karigar',
-      id: 'assignKarigar',
-      width: 200,
-      disableSortBy: true,
-      Cell: ({ row }) => {
-        const estimateNumber = row.original.estimate_number;
-        const assignment = karigarAssignments[estimateNumber] || {};
-        const currentKarigarId = assignment.id || row.original.assign_karigar_id || '';
-        const isUpdating = updatingKarigar;
-
-        return (
-          <Form.Select
-            size="sm"
-            value={currentKarigarId || ''}
-            onChange={(e) => {
-              const selectedId = e.target.value ? parseInt(e.target.value) : null;
-              const selectedKarigar = karigarList.find(k => k.account_id === selectedId);
-              const selectedName = selectedKarigar ? selectedKarigar.account_name : null;
-              handleKarigarChange(estimateNumber, selectedId, selectedName);
-            }}
-            disabled={isUpdating}
-            style={{
-              minWidth: '160px',
-              fontSize: '0.85rem',
-              borderColor: currentKarigarId ? '#28a745' : '#ced4da',
-              backgroundColor: currentKarigarId ? '#f8fff8' : 'white'
-            }}
-          >
-            <option value="">Select Karigar</option>
-            {karigarList.map((karigar) => (
-              <option key={karigar.account_id} value={karigar.account_id}>
-                {karigar.account_name}
-              </option>
-            ))}
-          </Form.Select>
-        );
-      },
-    },
-    {
-      Header: 'Delivery Date',
-      id: 'deliveryDate',
-      width: 180,
-      disableSortBy: true,
-      Cell: ({ row }) => {
-        const estimateNumber = row.original.estimate_number;
-        const currentDeliveryDate = deliveryDates[estimateNumber] || row.original.delivery_date || '';
-        const isUpdating = updatingDeliveryDate;
-
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Form.Control
-              type="date"
-              size="sm"
-              value={currentDeliveryDate || ''}
-              onChange={(e) => {
-                const date = e.target.value || null;
-                handleDeliveryDateChange(estimateNumber, date);
-              }}
-              disabled={isUpdating}
-              style={{
-                minWidth: '140px',
-                fontSize: '0.85rem',
-                borderColor: currentDeliveryDate ? '#28a745' : '#ced4da',
-                backgroundColor: currentDeliveryDate ? '#f8fff8' : 'white'
-              }}
-            />
-            {currentDeliveryDate && (
-              <FaCalendarAlt 
-                style={{ 
-                  color: '#28a745', 
-                  fontSize: '16px',
-                  cursor: 'default'
-                }} 
-                title="Delivery date set"
-              />
-            )}
-          </div>
         );
       },
     },
@@ -614,7 +349,7 @@ const OrdersTable = () => {
         </div>
       ),
     },
-  ], [handleViewDetails, handleGeneratePDF, handleViewPDF, generatedEstimates, karigarList, karigarAssignments, handleKarigarChange, updatingKarigar, getKarigarName, deliveryDates, handleDeliveryDateChange, updatingDeliveryDate]);
+  ], [handleViewDetails, handleGeneratePDF, handleViewPDF, generatedEstimates]);
 
   const tableData = useMemo(() => [...filteredData].reverse(), [filteredData]);
 
@@ -827,42 +562,6 @@ const OrdersTable = () => {
                           >
                             {repairDetails.uniqueData?.estimate_status || 'Ordered'}
                           </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Assigned Karigar</td>
-                        <td>
-                          {repairDetails.uniqueData?.assign_karigar ? (
-                            <span style={{
-                              backgroundColor: '#e8f5e9',
-                              color: '#2e7d32',
-                              padding: '4px 12px',
-                              borderRadius: '20px',
-                              fontWeight: '500'
-                            }}>
-                              {repairDetails.uniqueData.assign_karigar}
-                            </span>
-                          ) : (
-                            <span className="text-muted" style={{ fontStyle: 'italic' }}>Not assigned</span>
-                          )}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Delivery Date</td>
-                        <td>
-                          {repairDetails.uniqueData?.delivery_date ? (
-                            <span style={{
-                              backgroundColor: '#e3f2fd',
-                              color: '#0d47a1',
-                              padding: '4px 12px',
-                              borderRadius: '20px',
-                              fontWeight: '500'
-                            }}>
-                              {new Date(repairDetails.uniqueData.delivery_date).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-muted" style={{ fontStyle: 'italic' }}>Not set</span>
-                          )}
                         </td>
                       </tr>
                       <tr>

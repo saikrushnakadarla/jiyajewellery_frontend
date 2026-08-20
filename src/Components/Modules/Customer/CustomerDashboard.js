@@ -2295,7 +2295,7 @@ const handleCustomerAvailable = async () => {
                     {selectedDetails.visit?.scheduled_time || 'N/A'}
                   </div>
                 </div>
-                <div style={{
+                {/* <div style={{
                   padding: '14px',
                   backgroundColor: '#f9fafb',
                   borderRadius: '10px',
@@ -2307,20 +2307,20 @@ const handleCustomerAvailable = async () => {
                   <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937' }}>
                     {selectedDetails.visit?.warehouse_name || 'N/A'}
                   </div>
-                </div>
-                <div style={{
+                </div> */}
+                {/* <div style={{
                   padding: '14px',
                   backgroundColor: '#f9fafb',
                   borderRadius: '10px',
                   border: '1px solid #e5e7eb'
-                }}>
+                }}> */}
                   {/* <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
                     🔢 Barcode
                   </div>
                   <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937', fontFamily: 'monospace' }}>
                     {selectedDetails.visit?.barcode || 'N/A'}
                   </div> */}
-                </div>
+                {/* </div> */}
               </div>
 
               {/* Customer Status Section */}
