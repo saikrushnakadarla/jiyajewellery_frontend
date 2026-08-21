@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Row, Col, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import baseURL from '../../ApiUrl/NodeBaseURL';
+import baseURL2 from '../../ApiUrl/NodeBaseURL2'; // Import baseURL2
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../../Pages/Navbar/SalesNavbar';
 import { 
@@ -13,7 +14,7 @@ import {
 } from 'react-icons/fa';
 import './VisitLogs.css';
 import Swal from 'sweetalert2';
-import CustomDropdown from './CustomDropdown'; // adjust path to wherever you place the file
+import CustomDropdown from './CustomDropdown';
 
 const VisitLogsForm = () => {
   const navigate = useNavigate();
@@ -108,9 +109,8 @@ const VisitLogsForm = () => {
 
   // State for scheduled visits
   const [scheduledVisits, setScheduledVisits] = useState([]);
-  const [usersData, setUsersData] = useState([]);
   const [loadingScheduleData, setLoadingScheduleData] = useState(false);
-  const [scheduleFilter, setScheduleFilter] = useState('all'); // 'all', 'today', 'upcoming', 'past'
+  const [scheduleFilter, setScheduleFilter] = useState('today'); // Default to 'today'
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -270,85 +270,54 @@ const VisitLogsForm = () => {
     );
   }, [selectedCustomer]);
 
-  // Fetch scheduled visits and users data
-  const fetchScheduledVisitsAndUsers = async () => {
+  // Fetch scheduled visits using baseURL2
+  const fetchScheduledVisits = async () => {
     try {
       setLoadingScheduleData(true);
-      const [visitLogsScheduleRes, usersRes] = await Promise.all([
-        axios.get(`${baseURL}/api/visit-logs-schedule/`),
-        axios.get(`${baseURL}/api/users/`)
-      ]);
-
-      const visitLogsScheduleData = visitLogsScheduleRes.data;
-      const usersData = usersRes.data;
-
-      setScheduledVisits(visitLogsScheduleData);
-      setUsersData(usersData);
+      // Use baseURL2 for this API call
+      const response = await axios.get(`${baseURL2}/api/visit-logs-warehouse-schedule`);
+      const data = response.data;
+      
+      // Filter visits for current logged-in salesman (by salesman_id)
+      // Also filter for today's date only
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      const filteredData = data.filter(visit => {
+        // Check if salesman_id matches current user's id
+        const matchesSalesman = visit.salesman_id === user?.id;
+        
+        // Check if scheduled_date is today
+        const visitDate = new Date(visit.scheduled_date);
+        const visitDateStr = visitDate.toISOString().split('T')[0];
+        const isToday = visitDateStr === todayStr;
+        
+        return matchesSalesman && isToday;
+      });
+      
+      setScheduledVisits(filteredData);
     } catch (error) {
-      console.error('Error fetching scheduled visits or users:', error);
+      console.error('Error fetching scheduled visits:', error);
     } finally {
       setLoadingScheduleData(false);
     }
   };
 
-  // Get user details by name
-  const getUserDetailsByName = (fullName) => {
-    if (!fullName || !usersData.length) return null;
-    return usersData.find(user => user.full_name === fullName) || null;
-  };
-
-  // Get filtered and sorted scheduled visits for current salesperson
+  // Get filtered scheduled visits (already filtered for today and current salesman)
   const getFilteredScheduledVisits = () => {
-    // Filter visits for logged-in salesperson
-    let filtered = scheduledVisits.filter(visit => 
-      visit.salesperson_name === loggedInSalesPersonName
-    );
-
-    // Apply filter
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    switch (scheduleFilter) {
-      case 'today':
-        filtered = filtered.filter(visit => {
-          const visitDate = new Date(visit.scheduled_date);
-          return visitDate.toDateString() === now.toDateString();
-        });
-        break;
-      case 'upcoming':
-        filtered = filtered.filter(visit => {
-          const visitDate = new Date(visit.scheduled_date);
-          visitDate.setHours(0, 0, 0, 0);
-          return visitDate > now; // Only future dates (not today)
-        });
-        break;
-      case 'past':
-        filtered = filtered.filter(visit => {
-          const visitDate = new Date(visit.scheduled_date);
-          visitDate.setHours(0, 0, 0, 0);
-          return visitDate < now;
-        });
-        break;
-      default:
-        // 'all' - no additional filter
-        break;
-    }
-
-    // Sort by scheduled date (nearest first)
-    return filtered.sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date));
+    // Since we already filter for today and current salesman in fetchScheduledVisits,
+    // we just return the data. The filter is already applied.
+    return scheduledVisits;
   };
 
   const filteredScheduledVisits = getFilteredScheduledVisits();
-  const todayScheduledCount = filteredScheduledVisits.filter(visit => 
-    new Date(visit.scheduled_date).toDateString() === new Date().toDateString()
-  ).length;
+  const todayScheduledCount = filteredScheduledVisits.length;
 
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
     fetchVisitLogs();
     fetchStatistics();
-    fetchScheduledVisitsAndUsers();
+    fetchScheduledVisits();
     
     return () => {
       if (watchIdRef.current !== null) {
@@ -686,7 +655,7 @@ const VisitLogsForm = () => {
 
         fetchVisitLogs();
         fetchStatistics();
-        fetchScheduledVisitsAndUsers();
+        fetchScheduledVisits();
       }
     } catch (error) {
       console.error('Error logging visit:', error);
@@ -1033,7 +1002,7 @@ const VisitLogsForm = () => {
             </Col>
           </Row>
 
-          {/* Scheduled Visits Card - Combined in ONE CARD with ONE TABLE */}
+          {/* Scheduled Visits Card - Shows ONLY TODAY's visits for the current salesman */}
           <Row className="vl-scheduled-visits-section mb-4">
             <Col md={12}>
               <div className="vl-scheduled-visits-card">
@@ -1042,49 +1011,14 @@ const VisitLogsForm = () => {
                     <div className="vl-scheduled-visits-title-wrapper">
                       <FaCalendarDay className="vl-section-icon" />
                       <div>
-                        <h4 className="vl-scheduled-visits-title">Scheduled Visits</h4>
+                        <h4 className="vl-scheduled-visits-title">Today's Scheduled Visits</h4>
                         <p className="vl-scheduled-visits-subtitle">
                           {getTodayDateFormatted()} • 
                           <span className="vl-schedule-stats-header">
-                            <span className="vl-schedule-stat-total-header">{filteredScheduledVisits.length} Total</span>
-                            <span className="vl-schedule-stat-today-header">{todayScheduledCount} Today</span>
+                            <span className="vl-schedule-stat-total-header">{filteredScheduledVisits.length} Total Today</span>
                           </span>
                         </p>
                       </div>
-                    </div>
-                    <div className="vl-schedule-filters">
-                      <Button
-                        variant={scheduleFilter === 'all' ? 'primary' : 'outline-secondary'}
-                        size="sm"
-                        onClick={() => setScheduleFilter('all')}
-                        className="vl-filter-btn"
-                      >
-                        <FaListAlt /> All
-                      </Button>
-                      <Button
-                        variant={scheduleFilter === 'today' ? 'primary' : 'outline-secondary'}
-                        size="sm"
-                        onClick={() => setScheduleFilter('today')}
-                        className="vl-filter-btn"
-                      >
-                        <FaCalendarDay /> Today
-                      </Button>
-                      <Button
-                        variant={scheduleFilter === 'upcoming' ? 'primary' : 'outline-secondary'}
-                        size="sm"
-                        onClick={() => setScheduleFilter('upcoming')}
-                        className="vl-filter-btn"
-                      >
-                        <FaCalendarCheck /> Upcoming
-                      </Button>
-                      <Button
-                        variant={scheduleFilter === 'past' ? 'primary' : 'outline-secondary'}
-                        size="sm"
-                        onClick={() => setScheduleFilter('past')}
-                        className="vl-filter-btn"
-                      >
-                        <FaClock /> Past
-                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1113,7 +1047,6 @@ const VisitLogsForm = () => {
                           const isTodaySchedule = isScheduledToday(visit.scheduled_date);
                           const isPast = isPastDate(visit.scheduled_date);
                           const isFuture = isFutureDate(visit.scheduled_date);
-                          const customerDetails = getUserDetailsByName(visit.customer_name);
                           
                           let rowClass = '';
                           if (isTodaySchedule) rowClass = 'vl-schedule-today-row';
@@ -1133,12 +1066,7 @@ const VisitLogsForm = () => {
                                   <FaCalendarAlt className="vl-schedule-date-icon" />
                                   <div>
                                     <div className="vl-schedule-date">{formatDate(visit.scheduled_date)}</div>
-                                    {/* Today shows "Today" tag */}
                                     {isTodaySchedule && <span className="vl-schedule-today-label">Today</span>}
-                                    {/* Past shows "Past" tag */}
-                                    {isPast && <span className="vl-schedule-past-label">Past</span>}
-                                    {/* Future shows "Upcoming" tag (only for dates after today, not including today) */}
-                                    {isFuture && <span className="vl-schedule-future-label">Upcoming</span>}
                                   </div>
                                 </div>
                               </td>
@@ -1146,35 +1074,33 @@ const VisitLogsForm = () => {
                                 <strong>{visit.customer_name}</strong>
                               </td>
                               <td>
-                                {customerDetails && (
-                                  <div className="vl-customer-details-mini">
-                                    {customerDetails.email_id && (
-                                      <div className="vl-mini-detail">
-                                        <FaEnvelope className="vl-mini-icon" />
-                                        <span>{customerDetails.email_id}</span>
-                                      </div>
-                                    )}
-                                    {customerDetails.phone && (
-                                      <div className="vl-mini-detail">
-                                        <FaPhone className="vl-mini-icon" />
-                                        <span>{customerDetails.phone}</span>
-                                      </div>
-                                    )}
-                                    {customerDetails.city && (
-                                      <div className="vl-mini-detail">
-                                        <FaCity className="vl-mini-icon" />
-                                        <span>{customerDetails.city}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="vl-customer-details-mini">
+                                  {visit.customer_email && (
+                                    <div className="vl-mini-detail">
+                                      <FaEnvelope className="vl-mini-icon" />
+                                      <span>{visit.customer_email}</span>
+                                    </div>
+                                  )}
+                                  {visit.customer_phone && (
+                                    <div className="vl-mini-detail">
+                                      <FaPhone className="vl-mini-icon" />
+                                      <span>{visit.customer_phone}</span>
+                                    </div>
+                                  )}
+                                  {visit.customer_mobile && (
+                                    <div className="vl-mini-detail">
+                                      <FaPhone className="vl-mini-icon" />
+                                      <span>{visit.customer_mobile}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td>
                                 <span className={`vl-schedule-status-badge ${statusBadgeClass}`}>
                                   {visit.status}
                                 </span>
                               </td>
-                              <td>{visit.salesperson_name}</td>
+                              <td>{visit.salesman_name}</td>
                               <td>{new Date(visit.created_at).toLocaleDateString()}</td>
                             </tr>
                           );
@@ -1187,15 +1113,9 @@ const VisitLogsForm = () => {
                     <div className="vl-no-visits-icon-wrapper">
                       <FaCalendarDay className="vl-no-visits-icon" />
                     </div>
-                    <h5 className="vl-no-visits-title">No Scheduled Visits Found</h5>
+                    <h5 className="vl-no-visits-title">No Scheduled Visits Today</h5>
                     <p className="vl-no-visits-message">
-                      {scheduleFilter === 'today' 
-                        ? "You don't have any customer visits scheduled for today."
-                        : scheduleFilter === 'upcoming'
-                        ? "You don't have any upcoming scheduled visits."
-                        : scheduleFilter === 'past'
-                        ? "No past scheduled visits found."
-                        : "You don't have any scheduled visits in the system."}
+                      You don't have any customer visits scheduled for today.
                     </p>
                   </div>
                 )}

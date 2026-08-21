@@ -89,87 +89,87 @@ function SalesPersonDashboard() {
       if (!salesmanId) return;
       
       // Connect to SSE from Jiya Jewellery (port 5000)
-      const connectSSE = () => {
-        try {
-          const eventSource = new EventSource(`${baseURL}/api/salesman-notifications/${salesmanId}`);
+      // const connectSSE = () => {
+      //   try {
+      //     const eventSource = new EventSource(`${baseURL}/api/salesman-notifications/${salesmanId}`);
           
-          eventSource.onopen = () => {
-            console.log('Salesman SSE connection established (port 5000)');
-          };
+      //     eventSource.onopen = () => {
+      //       console.log('Salesman SSE connection established (port 5000)');
+      //     };
           
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
+      //     eventSource.onmessage = (event) => {
+      //       try {
+      //         const data = JSON.parse(event.data);
               
-              if (data.type === 'connected') {
-                console.log('Connected to salesman notification stream (port 5000)');
-                return;
-              }
+      //         if (data.type === 'connected') {
+      //           console.log('Connected to salesman notification stream (port 5000)');
+      //           return;
+      //         }
               
-              if (data.title && data.message) {
-                handleNewNotification(data);
-              }
-            } catch (error) {
-              console.error('Error parsing SSE message:', error);
-            }
-          };
+      //         if (data.title && data.message) {
+      //           handleNewNotification(data);
+      //         }
+      //       } catch (error) {
+      //         console.error('Error parsing SSE message:', error);
+      //       }
+      //     };
           
-          eventSource.onerror = (error) => {
-            console.error('SSE connection error (port 5000):', error);
-            eventSource.close();
-            setTimeout(() => {
-              connectSSE();
-            }, 5000);
-          };
+      //     eventSource.onerror = (error) => {
+      //       console.error('SSE connection error (port 5000):', error);
+      //       eventSource.close();
+      //       setTimeout(() => {
+      //         connectSSE();
+      //       }, 5000);
+      //     };
           
-          sseRef.current = eventSource;
-        } catch (error) {
-          console.error('Error setting up SSE (port 5000):', error);
-        }
-      };
+      //     sseRef.current = eventSource;
+      //   } catch (error) {
+      //     console.error('Error setting up SSE (port 5000):', error);
+      //   }
+      // };
       
       // Connect to SSE from Jiya Jewellery ERP (port 5001)
-      const connectSSE2 = () => {
-        try {
-          const eventSource = new EventSource(`${baseURL2}/api/salesman-notifications/${salesmanId}`);
+      // const connectSSE2 = () => {
+      //   try {
+      //     const eventSource = new EventSource(`${baseURL2}/api/salesman-notifications/${salesmanId}`);
           
-          eventSource.onopen = () => {
-            console.log('Salesman SSE connection established (port 5001)');
-          };
+      //     eventSource.onopen = () => {
+      //       console.log('Salesman SSE connection established (port 5001)');
+      //     };
           
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
+      //     eventSource.onmessage = (event) => {
+      //       try {
+      //         const data = JSON.parse(event.data);
               
-              if (data.type === 'connected') {
-                console.log('Connected to salesman notification stream (port 5001)');
-                return;
-              }
+      //         if (data.type === 'connected') {
+      //           console.log('Connected to salesman notification stream (port 5001)');
+      //           return;
+      //         }
               
-              if (data.title && data.message) {
-                handleNewNotification(data);
-              }
-            } catch (error) {
-              console.error('Error parsing SSE message:', error);
-            }
-          };
+      //         if (data.title && data.message) {
+      //           handleNewNotification(data);
+      //         }
+      //       } catch (error) {
+      //         console.error('Error parsing SSE message:', error);
+      //       }
+      //     };
           
-          eventSource.onerror = (error) => {
-            console.error('SSE connection error (port 5001):', error);
-            eventSource.close();
-            setTimeout(() => {
-              connectSSE2();
-            }, 5000);
-          };
+      //     eventSource.onerror = (error) => {
+      //       console.error('SSE connection error (port 5001):', error);
+      //       eventSource.close();
+      //       setTimeout(() => {
+      //         connectSSE2();
+      //       }, 5000);
+      //     };
           
-          sseRef2.current = eventSource;
-        } catch (error) {
-          console.error('Error setting up SSE (port 5001):', error);
-        }
-      };
+      //     sseRef2.current = eventSource;
+      //   } catch (error) {
+      //     console.error('Error setting up SSE (port 5001):', error);
+      //   }
+      // };
       
-      connectSSE();
-      connectSSE2();
+      // connectSSE();
+      // connectSSE2();
       
       // Fetch initial notifications from both servers
       await fetchNotifications(salesmanId);
@@ -420,30 +420,96 @@ const fetchNotifications = async (userId, silent = false) => {
   };
 
   // ADD: Handle notification click - open modal for assignment notifications
-  const handleNotificationClick = (notification) => {
-    // Mark as read
-    if (!notification.is_read) {
-      markAsRead(notification.id);
-    }
+    // Handle notification click - open modal for assignment notifications
+  // Handle notification click - open modal for assignment notifications
+const handleNotificationClick = (notification) => {
+  // Mark as read
+  if (!notification.is_read) {
+    markAsRead(notification.id);
+  }
+  
+  // Check if this is a warehouse visit assignment notification
+  // Based on the notification message pattern shown in your screenshot
+  const isWarehouseAssignment = notification.title && 
+    notification.title.includes('Warehouse Visit Assignment') ||
+    notification.message && notification.message.includes('assigned to visit') &&
+    notification.message.includes('at') &&
+    notification.message.includes('item(s)');
+  
+  // Check if this is a regular salesman assignment
+  const isSalesmanAssignment = notification.type === 'salesman_assignment' || 
+                               notification._isAssignment === true ||
+                               (notification.title && notification.title.includes('Assignment') && !isWarehouseAssignment);
+  
+  if (isWarehouseAssignment) {
+    // For warehouse assignments, show the details in a nice modal or alert
+    // Extract details from the notification message
+    const message = notification.message || '';
     
-    // Check if this is an assignment notification
-    const isAssignment = notification.type === 'salesman_assignment' || 
-                         notification._isAssignment === true ||
-                         (notification.title && notification.title.includes('Assignment'));
+    // Extract customer name
+    const customerMatch = message.match(/assigned to visit ([^\s]+)/);
+    const customerName = customerMatch ? customerMatch[1] : 'Unknown Customer';
     
-    if (isAssignment) {
-      setSelectedNotification(notification);
-      setShowNotificationModal(true);
-    } else {
-      // For other notifications, just show a toast or alert
-      Swal.fire({
-        icon: 'info',
-        title: notification.title || 'Notification',
-        text: notification.message || '',
-        confirmButtonText: 'OK'
-      });
-    }
-  };
+    // Extract warehouse name
+    const warehouseMatch = message.match(/at ([^\s]+(?: [^\s]+)*?)(?:\s+on|$)/);
+    const warehouseName = warehouseMatch ? warehouseMatch[1] : 'Unknown Warehouse';
+    
+    // Extract date
+    const dateMatch = message.match(/on ([\w]+, [\w]+ [\d]+, [\d]+ at [\d:]+ [APM]+)/);
+    const dateStr = dateMatch ? dateMatch[1] : 'Unknown Date';
+    
+    // Extract items
+    const itemsMatch = message.match(/(\d+) item\(s\): ([^)]+)/);
+    const itemCount = itemsMatch ? itemsMatch[1] : '0';
+    const items = itemsMatch ? itemsMatch[2].split(', ') : [];
+    
+    // Extract customer ID
+    const customerIdMatch = message.match(/\(([^)]+)\)$/);
+    const customerId = customerIdMatch ? customerIdMatch[1] : 'N/A';
+    
+    // Show the details in a nice modal using Swal
+    Swal.fire({
+      title: '📦 Warehouse Visit Assignment',
+      html: `
+        <div style="text-align: left; padding: 10px 0;">
+          <div style="margin-bottom: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+            <p style="margin: 0 0 6px 0;"><strong>👤 Customer:</strong> ${customerName}</p>
+            <p style="margin: 0 0 6px 0;"><strong>🆔 Customer ID:</strong> ${customerId}</p>
+            <p style="margin: 0 0 6px 0;"><strong>🏪 Warehouse:</strong> ${warehouseName}</p>
+            <p style="margin: 0 0 6px 0;"><strong>📅 Date & Time:</strong> ${dateStr}</p>
+            <p style="margin: 0;"><strong>📦 Items (${itemCount}):</strong> ${items.join(', ')}</p>
+          </div>
+          <div style="padding: 8px 12px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <p style="margin: 0; font-size: 14px; color: #1e40af;">
+              <strong>💡 Note:</strong> Please visit the warehouse at the scheduled time to collect these items.
+            </p>
+          </div>
+        </div>
+      `,
+      icon: 'info',
+      confirmButtonText: '✅ Got it',
+      confirmButtonColor: '#3b82f6',
+      width: '550px'
+    });
+    return;
+  }
+  
+  if (isSalesmanAssignment) {
+    // Regular assignment - show the modal
+    setSelectedNotification(notification);
+    setShowNotificationModal(true);
+  } else {
+    // For other notifications, show a toast or alert
+    Swal.fire({
+      icon: 'info',
+      title: notification.title || 'Notification',
+      text: notification.message || '',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#3b82f6'
+    });
+  }
+};
+
 
   // ADD: Handle notification action complete (accept/reject)
   const handleNotificationActionComplete = (action) => {

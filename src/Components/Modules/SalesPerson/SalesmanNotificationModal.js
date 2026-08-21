@@ -20,26 +20,34 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
   const safeToFixed2 = (value) => safeToFixed(value, 2);
 
   const extractTransferId = () => {
-    if (!notification) return null;
-    
-    // If related_id exists, use it directly
-    if (notification.related_id) return notification.related_id;
-    
-    // Try to extract from message
-    const message = notification.message || '';
-    // Look for ASN number
-    const asnMatch = message.match(/#(ASN\d+)/);
-    if (asnMatch) {
-      return asnMatch[1];
-    }
-    
-    // If it's an assignment notification with _assignmentData
-    if (notification._assignmentData && notification._assignmentData.assigned_id) {
-      return notification._assignmentData.assigned_id;
-    }
-    
+  if (!notification) return null;
+  
+  // If related_id exists, use it directly
+  if (notification.related_id) return notification.related_id;
+  
+  // Check if this is a warehouse visit notification (no ASN number)
+  const message = notification.message || '';
+  const title = notification.title || '';
+  
+  // If it's a warehouse visit notification, return null
+  if (title.includes('Warehouse Visit Assignment') || 
+      message.includes('assigned to visit') && message.includes('item(s)')) {
     return null;
-  };
+  }
+  
+  // Try to extract from message
+  const asnMatch = message.match(/#(ASN\d+)/);
+  if (asnMatch) {
+    return asnMatch[1];
+  }
+  
+  // If it's an assignment notification with _assignmentData
+  if (notification._assignmentData && notification._assignmentData.assigned_id) {
+    return notification._assignmentData.assigned_id;
+  }
+  
+  return null;
+};
 
   useEffect(() => {
     if (show && notification) {
@@ -47,47 +55,44 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
     }
   }, [show, notification]);
 
-  const fetchAssignmentDetails = async () => {
-    const transferId = extractTransferId();
-    if (!transferId) {
-      setLoading(false);
-      return;
-    }
+ const fetchAssignmentDetails = async () => {
+  const transferId = extractTransferId();
+  if (!transferId) {
+    setLoading(false);
+    // Don't show error for warehouse visit notifications
+    // Just show a message that this is a warehouse visit
+    setAssignmentDetails(null);
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const response = await axios.get(`${baseURL}/api/assigned-salesman/get-assigned-transfers`);
-      const transfers = response.data || [];
-      
-      const matchedTransfer = transfers.find(t => 
-        t.assigned_number === transferId || 
-        t.assigned_id === parseInt(transferId)
+  setLoading(true);
+  try {
+    const response = await axios.get(`${baseURL}/api/assigned-salesman/get-assigned-transfers`);
+    const transfers = response.data || [];
+    
+    const matchedTransfer = transfers.find(t => 
+      t.assigned_number === transferId || 
+      t.assigned_id === parseInt(transferId)
+    );
+    
+    if (matchedTransfer) {
+      const detailResponse = await axios.get(
+        `${baseURL}/api/assigned-salesman/get-assigned-transfer/${matchedTransfer.assigned_id}`
       );
-      
-      if (matchedTransfer) {
-        const detailResponse = await axios.get(
-          `${baseURL}/api/assigned-salesman/get-assigned-transfer/${matchedTransfer.assigned_id}`
-        );
-        setAssignmentDetails(detailResponse.data);
-      } else {
-        setAssignmentDetails(null);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Not Found',
-          text: 'Assignment details could not be found.'
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching assignment details:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load assignment details.'
-      });
-    } finally {
-      setLoading(false);
+      setAssignmentDetails(detailResponse.data);
+    } else {
+      setAssignmentDetails(null);
+      // Don't show error for warehouse visit notifications
+      // The parent component will handle it
     }
-  };
+  } catch (error) {
+    console.error('Error fetching assignment details:', error);
+    setAssignmentDetails(null);
+    // Don't show error for warehouse visit notifications
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAccept = async () => {
     if (!assignmentDetails || !assignmentDetails.transfer_details) return;
