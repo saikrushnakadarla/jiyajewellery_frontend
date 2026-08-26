@@ -1,4 +1,4 @@
-// CustomerDashboard.jsx - Fixed with proper API calls
+// CustomerDashboard.jsx - Fixed with proper API calls and push notifications
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +24,7 @@ import baseURL from "../ApiUrl/NodeBaseURL";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
 import ScreenshotProtection from "../../../utils/ScreenshotProtection";
+import { setupPushNotifications } from '../../../utils/pushSetup'; 
 
 ChartJS.register(
   CategoryScale,
@@ -111,52 +112,78 @@ function Dashboard() {
   }, []);
 
   // Resolve the account_details.account_id for the logged-in customer
-  const resolveCustomerAccountId = async (user) => {
-    try {
-      const response = await fetch(`${baseURL2}/get/account-details`);
-      if (!response.ok) return null;
+ // In CustomerDashboard.jsx - inside resolveCustomerAccountId function
 
-      const accounts = await response.json();
-      const customerAccounts = accounts.filter(
-        (acc) => acc.account_group && acc.account_group.toUpperCase() === 'CUSTOMERS'
+const resolveCustomerAccountId = async (user) => {
+  try {
+    console.log('🔍 Resolving account_id for user:', { 
+      customer_id: user.customer_id, 
+      phone: user.phone, 
+      email: user.email_id || user.email 
+    });
+
+    const response = await fetch(`${baseURL2}/get/account-details`);
+    if (!response.ok) return null;
+
+    const accounts = await response.json();
+    const customerAccounts = accounts.filter(
+      (acc) => acc.account_group && acc.account_group.toUpperCase() === 'CUSTOMERS'
+    );
+
+    console.log(`📊 Found ${customerAccounts.length} customer accounts`);
+
+    let matched = null;
+
+    // Priority 1: customer_id match
+    if (user.customer_id) {
+      matched = customerAccounts.find(
+        (acc) => acc.customer_id && acc.customer_id === user.customer_id
       );
-
-      let matched = null;
-
-      // Priority 1: customer_id match
-      if (user.customer_id) {
-        matched = customerAccounts.find(
-          (acc) => acc.customer_id && acc.customer_id === user.customer_id
-        );
+      if (matched) {
+        console.log('✅ Matched by customer_id:', matched.account_id);
       }
+    }
 
-      // Priority 2: phone / mobile match
-      if (!matched && user.phone) {
-        matched = customerAccounts.find(
-          (acc) => acc.mobile === user.phone || acc.phone === user.phone
-        );
+    // Priority 2: phone / mobile match
+    if (!matched && user.phone) {
+      matched = customerAccounts.find(
+        (acc) => acc.mobile === user.phone || acc.phone === user.phone
+      );
+      if (matched) {
+        console.log('✅ Matched by phone:', matched.account_id);
       }
+    }
 
-      // Priority 3: email match
-      if (!matched) {
-        const email = user.email_id || user.email;
-        if (email) {
-          matched = customerAccounts.find((acc) => acc.email === email);
+    // Priority 3: email match
+    if (!matched) {
+      const email = user.email_id || user.email;
+      if (email) {
+        matched = customerAccounts.find((acc) => acc.email === email);
+        if (matched) {
+          console.log('✅ Matched by email:', matched.account_id);
         }
       }
+    }
 
-      if (!matched) {
-        console.warn('⚠️ Could not resolve account_details.account_id for this customer.');
-        return null;
-      }
-
-      console.log(`✅ Resolved customer account_id: ${matched.account_id}`);
-      return matched.account_id;
-    } catch (error) {
-      console.error('❌ Error resolving customer account_id:', error);
+    if (!matched) {
+      console.warn('⚠️ Could not resolve account_details.account_id for this customer.');
+      console.log('📋 Available customer accounts:', customerAccounts.map(a => ({ 
+        id: a.account_id, 
+        name: a.account_name, 
+        customer_id: a.customer_id,
+        email: a.email,
+        phone: a.phone || a.mobile
+      })));
       return null;
     }
-  };
+
+    console.log(`✅ Resolved customer account_id: ${matched.account_id}`);
+    return matched.account_id;
+  } catch (error) {
+    console.error('❌ Error resolving customer account_id:', error);
+    return null;
+  }
+};
 
   // Fetch all salespersons from account_details
   const fetchAllSalespersons = async () => {
@@ -191,6 +218,7 @@ function Dashboard() {
       if (!accountId) return;
 
       customerAccountIdRef.current = accountId;
+      setupPushNotifications(accountId, 'customer'); // 👈 ADDED: registers service worker + push subscription
 
       // Pre-fetch salespersons for quick lookup
       const salespersons = await fetchAllSalespersons();
@@ -207,6 +235,7 @@ function Dashboard() {
       });
       console.log('📦 Salesperson cache built with', Object.keys(salespersonCacheRef.current).length, 'entries');
 
+    
       // Connect to SSE from Jiya Jewellery (port 5000) - MAIN SERVER
       const connectSSE = () => {
         try {
@@ -248,19 +277,20 @@ function Dashboard() {
         }
       };
 
-      // Connect to SSE from Jiya Jewellery ERP (port 5001) - SECONDARY SERVER with fallback
+      // Connect to SSE from Jiya Jewellery (port 5000) - SECONDARY CONNECTION with fallback
+      // FIXED: Changed baseURL2 to baseURL for port 5000
       const connectSSE2 = () => {
         try {
-          fetch(`${baseURL2}/api/customer-notifications/${accountId}`, { 
+          fetch(`${baseURL}/api/customer-notifications/${accountId}`, { 
             method: 'HEAD',
             signal: AbortSignal.timeout(3000)
           })
           .then(response => {
             if (response.ok) {
-              const eventSource = new EventSource(`${baseURL2}/api/customer-notifications/${accountId}`);
+              const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
 
               eventSource.onopen = () => {
-                console.log('✅ Customer SSE connection established (port 5001)');
+                console.log('✅ Customer SSE connection established (port 5000) - secondary');
               };
 
               eventSource.onmessage = (event) => {
@@ -268,7 +298,7 @@ function Dashboard() {
                   const data = JSON.parse(event.data);
 
                   if (data.type === 'connected') {
-                    console.log('✅ Connected to customer notification stream (port 5001)');
+                    console.log('✅ Connected to customer notification stream (port 5000) - secondary');
                     return;
                   }
 
@@ -276,29 +306,29 @@ function Dashboard() {
                     handleNewNotification(data);
                   }
                 } catch (error) {
-                  console.error('Error parsing SSE message (port 5001):', error);
+                  console.error('Error parsing SSE message (secondary):', error);
                 }
               };
 
               eventSource.onerror = (error) => {
-                console.warn('⚠️ SSE connection error (port 5001):', error);
+                console.warn('⚠️ SSE connection error (secondary):', error);
                 eventSource.close();
                 setTimeout(() => {
-                  console.log('🔄 Reconnecting SSE (port 5001)...');
+                  console.log('🔄 Reconnecting SSE (secondary)...');
                   connectSSE2();
                 }, 15000);
               };
 
               sseRef2.current = eventSource;
             } else {
-              console.warn('⚠️ Server on port 5001 not responding, skipping SSE connection');
+              console.warn('⚠️ Server not responding, skipping secondary SSE connection');
             }
           })
           .catch(() => {
-            console.warn('⚠️ Server on port 5001 unreachable, skipping SSE connection');
+            console.warn('⚠️ Server unreachable, skipping secondary SSE connection');
           });
         } catch (error) {
-          console.warn('⚠️ Error setting up SSE (port 5001):', error.message);
+          console.warn('⚠️ Error setting up SSE (secondary):', error.message);
         }
       };
 
@@ -823,226 +853,226 @@ function Dashboard() {
 
   // Handle click on notification to show combined details
   // Handle click on notification to show combined details - FIXED
-const handleViewDetails = async (notification) => {
-  setIsLoadingDetails(true);
-  setShowDetailsModal(true);
-  
-  try {
-    const visitId = notification.related_id;
-    const salespersonName = extractSalespersonName(notification.message);
-    const photoUrl = extractPhotoUrl(notification.message);
+  const handleViewDetails = async (notification) => {
+    setIsLoadingDetails(true);
+    setShowDetailsModal(true);
     
-    // Fetch salesperson details
-    let salespersonDetails = null;
-    if (salespersonName) {
-      salespersonDetails = await getSalespersonDetails(salespersonName);
-    }
-    
-    // Fetch visit details - try both ways
-    let visitData = null;
-    
-    // First try: use the related_id directly (if it's a valid schedule ID)
     try {
-      const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success !== false && data.id) {
-          visitData = data;
-          console.log('✅ Found schedule by ID:', visitId);
-        }
+      const visitId = notification.related_id;
+      const salespersonName = extractSalespersonName(notification.message);
+      const photoUrl = extractPhotoUrl(notification.message);
+      
+      // Fetch salesperson details
+      let salespersonDetails = null;
+      if (salespersonName) {
+        salespersonDetails = await getSalespersonDetails(salespersonName);
       }
-    } catch (e) {
-      console.warn('⚠️ Failed to fetch by ID:', e.message);
-    }
-    
-    // Second try: If not found by ID, try to find by customer account ID (for backward compatibility)
-    if (!visitData && customerAccountIdRef.current) {
+      
+      // Fetch visit details - try both ways
+      let visitData = null;
+      
+      // First try: use the related_id directly (if it's a valid schedule ID)
       try {
-        const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/customer/${customerAccountIdRef.current}`);
+        const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}`);
         if (response.ok) {
-          const schedules = await response.json();
-          // Find the schedule that matches the barcode or date from the notification
-          if (schedules && schedules.length > 0) {
-            // Try to find matching schedule by barcode
-            const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
-            if (barcodeMatch) {
-              const barcode = barcodeMatch[1];
-              const matchedSchedule = schedules.find(s => s.barcode === barcode);
-              if (matchedSchedule) {
-                visitData = matchedSchedule;
-                console.log('✅ Found schedule by barcode:', barcode);
-              }
-            }
-            // If still not found, use the most recent schedule
-            if (!visitData) {
-              visitData = schedules[0];
-              console.log('✅ Using most recent schedule:', visitData.id);
-            }
+          const data = await response.json();
+          if (data.success !== false && data.id) {
+            visitData = data;
+            console.log('✅ Found schedule by ID:', visitId);
           }
         }
       } catch (e) {
-        console.warn('⚠️ Failed to fetch by customer:', e.message);
+        console.warn('⚠️ Failed to fetch by ID:', e.message);
       }
-    }
-    
-    // Build combined details
-    let combinedDetails = {
-      id: visitId || Date.now(),
-      visit: {},
-      salesperson: {}
-    };
-    
-    if (visitData) {
-      const scheduledDate = new Date(visitData.scheduled_date);
-      const formattedDate = scheduledDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      const formattedTime = scheduledDate.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
       
-      combinedDetails.visit = {
-        id: visitData.id,
-        scheduled_date: formattedDate,
-        scheduled_time: formattedTime,
-        warehouse_name: visitData.warehouse_name || 'Warehouse',
-        barcode: visitData.barcode || 'N/A',
-        salesman_name: visitData.salesman_name || 'Not assigned',
-        customer_status: visitData.customer_status || 'Scheduled',
-        reschedule_date: visitData.reschedule_date || null,
-        reschedule_notes: visitData.reschedule_notes || null
-      };
-    } else {
-      // Fallback: extract from notification
-      const dateMatch = notification.message.match(/on\s+([A-Za-z]+,\s+[A-Za-z]+\s+\d+,\s+\d+)/);
-      const timeMatch = notification.message.match(/at\s+(\d+:\d+\s+[AP]M)/);
-      const warehouseMatch = notification.message.match(/at\s+([A-Z\s]+)\s+on/);
-      const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
+      // Second try: If not found by ID, try to find by customer account ID (for backward compatibility)
+      if (!visitData && customerAccountIdRef.current) {
+        try {
+          const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/customer/${customerAccountIdRef.current}`);
+          if (response.ok) {
+            const schedules = await response.json();
+            // Find the schedule that matches the barcode or date from the notification
+            if (schedules && schedules.length > 0) {
+              // Try to find matching schedule by barcode
+              const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
+              if (barcodeMatch) {
+                const barcode = barcodeMatch[1];
+                const matchedSchedule = schedules.find(s => s.barcode === barcode);
+                if (matchedSchedule) {
+                  visitData = matchedSchedule;
+                  console.log('✅ Found schedule by barcode:', barcode);
+                }
+              }
+              // If still not found, use the most recent schedule
+              if (!visitData) {
+                visitData = schedules[0];
+                console.log('✅ Using most recent schedule:', visitData.id);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to fetch by customer:', e.message);
+        }
+      }
       
-      combinedDetails.visit = {
+      // Build combined details
+      let combinedDetails = {
         id: visitId || Date.now(),
-        scheduled_date: dateMatch ? dateMatch[1] : 'N/A',
-        scheduled_time: timeMatch ? timeMatch[1] : 'N/A',
-        warehouse_name: warehouseMatch ? warehouseMatch[1].trim() : 'Warehouse',
-        barcode: barcodeMatch ? barcodeMatch[1] : 'N/A',
-        salesman_name: salespersonName || 'Not assigned',
-        customer_status: 'Scheduled',
-        reschedule_date: null,
-        reschedule_notes: null
+        visit: {},
+        salesperson: {}
       };
-    }
-    
-    // Add salesperson details
-    if (salespersonDetails) {
-      combinedDetails.salesperson = {
-        name: salespersonDetails.name,
-        photo: photoUrl || salespersonDetails.photo,
-        role: salespersonDetails.role || 'Sales Representative'
-      };
-    } else {
-      combinedDetails.salesperson = {
-        name: salespersonName || 'Salesperson',
-        photo: photoUrl,
-        role: 'Sales Representative'
-      };
-    }
-    
-    setSelectedDetails(combinedDetails);
-  } catch (error) {
-    console.error('Error loading details:', error);
-    // Fallback
-    setSelectedDetails({
-      id: notification.id || Date.now(),
-      visit: {
-        scheduled_date: 'N/A',
-        scheduled_time: 'N/A',
-        warehouse_name: 'Warehouse',
-        barcode: 'N/A',
-        salesman_name: 'Not assigned',
-        customer_status: 'Scheduled',
-        reschedule_date: null,
-        reschedule_notes: null
-      },
-      salesperson: {
-        name: 'Salesperson',
-        photo: null,
-        role: 'Sales Representative'
+      
+      if (visitData) {
+        const scheduledDate = new Date(visitData.scheduled_date);
+        const formattedDate = scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        const formattedTime = scheduledDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        combinedDetails.visit = {
+          id: visitData.id,
+          scheduled_date: formattedDate,
+          scheduled_time: formattedTime,
+          warehouse_name: visitData.warehouse_name || 'Warehouse',
+          barcode: visitData.barcode || 'N/A',
+          salesman_name: visitData.salesman_name || 'Not assigned',
+          customer_status: visitData.customer_status || 'Scheduled',
+          reschedule_date: visitData.reschedule_date || null,
+          reschedule_notes: visitData.reschedule_notes || null
+        };
+      } else {
+        // Fallback: extract from notification
+        const dateMatch = notification.message.match(/on\s+([A-Za-z]+,\s+[A-Za-z]+\s+\d+,\s+\d+)/);
+        const timeMatch = notification.message.match(/at\s+(\d+:\d+\s+[AP]M)/);
+        const warehouseMatch = notification.message.match(/at\s+([A-Z\s]+)\s+on/);
+        const barcodeMatch = notification.message.match(/scheduled:\s*([A-Z0-9]+)/);
+        
+        combinedDetails.visit = {
+          id: visitId || Date.now(),
+          scheduled_date: dateMatch ? dateMatch[1] : 'N/A',
+          scheduled_time: timeMatch ? timeMatch[1] : 'N/A',
+          warehouse_name: warehouseMatch ? warehouseMatch[1].trim() : 'Warehouse',
+          barcode: barcodeMatch ? barcodeMatch[1] : 'N/A',
+          salesman_name: salespersonName || 'Not assigned',
+          customer_status: 'Scheduled',
+          reschedule_date: null,
+          reschedule_notes: null
+        };
       }
-    });
-  } finally {
-    setIsLoadingDetails(false);
-  }
-};
+      
+      // Add salesperson details
+      if (salespersonDetails) {
+        combinedDetails.salesperson = {
+          name: salespersonDetails.name,
+          photo: photoUrl || salespersonDetails.photo,
+          role: salespersonDetails.role || 'Sales Representative'
+        };
+      } else {
+        combinedDetails.salesperson = {
+          name: salespersonName || 'Salesperson',
+          photo: photoUrl,
+          role: 'Sales Representative'
+        };
+      }
+      
+      setSelectedDetails(combinedDetails);
+    } catch (error) {
+      console.error('Error loading details:', error);
+      // Fallback
+      setSelectedDetails({
+        id: notification.id || Date.now(),
+        visit: {
+          scheduled_date: 'N/A',
+          scheduled_time: 'N/A',
+          warehouse_name: 'Warehouse',
+          barcode: 'N/A',
+          salesman_name: 'Not assigned',
+          customer_status: 'Scheduled',
+          reschedule_date: null,
+          reschedule_notes: null
+        },
+        salesperson: {
+          name: 'Salesperson',
+          photo: null,
+          role: 'Sales Representative'
+        }
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   // Handle customer status update (Available) - FIXED
   // Handle customer status update (Available) - FIXED
-const handleCustomerAvailable = async () => {
-  if (!selectedDetails?.visit?.id) return;
-  
-  const visitId = selectedDetails.visit.id;
-  
-  try {
-    console.log(`📝 Marking visit ${visitId} as Available...`);
+  const handleCustomerAvailable = async () => {
+    if (!selectedDetails?.visit?.id) return;
     
-    const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}/customer-status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customer_status: 'Available'
-      })
-    });
+    const visitId = selectedDetails.visit.id;
     
-    console.log('Response status:', response.status);
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Response data:', data);
+    try {
+      console.log(`📝 Marking visit ${visitId} as Available...`);
       
-      if (data.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Status Updated',
-          text: 'You have been marked as available for the visit.',
-          timer: 3000,
-          showConfirmButton: false
-        });
+      const response = await fetch(`${baseURL2}/api/visit-logs-warehouse-schedule/${visitId}/customer-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          customer_status: 'Available'
+        })
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Response data:', data);
         
-        // Update local state
-        setSelectedDetails(prev => ({
-          ...prev,
-          visit: {
-            ...prev.visit,
-            customer_status: 'Available'
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Status Updated',
+            text: 'You have been marked as available for the visit.',
+            timer: 3000,
+            showConfirmButton: false
+          });
+          
+          // Update local state
+          setSelectedDetails(prev => ({
+            ...prev,
+            visit: {
+              ...prev.visit,
+              customer_status: 'Available'
+            }
+          }));
+          
+          // Refresh notifications
+          if (customerAccountIdRef.current) {
+            fetchNotifications(customerAccountIdRef.current);
           }
-        }));
-        
-        // Refresh notifications
-        if (customerAccountIdRef.current) {
-          fetchNotifications(customerAccountIdRef.current);
+        } else {
+          throw new Error(data.message || 'Failed to update status');
         }
       } else {
-        throw new Error(data.message || 'Failed to update status');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server responded with status ${response.status}`);
       }
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Server responded with status ${response.status}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: error.message || 'Failed to update your status. Please try again.'
+      });
     }
-  } catch (error) {
-    console.error('Error updating status:', error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Update Failed',
-      text: error.message || 'Failed to update your status. Please try again.'
-    });
-  }
-};
+  };
 
   // Handle Not Available - Open reschedule modal
   const handleNotAvailable = () => {
@@ -2325,106 +2355,106 @@ const handleCustomerAvailable = async () => {
 
               {/* Customer Status Section */}
               {/* Customer Status Section - FIXED to handle Pending status */}
-<div style={{
-  padding: '16px',
-  backgroundColor: '#f8fafc',
-  borderRadius: '10px',
-  border: '1px solid #e5e7eb'
-}}>
-  <div style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px'
-  }}>
-    <span style={{
-      fontSize: '14px',
-      fontWeight: 600,
-      color: '#374151'
-    }}>
-      Your Status
-    </span>
-    <span style={{
-      padding: '4px 12px',
-      borderRadius: '20px',
-      fontSize: '12px',
-      fontWeight: 500,
-      backgroundColor: selectedDetails.visit?.customer_status === 'Available' ? '#d1fae5' :
-                     selectedDetails.visit?.customer_status === 'Not Available' ? '#fee2e2' :
-                     selectedDetails.visit?.customer_status === 'Pending' ? '#fef3c7' :
-                     '#fef3c7',
-      color: selectedDetails.visit?.customer_status === 'Available' ? '#065f46' :
-             selectedDetails.visit?.customer_status === 'Not Available' ? '#991b1b' :
-             selectedDetails.visit?.customer_status === 'Pending' ? '#92400e' :
-             '#92400e'
-    }}>
-      {selectedDetails.visit?.customer_status || 'Pending'}
-    </span>
-  </div>
-  
-  {/* Show buttons when status is Pending OR Scheduled - FIXED */}
-  {(selectedDetails.visit?.customer_status === 'Pending' || 
-    selectedDetails.visit?.customer_status === 'Scheduled') && (
-    <div style={{ display: 'flex', gap: '12px' }}>
-      <Button
-        variant="success"
-        onClick={handleCustomerAvailable}
-        style={{
-          flex: 1,
-          padding: '10px',
-          fontWeight: 500,
-          backgroundColor: '#22c55e',
-          border: 'none'
-        }}
-      >
-        ✅ Available
-      </Button>
-      <Button
-        variant="danger"
-        onClick={handleNotAvailable}
-        style={{
-          flex: 1,
-          padding: '10px',
-          fontWeight: 500,
-          backgroundColor: '#ef4444',
-          border: 'none'
-        }}
-      >
-        ❌ Not Available
-      </Button>
-    </div>
-  )}
-  
-  {selectedDetails.visit?.customer_status === 'Available' && (
-    <div style={{
-      padding: '12px',
-      backgroundColor: '#d1fae5',
-      borderRadius: '8px',
-      color: '#065f46',
-      textAlign: 'center',
-      fontSize: '14px'
-    }}>
-      ✅ You are marked as available for this visit. The salesperson will be notified.
-    </div>
-  )}
-  
-  {selectedDetails.visit?.customer_status === 'Not Available' && (
-    <div style={{
-      padding: '12px',
-      backgroundColor: '#fee2e2',
-      borderRadius: '8px',
-      color: '#991b1b',
-      fontSize: '14px'
-    }}>
-      <div>❌ You are marked as not available for this visit.</div>
-      {selectedDetails.visit?.reschedule_date && (
-        <div style={{ marginTop: '8px', fontSize: '13px' }}>
-          Reschedule requested for: {selectedDetails.visit.reschedule_date}
-        </div>
-      )}
-    </div>
-  )}
-</div>
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '10px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px'
+                }}>
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#374151'
+                  }}>
+                    Your Status
+                  </span>
+                  <span style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    backgroundColor: selectedDetails.visit?.customer_status === 'Available' ? '#d1fae5' :
+                                   selectedDetails.visit?.customer_status === 'Not Available' ? '#fee2e2' :
+                                   selectedDetails.visit?.customer_status === 'Pending' ? '#fef3c7' :
+                                   '#fef3c7',
+                    color: selectedDetails.visit?.customer_status === 'Available' ? '#065f46' :
+                           selectedDetails.visit?.customer_status === 'Not Available' ? '#991b1b' :
+                           selectedDetails.visit?.customer_status === 'Pending' ? '#92400e' :
+                           '#92400e'
+                  }}>
+                    {selectedDetails.visit?.customer_status || 'Pending'}
+                  </span>
+                </div>
+                
+                {/* Show buttons when status is Pending OR Scheduled - FIXED */}
+                {(selectedDetails.visit?.customer_status === 'Pending' || 
+                  selectedDetails.visit?.customer_status === 'Scheduled') && (
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <Button
+                      variant="success"
+                      onClick={handleCustomerAvailable}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        fontWeight: 500,
+                        backgroundColor: '#22c55e',
+                        border: 'none'
+                      }}
+                    >
+                      ✅ Available
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={handleNotAvailable}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        fontWeight: 500,
+                        backgroundColor: '#ef4444',
+                        border: 'none'
+                      }}
+                    >
+                      ❌ Not Available
+                    </Button>
+                  </div>
+                )}
+                
+                {selectedDetails.visit?.customer_status === 'Available' && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#d1fae5',
+                    borderRadius: '8px',
+                    color: '#065f46',
+                    textAlign: 'center',
+                    fontSize: '14px'
+                  }}>
+                    ✅ You are marked as available for this visit. The salesperson will be notified.
+                  </div>
+                )}
+                
+                {selectedDetails.visit?.customer_status === 'Not Available' && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fee2e2',
+                    borderRadius: '8px',
+                    color: '#991b1b',
+                    fontSize: '14px'
+                  }}>
+                    <div>❌ You are marked as not available for this visit.</div>
+                    {selectedDetails.visit?.reschedule_date && (
+                      <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                        Reschedule requested for: {selectedDetails.visit.reschedule_date}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Context Note */}
               <div style={{
