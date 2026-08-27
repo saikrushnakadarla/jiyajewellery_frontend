@@ -282,7 +282,7 @@ const ProductCatalog = () => {
     }
   }
 
-  // Add to order cart - Navigates to /customer-order-cart (NOT /customer-orders)
+  // Add to order cart - Navigates to /customer-order-cart
   const handleAddToOrderCart = async (productId) => {
     if (!userData) {
       alert('Please login to add items to order cart')
@@ -320,7 +320,6 @@ const ProductCatalog = () => {
         
         await fetchOrderCartCount()
         alert('Product added to order cart successfully!')
-        // Navigate to order cart page (not orders history)
         navigate('/customer-order-cart')
       } else {
         alert(data.message || 'Failed to add to order cart')
@@ -333,12 +332,8 @@ const ProductCatalog = () => {
     }
   }
 
-  // Handle Order Cart button click (for Selected/Ordered products) - Adds to order cart
-  const handleOrderCartClick = async (product) => {
-    await handleAddToOrderCart(product.product_id)
-  }
-
-  // Handle Buy Now button click (for Available products) - Creates order directly
+  // Handle Buy Now button click - Stores product in localStorage for EstimateForm
+  // customer_order_status = 'Selected' for Buy Now
   const handleBuyNow = async (product) => {
     if (!userData) {
       alert('Please login to place an order');
@@ -353,17 +348,17 @@ const ProductCatalog = () => {
     setIsOrdering(prev => ({ ...prev, [product.product_id]: true }));
 
     try {
+      // Prepare complete product data for EstimateForm
       const productData = {
         product_id: product.product_id,
         product_name: product.product_name,
         barcode: product.barcode || '',
         metal_type: product.metal_type || 'Gold',
-        design: product.design || '',
         design_name: product.design || product.design_name || '',
         purity: product.purity || '22K',
         gross_weight: parseFloat(product.gross_wt) || 0,
-        net_wt: parseFloat(product.net_wt) || 0,
         stone_weight: parseFloat(product.stone_wt) || 0,
+        net_weight: parseFloat(product.net_wt) || 0,
         stone_price: parseFloat(product.stone_price) || 0,
         making_charges: parseFloat(product.making_charges) || 0,
         tax_percent: parseFloat(product.tax_percent) || 0,
@@ -371,86 +366,59 @@ const ProductCatalog = () => {
         rate: parseFloat(product.rate) || 0,
         total_price: parseFloat(product.total_price) || 0,
         images: product.images || [],
+        qty: 1,
+        customer_order_status: 'Selected', // Buy Now = Selected
+        source_by: 'customer',
         customer_id: userData.id,
         customer_name: userData.name,
-        quantity: 1,
         estimate_status: 'Ordered',
-        source_by: 'customer',
-        date: new Date().toISOString().split('T')[0],
-        order_date: new Date().toISOString().split('T')[0],
-        pcode: product.pcode || '',
-        category: product.category || '',
-        sub_category: product.sub_category || '',
-        salesperson_id: '',
-        weight_bw: 0,
-        va_on: '',
+        weight_bw: (parseFloat(product.gross_wt) || 0) - (parseFloat(product.stone_wt) || 0),
+        va_on: 'Gross Weight',
         va_percent: 0,
         wastage_weight: 0,
-        msp_va_percent: 0,
-        msp_wastage_weight: 0,
         total_weight_av: parseFloat(product.gross_wt) || 0,
-        mc_on: '',
+        mc_on: 'MC %',
         mc_per_gram: 0,
-        rate_amt: parseFloat(product.total_price) || 0,
-        pricing: 'standard',
-        pieace_cost: parseFloat(product.total_price) || 0,
+        hm_charges: 60.00,
+        pricing: 'By Weight',
         disscount_percentage: 0,
         disscount: 0,
-        hm_charges: 0,
+        rate_amt: parseFloat(product.total_price) || 0,
         total_amount: parseFloat(product.total_price) || 0,
+        net_amount: parseFloat(product.total_price) || 0,
         taxable_amount: parseFloat(product.total_price) || 0,
         tax_amount: 0,
-        net_amount: parseFloat(product.total_price) || 0,
         original_total_price: parseFloat(product.total_price) || 0,
         opentag_id: 0,
-        qty: 1
+        category: product.category || '',
+        sub_category: product.sub_category || '',
+        pcode: product.pcode || '',
+        metal_type_id: product.metal_type_id || '',
+        purity_id: product.purity_id || '',
+        design_id: product.design_id || '',
+        category_id: product.category_id || '',
+        msp_va_percent: 0,
+        msp_wastage_weight: 0,
+        pieace_cost: 0
       };
 
-      const response = await fetch(`${baseURL}/create-estimate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uniqueData: {
-            customer_id: userData.id,
-            customer_name: userData.name,
-            order_date: new Date().toISOString().split('T')[0],
-            estimate_status: 'Ordered',
-            source_by: 'customer',
-            total_amount: productData.total_amount,
-            taxable_amount: productData.taxable_amount,
-            tax_amount: productData.tax_amount,
-            net_amount: productData.net_amount,
-            disscount: 0,
-            disscount_percentage: 0,
-            hm_charges: 0
-          },
-          repeatedData: [productData]
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
-        localStorage.setItem('orderCount', (currentCount + 1).toString());
-        window.dispatchEvent(new Event('orderCountChanged'));
-        localStorage.setItem('lastEstimateNumber', data.estimate_number);
-        alert('Order created successfully! Redirecting to estimates page...');
-        navigate('/customer-estimates');
-      } else {
-        alert(data.message || 'Failed to create order');
-      }
+      // Store in localStorage for EstimateForm
+      localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
+      console.log('Buy Now - Stored product data with customer_order_status:', productData.customer_order_status);
+      
+      // Navigate to Customer Estimates page
+      navigate('/customer-estimates');
+      
     } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Error creating order. Please try again.');
+      console.error('Error in Buy Now:', error);
+      alert('Error processing. Please try again.');
     } finally {
       setIsOrdering(prev => ({ ...prev, [product.product_id]: false }));
     }
   };
 
-  // Handle Order Now click (for Selected/Ordered products) - Creates order directly
+  // Handle Order Now click - Stores product in localStorage for EstimateForm
+  // customer_order_status = 'Ordered' for Order Now
   const handleOrderNow = async (product) => {
     if (!userData) {
       alert('Please login to place an order');
@@ -465,17 +433,17 @@ const ProductCatalog = () => {
     setIsOrdering(prev => ({ ...prev, [product.product_id]: true }));
 
     try {
+      // Prepare complete product data for EstimateForm
       const productData = {
         product_id: product.product_id,
         product_name: product.product_name,
         barcode: product.barcode || '',
         metal_type: product.metal_type || 'Gold',
-        design: product.design || '',
         design_name: product.design || product.design_name || '',
         purity: product.purity || '22K',
         gross_weight: parseFloat(product.gross_wt) || 0,
-        net_wt: parseFloat(product.net_wt) || 0,
         stone_weight: parseFloat(product.stone_wt) || 0,
+        net_weight: parseFloat(product.net_wt) || 0,
         stone_price: parseFloat(product.stone_price) || 0,
         making_charges: parseFloat(product.making_charges) || 0,
         tax_percent: parseFloat(product.tax_percent) || 0,
@@ -483,80 +451,52 @@ const ProductCatalog = () => {
         rate: parseFloat(product.rate) || 0,
         total_price: parseFloat(product.total_price) || 0,
         images: product.images || [],
+        qty: 1,
+        customer_order_status: 'Ordered', // Order Now = Ordered
+        source_by: 'customer',
         customer_id: userData.id,
         customer_name: userData.name,
-        quantity: 1,
         estimate_status: 'Ordered',
-        source_by: 'customer',
-        date: new Date().toISOString().split('T')[0],
-        order_date: new Date().toISOString().split('T')[0],
-        pcode: product.pcode || '',
-        category: product.category || '',
-        sub_category: product.sub_category || '',
-        salesperson_id: '',
-        weight_bw: 0,
-        va_on: '',
+        weight_bw: (parseFloat(product.gross_wt) || 0) - (parseFloat(product.stone_wt) || 0),
+        va_on: 'Gross Weight',
         va_percent: 0,
         wastage_weight: 0,
-        msp_va_percent: 0,
-        msp_wastage_weight: 0,
         total_weight_av: parseFloat(product.gross_wt) || 0,
-        mc_on: '',
+        mc_on: 'MC %',
         mc_per_gram: 0,
-        rate_amt: parseFloat(product.total_price) || 0,
-        pricing: 'standard',
-        pieace_cost: parseFloat(product.total_price) || 0,
+        hm_charges: 60.00,
+        pricing: 'By Weight',
         disscount_percentage: 0,
         disscount: 0,
-        hm_charges: 0,
+        rate_amt: parseFloat(product.total_price) || 0,
         total_amount: parseFloat(product.total_price) || 0,
+        net_amount: parseFloat(product.total_price) || 0,
         taxable_amount: parseFloat(product.total_price) || 0,
         tax_amount: 0,
-        net_amount: parseFloat(product.total_price) || 0,
         original_total_price: parseFloat(product.total_price) || 0,
         opentag_id: 0,
-        qty: 1
+        category: product.category || '',
+        sub_category: product.sub_category || '',
+        pcode: product.pcode || '',
+        metal_type_id: product.metal_type_id || '',
+        purity_id: product.purity_id || '',
+        design_id: product.design_id || '',
+        category_id: product.category_id || '',
+        msp_va_percent: 0,
+        msp_wastage_weight: 0,
+        pieace_cost: 0
       };
 
-      const response = await fetch(`${baseURL}/create-estimate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uniqueData: {
-            customer_id: userData.id,
-            customer_name: userData.name,
-            order_date: new Date().toISOString().split('T')[0],
-            estimate_status: 'Ordered',
-            source_by: 'customer',
-            total_amount: productData.total_amount,
-            taxable_amount: productData.taxable_amount,
-            tax_amount: productData.tax_amount,
-            net_amount: productData.net_amount,
-            disscount: 0,
-            disscount_percentage: 0,
-            hm_charges: 0
-          },
-          repeatedData: [productData]
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
-        localStorage.setItem('orderCount', (currentCount + 1).toString());
-        window.dispatchEvent(new Event('orderCountChanged'));
-        localStorage.setItem('lastEstimateNumber', data.estimate_number);
-        alert('Order created successfully! Redirecting to estimates page...');
-        navigate('/customer-estimates');
-      } else {
-        alert(data.message || 'Failed to create order');
-      }
+      // Store in localStorage for EstimateForm
+      localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
+      console.log('Order Now - Stored product data with customer_order_status:', productData.customer_order_status);
+      
+      // Navigate to Customer Estimates page
+      navigate('/customer-estimates');
+      
     } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Error creating order. Please try again.');
+      console.error('Error in Order Now:', error);
+      alert('Error processing. Please try again.');
     } finally {
       setIsOrdering(prev => ({ ...prev, [product.product_id]: false }));
     }
@@ -677,7 +617,6 @@ const ProductCatalog = () => {
     <div className="product-catalog-page">
       <CustomerNavbar />
 
-      {/* Products Grid */}
       <div className="product-catalog-container">
         <h2 className="product-catalog-title">Available Products</h2>
         
@@ -694,7 +633,6 @@ const ProductCatalog = () => {
             
             return (
               <div key={product.product_id} className="product-catalog-card">
-                {/* Product Image Carousel */}
                 <div className="product-catalog-image-container">
                   {hasImages ? (
                     <div className="product-catalog-image-carousel">
@@ -756,7 +694,6 @@ const ProductCatalog = () => {
                   )}
                 </div>
 
-                {/* Product Details */}
                 <div className="product-catalog-details">
                   <h3 className="product-catalog-name">{product.product_name}</h3>
                   <p className="product-catalog-barcode">Barcode: {product.barcode}</p>
@@ -802,7 +739,6 @@ const ProductCatalog = () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
                   {showButtons && (
                     <div className="product-catalog-actions">
                       <button 
@@ -844,7 +780,6 @@ const ProductCatalog = () => {
         </div>
       </div>
 
-      {/* Modal Popup for Image Carousel */}
       {isModalOpen && modalProduct && (
         <div className="product-catalog-modal-overlay" onClick={closeModal}>
           <div className="product-catalog-modal-content" onClick={(e) => e.stopPropagation()}>

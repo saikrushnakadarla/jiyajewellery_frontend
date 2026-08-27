@@ -106,16 +106,16 @@ const OrdersTable = () => {
     }
   }, []);
 
-  // Fetch only Ordered estimates
+  // Fetch only estimates with customer_order_status = 'Ordered'
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${baseURL}/get-unique-estimates`);
       const allEstimatesData = response.data || [];
 
-      // Filter only estimates with status 'Ordered'
+      // 🔥 FIX: Filter only estimates with customer_order_status = 'Ordered'
       const orderedEstimates = allEstimatesData.filter(estimate => 
-        estimate.estimate_status === 'Ordered'
+        estimate.customer_order_status === 'Ordered'
       );
 
       const estimatesWithStatus = orderedEstimates.map(estimate => ({
@@ -360,6 +360,7 @@ const OrdersTable = () => {
         details.uniqueData.assign_karigar = currentEstimate.assign_karigar ?? details.uniqueData.assign_karigar;
         details.uniqueData.assign_karigar_id = currentEstimate.assign_karigar_id ?? details.uniqueData.assign_karigar_id;
         details.uniqueData.delivery_date = currentEstimate.delivery_date ?? details.uniqueData.delivery_date;
+        details.uniqueData.customer_order_status = currentEstimate.customer_order_status ?? details.uniqueData.customer_order_status;
       }
 
       setRepairDetails(details);
@@ -454,6 +455,31 @@ const OrdersTable = () => {
         return (
           <span style={{
             backgroundColor: '#28a745',
+            color: 'white',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            display: 'inline-block',
+            minWidth: '90px',
+            textAlign: 'center',
+          }}>
+            {status}
+          </span>
+        );
+      },
+    },
+    {
+      Header: 'Customer Order Status',
+      accessor: 'customer_order_status',
+      width: 160,
+      disableSortBy: true,
+      Cell: ({ value }) => {
+        const status = value || 'N/A';
+        const isOrdered = status === 'Ordered';
+        return (
+          <span style={{
+            backgroundColor: isOrdered ? '#28a745' : '#6c757d',
             color: 'white',
             padding: '4px 12px',
             borderRadius: '20px',
@@ -826,6 +852,21 @@ const OrdersTable = () => {
                             }}
                           >
                             {repairDetails.uniqueData?.estimate_status || 'Ordered'}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Customer Order Status</td>
+                        <td>
+                          <span
+                            className="badge px-3 py-2"
+                            style={{
+                              backgroundColor: repairDetails.uniqueData?.customer_order_status === 'Ordered' ? '#28a745' : '#6c757d',
+                              color: 'white',
+                              fontSize: '0.9em',
+                            }}
+                          >
+                            {repairDetails.uniqueData?.customer_order_status || 'N/A'}
                           </span>
                         </td>
                       </tr>

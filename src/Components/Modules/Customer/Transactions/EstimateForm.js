@@ -20,7 +20,7 @@ const EstimateForm = () => {
   const initialFormData = {
     date: today,
     estimate_number: "",
-    order_number: "", // Added order_number field
+    order_number: "",
     product_id: "",
     product_name: "",
     barcode: "",
@@ -58,7 +58,8 @@ const EstimateForm = () => {
     pieace_cost: "",
     qty: 1,
     msp_va_percent: "",
-    msp_wastage_weight: ""
+    msp_wastage_weight: "",
+    customer_order_status: "Selected"
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -85,18 +86,16 @@ const EstimateForm = () => {
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentProductImages, setCurrentProductImages] = useState([]);
   
-  // Get current logged-in user's information
   const [userInfo, setUserInfo] = useState(null);
   const [sourceBy, setSourceBy] = useState("");
-  const [orderNumber, setOrderNumber] = useState(""); // State for order number
+  const [orderNumber, setOrderNumber] = useState("");
+  const [customerOrderStatus, setCustomerOrderStatus] = useState("Selected");
 
-  // Function to get full image URL
   const getImageUrl = (imageName) => {
     if (!imageName) return "";
     return `${baseURL}/uploads/products/${imageName}`;
   };
 
-  // Fetch current logged-in user's info
   useEffect(() => {
     const getCurrentUser = () => {
       try {
@@ -146,17 +145,15 @@ const EstimateForm = () => {
     }
   }, [navigate]);
 
-  // Generate order number for customers
   useEffect(() => {
     const generateOrderNumber = async () => {
       if (sourceBy === "customer") {
         try {
           const response = await axios.get(`${baseURL}/next-order-number`);
           setOrderNumber(response.data.order_number);
-          console.log("OrderNum:", response.data.order_number )
+          console.log("OrderNum:", response.data.order_number)
         } catch (error) {
           console.error("Error fetching order number:", error);
-          // Fallback: generate a temporary order number
           const tempOrderNumber = `ORD${Date.now().toString().slice(-6)}`;
           setOrderNumber(tempOrderNumber);
         }
@@ -174,59 +171,77 @@ const EstimateForm = () => {
     if (quickOrderProduct) {
       try {
         const product = JSON.parse(quickOrderProduct);
+        console.log('Quick order product loaded:', product);
+        console.log('customer_order_status from quickOrderProduct:', product.customer_order_status);
         
-        // Fetch complete product details using product_id
-        if (product.product_id) {
-          fetchProductDetails(product.product_id);
-        } else {
-          // If no product_id, pre-fill with available data
+        // Set customer_order_status from product
+        if (product.customer_order_status) {
+          setCustomerOrderStatus(product.customer_order_status);
           setFormData(prev => ({
             ...prev,
-            product_id: product.product_id,
-            product_name: product.product_name,
-            barcode: product.barcode,
-            metal_type: product.metal_type,
-            design_name: product.design_name,
-            purity: product.purity,
-            gross_weight: product.gross_weight,
-            stone_weight: product.stone_weight,
-            stone_price: product.stone_price,
-            making_charges: product.making_charges,
-            tax_percent: product.tax_percent,
-            tax_amt: product.tax_amt,
-            total_price: product.total_price,
-            images: product.images || []
+            customer_order_status: product.customer_order_status
+          }));
+          console.log('Set customerOrderStatus to:', product.customer_order_status);
+        }
+        
+        // Fetch complete product details using product_id if available
+        if (product.product_id && product.product_id !== 'undefined') {
+          fetchProductDetails(product.product_id);
+        } else if (product.barcode) {
+          handleBarcodeChange(product.barcode);
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            product_id: product.product_id || '',
+            product_name: product.product_name || '',
+            barcode: product.barcode || '',
+            metal_type: product.metal_type || '',
+            design_name: product.design_name || '',
+            purity: product.purity || '',
+            gross_weight: product.gross_weight || '',
+            stone_weight: product.stone_weight || '',
+            stone_price: product.stone_price || '0.00',
+            making_charges: product.making_charges || '0.00',
+            tax_percent: product.tax_percent || '03% GST',
+            tax_amt: product.tax_amt || '0.00',
+            total_price: product.total_price || '0.00',
+            images: product.images || [],
+            qty: product.qty || 1,
+            customer_order_status: product.customer_order_status || 'Selected'
           }));
           
           setCurrentProductImages(product.images || []);
         }
         
-        localStorage.removeItem('quickOrderProduct');
+        setTimeout(() => {
+          localStorage.removeItem('quickOrderProduct');
+        }, 2000);
+        
       } catch (error) {
         console.error('Error parsing quick order product:', error);
       }
     }
   }, []);
 
-  // Function to fetch complete product details
   const fetchProductDetails = async (productId) => {
     try {
       const response = await fetch(`${baseURL}/get/product/${productId}`);
       if (response.ok) {
         const productDetails = await response.json();
         
-        // Calculate weight_bw
         const grossWeight = parseFloat(productDetails.gross_wt) || 0;
         const stoneWeight = parseFloat(productDetails.stone_wt) || 0;
         const weightBW = (grossWeight - stoneWeight).toFixed(3);
         
-        // Calculate rate_amt if not available
         let rateAmt = productDetails.rate_amt || "0.00";
         if (!rateAmt && productDetails.rate && productDetails.total_weight_av) {
           const rate = parseFloat(productDetails.rate) || 0;
           const totalWeight = parseFloat(productDetails.total_weight_av) || 0;
           rateAmt = (rate * totalWeight).toFixed(2);
         }
+        
+        // Preserve customer_order_status
+        const currentCustomerOrderStatus = formData.customer_order_status || customerOrderStatus || 'Selected';
         
         setFormData(prev => ({
           ...prev,
@@ -265,7 +280,8 @@ const EstimateForm = () => {
           disscount_percentage: productDetails.disscount_percentage || "0.00",
           disscount: productDetails.disscount || "0.00",
           qty: productDetails.qty || 1,
-          images: productDetails.images || []
+          images: productDetails.images || [],
+          customer_order_status: currentCustomerOrderStatus
         }));
         
         setCurrentProductImages(productDetails.images || []);
@@ -275,7 +291,6 @@ const EstimateForm = () => {
     }
   };
 
-  // Fetch all products for dropdowns
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -306,27 +321,6 @@ const EstimateForm = () => {
     fetchProducts();
   }, []);
 
-
-   // Fetch tags data
-  // useEffect(() => {
-  //   const fetchTags = async () => {
-  //     try {
-  //       const response = await fetch(`${baseURL}/get/opening-tags-entry`);
-  //       if (!response.ok) {
-  //         throw new Error("Failed to fetch tags");
-  //       }
-  //       const result = await response.json();
-  //       setTagsData(result.result || []);
-  //     } catch (error) {
-  //       console.error("Error fetching tags:", error);
-  //     }
-  //   };
-
-  //   fetchTags();
-  // }, []);
-
-
-  // Fetch current rates
   useEffect(() => {
     const fetchCurrentRates = async () => {
       try {
@@ -346,7 +340,6 @@ const EstimateForm = () => {
     fetchCurrentRates();
   }, []);
 
-  // Fetch metal types, designs, and purities
   useEffect(() => {
     const fetchMetalTypes = async () => {
       try {
@@ -395,7 +388,6 @@ const EstimateForm = () => {
     fetchPurities();
   }, []);
 
-  // Handle product name selection
   const handleProductNameChange = async (productName) => {
     try {
       if (!productName) {
@@ -412,7 +404,6 @@ const EstimateForm = () => {
     }
   };
 
-  // Handle barcode selection
   const handleBarcodeChange = async (barcode) => {
     try {
       if (!barcode) {
@@ -420,19 +411,15 @@ const EstimateForm = () => {
         return;
       }
 
-      // First check in products
       const selectedProduct = allProducts.find(p => p.barcode === barcode);
       if (selectedProduct) {
         await fetchProductDetails(selectedProduct.product_id);
         setIsQtyEditable(true);
       } else {
-        // Check in tags data
         const selectedTag = tagsData.find(t => t.PCode_BarCode === barcode);
         if (selectedTag) {
-          // Get rate from tag data or calculate from current rates based on purity
           let tagRate = selectedTag.rate || "";
 
-          // If no rate in tag, calculate from current rates based on purity
           if (!tagRate && selectedTag.Purity && selectedTag.metal_type) {
             if (selectedTag.metal_type?.toLowerCase() === "gold" && selectedTag.Purity) {
               if (selectedTag.Purity.includes("24")) {
@@ -451,7 +438,6 @@ const EstimateForm = () => {
             }
           }
 
-          // Calculate weight_bw
           const grossWeight = parseFloat(selectedTag.Gross_Weight) || 0;
           const stoneWeight = parseFloat(selectedTag.Stones_Weight) || 0;
           const weightBW = (grossWeight - stoneWeight).toFixed(3);
@@ -512,8 +498,9 @@ const EstimateForm = () => {
       customer_name: prev.customer_name,
       salesperson_id: prev.salesperson_id,
       date: today,
-      order_number: sourceBy === "customer" ? orderNumber : "", // Preserve order number for customers
-      estimate_number: sourceBy !== "customer" ? prev.estimate_number : "" // Preserve estimate number for others
+      order_number: sourceBy === "customer" ? orderNumber : "",
+      estimate_number: sourceBy !== "customer" ? prev.estimate_number : "",
+      customer_order_status: customerOrderStatus || 'Selected'
     }));
     setIsQtyEditable(true);
     setCurrentProductImages([]);
@@ -528,17 +515,14 @@ const EstimateForm = () => {
         [name]: value,
       };
 
-      // Handle product name change
       if (name === "product_name" && value !== prevData.product_name) {
         handleProductNameChange(value);
       }
 
-      // Handle barcode change
       if (name === "barcode" && value !== prevData.barcode) {
         handleBarcodeChange(value);
       }
 
-      // Handle manual metal type change - calculate rate if not from product/tag
       if ((name === "metal_type" || name === "purity") &&
         !prevData.product_id && !prevData.opentag_id &&
         value && updatedData.metal_type && updatedData.purity) {
@@ -582,7 +566,6 @@ const EstimateForm = () => {
     });
   };
 
-  // Calculate net weight when gross or stone weight changes
   useEffect(() => {
     const grossWeight = parseFloat(formData.gross_weight) || 0;
     const stonesWeight = parseFloat(formData.stone_weight) || 0;
@@ -594,7 +577,6 @@ const EstimateForm = () => {
     }));
   }, [formData.gross_weight, formData.stone_weight]);
 
-  // Calculate wastage weight and total weight
   useEffect(() => {
     const wastagePercentage = parseFloat(formData.va_percent) || 0;
     const grossWeight = parseFloat(formData.gross_weight) || 0;
@@ -618,7 +600,6 @@ const EstimateForm = () => {
     }));
   }, [formData.va_on, formData.va_percent, formData.gross_weight, formData.weight_bw]);
 
-  // Calculate making charges
   useEffect(() => {
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
     const mcPerGram = parseFloat(formData.mc_per_gram) || 0;
@@ -648,7 +629,6 @@ const EstimateForm = () => {
     }
   }, [formData.mc_on, formData.mc_per_gram, formData.making_charges, formData.total_weight_av, formData.rate_amt]);
 
-  // Calculate rate amount
   useEffect(() => {
     const rate = parseFloat(formData.rate) || 0;
     const totalWeight = parseFloat(formData.total_weight_av) || 0;
@@ -664,7 +644,6 @@ const EstimateForm = () => {
     }));
   }, [formData.rate, formData.total_weight_av, formData.pricing]);
 
-  // Calculate tax and total price
   useEffect(() => {
     const taxPercentStr = formData.tax_percent || "3% GST";
     const taxPercent = parseFloat(taxPercentStr.replace('% GST', '').trim()) || 3;
@@ -686,7 +665,6 @@ const EstimateForm = () => {
     }));
   }, [formData.tax_percent, formData.rate_amt, formData.stone_price, formData.making_charges, formData.disscount, formData.hm_charges]);
 
-  // Fetch last estimate number for non-customers
   useEffect(() => {
     const fetchLastEstimateNumber = async () => {
       if (sourceBy !== "customer") {
@@ -705,7 +683,6 @@ const EstimateForm = () => {
     fetchLastEstimateNumber();
   }, [sourceBy]);
 
-  // Update formData with order number when sourceBy changes
   useEffect(() => {
     if (sourceBy === "customer" && orderNumber) {
       setFormData(prev => ({
@@ -715,25 +692,32 @@ const EstimateForm = () => {
     }
   }, [sourceBy, orderNumber]);
 
-  // Handle add/update entry
   const handleAdd = () => {
     if (!formData.product_name || !formData.barcode) {
       alert("Please select a product first");
       return;
     }
 
-    // Add user info to each entry
+    // Use the stored customer_order_status
+    let orderStatus = customerOrderStatus || formData.customer_order_status || 'Selected';
+    
+    if (sourceBy !== 'customer') {
+      orderStatus = 'Selected';
+    }
+
+    console.log('Adding entry with customer_order_status:', orderStatus);
+
     const entryWithUser = {
       ...formData,
       source_by: sourceBy,
       customer_id: userInfo?.role === 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : formData.customer_id,
       customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : formData.customer_name,
       salesperson_id: userInfo?.role !== 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : formData.salesperson_id,
-      estimate_status: sourceBy === "customer" ? "Order" : "Pending",
+      estimate_status: sourceBy === "customer" ? "Ordered" : "Pending",
       net_weight: formData.net_weight || formData.weight_bw || "0.000",
       msp_va_percent: formData.msp_va_percent || "0.00",
       msp_wastage_weight: formData.msp_wastage_weight || "0.000",
-      // Add order number for customers, estimate number for others
+      customer_order_status: orderStatus,
       ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: formData.estimate_number })
     };
 
@@ -751,19 +735,18 @@ const EstimateForm = () => {
     setEntries(updatedEntries);
     localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEntries));
 
-    // Reset form but keep numbers and user info
     setFormData(prev => ({
       ...initialFormData,
       ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: prev.estimate_number }),
       customer_id: userInfo?.role === 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.customer_id,
       customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
       salesperson_id: userInfo?.role !== 'Customer' ? (userInfo.id || userInfo._id || userInfo.user_id) : prev.salesperson_id,
-      date: today
+      date: today,
+      customer_order_status: orderStatus
     }));
     setCurrentProductImages([]);
   };
 
-  // Load entries from localStorage
   useEffect(() => {
     const storedEntries = JSON.parse(localStorage.getItem("customerEstimateDetails")) || [];
     setEntries(storedEntries);
@@ -788,7 +771,6 @@ const EstimateForm = () => {
     }
   };
 
-  // Handle discount change
   const handleDiscountChange = (e) => {
     const discountValue = parseFloat(e.target.value) || 0;
 
@@ -818,7 +800,6 @@ const EstimateForm = () => {
     localStorage.setItem("customerEstimateDetails", JSON.stringify(updatedEstimateDetails));
   };
 
-  // Handle print/save
   const handlePrint = async () => {
     try {
       if (entries.length === 0) {
@@ -845,7 +826,10 @@ const EstimateForm = () => {
       const taxAmount = entries.reduce((sum, item) => sum + (parseFloat(item.tax_amt) || 0), 0);
       const netAmount = taxableAmount + taxAmount;
 
-      // Save to database - each entry will have source_by and appropriate status
+      // Get customer_order_status from the first entry
+      const orderStatus = entries[0]?.customer_order_status || customerOrderStatus || 'Selected';
+      console.log('Saving with customer_order_status:', orderStatus);
+
       await Promise.all(
         entries.map((entry) => {
           const requestData = {
@@ -858,16 +842,19 @@ const EstimateForm = () => {
             taxable_amount: taxableAmount.toFixed(2),
             tax_amount: taxAmount.toFixed(2),
             net_amount: netAmount.toFixed(2),
-            estimate_status: sourceBy === "customer" ? "Order" : "Pending",
+            estimate_status: sourceBy === "customer" ? "Ordered" : "Pending",
             net_weight: entry.net_weight || entry.weight_bw || "0.000",
             msp_va_percent: entry.msp_va_percent || "0.00",
-            msp_wastage_weight: entry.msp_wastage_weight || "0.000"
+            msp_wastage_weight: entry.msp_wastage_weight || "0.000",
+            customer_order_status: sourceBy === "customer" ? orderStatus : 'Selected'
           };
+          
+          console.log('Sending requestData.customer_order_status:', requestData.customer_order_status);
+          
           return axios.post(`${baseURL}/add/estimate`, requestData);
         })
       );
 
-      // Generate PDF
       const pdfDoc = pdf(
         <PDFContent
           entries={entries}
@@ -894,7 +881,6 @@ const EstimateForm = () => {
         alert("Estimate request submitted successfully!");
       }
 
-      // Clear localStorage and reset state
       localStorage.removeItem("customerEstimateDetails");
       localStorage.removeItem("customerEstimateDiscount");
       setEntries([]);
@@ -905,11 +891,11 @@ const EstimateForm = () => {
         customer_name: userInfo?.role === 'Customer' ? userInfo.full_name : prev.customer_name,
         salesperson_id: userInfo?.role !== 'Customer' ? userInfo.id : prev.salesperson_id,
         date: today,
-        ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: prev.estimate_number })
+        ...(sourceBy === "customer" ? { order_number: orderNumber } : { estimate_number: prev.estimate_number }),
+        customer_order_status: orderStatus
       }));
       setCurrentProductImages([]);
 
-      // Navigate based on user role
       if (sourceBy === "customer") {
         navigate("/customer-estimation");
       } else {
@@ -933,7 +919,6 @@ const EstimateForm = () => {
     navigate(-1);
   };
 
-  // Function to show images modal
   const showProductImages = (productImages) => {
     setCurrentProductImages(productImages || []);
     setShowImagesModal(true);
@@ -941,7 +926,6 @@ const EstimateForm = () => {
 
   const isByFixed = formData.pricing === "By fixed";
 
-  // Calculate totals
   const totalAmount = entries.reduce((sum, item) => {
     const stonePrice = parseFloat(item.stone_price) || 0;
     const makingCharges = parseFloat(item.making_charges) || 0;
@@ -955,11 +939,9 @@ const EstimateForm = () => {
   const taxAmount = entries.reduce((sum, item) => sum + parseFloat(item.tax_amt || 0), 0);
   const netAmount = taxableAmount + taxAmount;
 
-  // Display appropriate number in header
   const displayNumber = sourceBy === "customer" ? orderNumber : formData.estimate_number;
   const numberLabel = sourceBy === "customer" ? "Order Number:" : "Estimate Number:";
 
-  // Check if user is authenticated
   if (!userInfo) {
     return (
       <>
@@ -986,7 +968,6 @@ const EstimateForm = () => {
           <Row className="estimate-form-section">
             <h2>{sourceBy === "customer" ? "Place Order" : "Create Estimate"}</h2>
             
-            {/* Display user info */}
             <Row className="mb-3">
               <Col xs={12} md={6}>
                 <div className="customer-info-card p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
@@ -1285,7 +1266,6 @@ const EstimateForm = () => {
               </>
             )}
 
-            {/* Image Preview Section */}
             <Col xs={12} className="mt-2 mb-2">
               <Row className="align-items-center">
                 <Col xs={12} md={2}>
@@ -1296,7 +1276,6 @@ const EstimateForm = () => {
                   </div>
                 </Col>
 
-                {/* Small image preview thumbnails */}
                 {formData.images && formData.images.length > 0 && (
                   <Col xs={12} md={8}>
                     <div className="d-flex flex-wrap" style={{ gap: "5px" }}>
@@ -1331,7 +1310,6 @@ const EstimateForm = () => {
                   </Col>
                 )}
 
-                {/* Add/Update Button */}
                 <Col xs={12} md={6} className="mt-2">
                   <Button
                     style={{
@@ -1506,7 +1484,6 @@ const EstimateForm = () => {
         </Container>
       </div>
 
-      {/* Images Modal */}
       <Modal
         show={showImagesModal}
         onHide={() => setShowImagesModal(false)}

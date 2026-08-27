@@ -1,4 +1,4 @@
-// OrderCartCatalog.js - Fixed API endpoint
+// OrderCartCatalog.js - Complete updated version
 import React, { useState, useEffect } from 'react';
 import CustomerNavbar from "../../../Pages/Navbar/CustomerNavbar";
 import './OrderCartCatalog.css';
@@ -78,6 +78,26 @@ const OrderCartCatalog = () => {
     return `${baseURL}/uploads/products/${imageFilename}`;
   };
 
+  // Update product status via API
+  const updateProductStatus = async (productId, status) => {
+    try {
+      const response = await fetch(`${baseURL}/update-product-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          status: status
+        })
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Error updating product status:', error)
+      return null
+    }
+  }
+
   // Remove item from order cart
   const handleRemoveFromCart = async (orderCartId, productId) => {
     setIsRemovingFromCart(prev => ({ ...prev, [orderCartId]: true }));
@@ -126,7 +146,7 @@ const OrderCartCatalog = () => {
     return `EST${timestamp}`;
   };
 
-  // Create order from all items in order cart - FIXED API ENDPOINT
+  // Create order from all items in order cart
   const handleCreateOrder = async () => {
     const userString = localStorage.getItem('user');
     if (!userString) {
@@ -152,10 +172,13 @@ const OrderCartCatalog = () => {
       const today = new Date().toISOString().split('T')[0];
       const estimateNumber = await generateEstimateNumber();
       
-      // Calculate totals
       let totalAmount = 0;
       
-      // Create repeatedData array for all products
+      // Update all products status to Ordered
+      for (const item of orderCartItems) {
+        await updateProductStatus(item.product_id, 'Ordered');
+      }
+      
       const repeatedData = orderCartItems.map(item => {
         const product = item.product;
         const itemTotal = parseFloat(product.total_price) * (item.quantity || 1);
@@ -206,24 +229,23 @@ const OrderCartCatalog = () => {
           original_total_price: parseFloat(product.total_price) || 0,
           opentag_id: 0,
           code: product.barcode || '',
-          // Required for estimate
           date: today,
           estimate_number: estimateNumber,
           estimate_status: 'Ordered',
           source_by: 'customer',
           customer_id: user.id,
-          customer_name: user.name
+          customer_name: user.name,
+          customer_order_status: 'Ordered' // NEW FIELD
         };
       });
 
-      // Send to correct endpoint: /add/estimate with force_insert flag
       const response = await fetch(`${baseURL}/add/estimate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          force_insert: true, // This will force insert without checking for duplicates
+          force_insert: true,
           estimate_number: estimateNumber,
           date: today,
           source_by: 'customer',
@@ -236,6 +258,7 @@ const OrderCartCatalog = () => {
           disscount: 0,
           disscount_percentage: 0,
           hm_charges: 0,
+          customer_order_status: 'Ordered', // NEW FIELD
           repeatedData: repeatedData
         })
       });
@@ -254,22 +277,17 @@ const OrderCartCatalog = () => {
           }
         }
         
-        // Clear local state
         setOrderCartItems([]);
         
-        // Update counts
         const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
         localStorage.setItem('orderCount', (currentCount + orderCartItems.length).toString());
         localStorage.setItem('orderCartCount', '0');
         window.dispatchEvent(new Event('orderCountChanged'));
         window.dispatchEvent(new Event('orderCartCountChanged'));
         
-        // Store the estimate number for reference
         localStorage.setItem('lastEstimateNumber', data.estimate_number || estimateNumber);
         
         alert(`Order created successfully! Order Number: ${data.estimate_number || estimateNumber}`);
-        
-        // Navigate to customer estimates page
         navigate('/customer-estimates');
       } else {
         alert(data.message || 'Failed to create order');
@@ -282,7 +300,7 @@ const OrderCartCatalog = () => {
     }
   };
 
-  // Place order for single item - FIXED API ENDPOINT
+  // Place order for single item
   const handlePlaceSingleOrder = async (item) => {
     const userString = localStorage.getItem('user');
     if (!userString) {
@@ -300,6 +318,9 @@ const OrderCartCatalog = () => {
     setIsCreatingOrder(true);
 
     try {
+      // Update product status to Ordered
+      await updateProductStatus(item.product_id, 'Ordered');
+
       const product = item.product;
       const today = new Date().toISOString().split('T')[0];
       const estimateNumber = await generateEstimateNumber();
@@ -355,10 +376,10 @@ const OrderCartCatalog = () => {
         estimate_status: 'Ordered',
         source_by: 'customer',
         customer_id: user.id,
-        customer_name: user.name
+        customer_name: user.name,
+        customer_order_status: 'Ordered' // NEW FIELD
       };
 
-      // Send to correct endpoint: /add/estimate with force_insert flag
       const response = await fetch(`${baseURL}/add/estimate`, {
         method: 'POST',
         headers: {
@@ -378,6 +399,7 @@ const OrderCartCatalog = () => {
           disscount: 0,
           disscount_percentage: 0,
           hm_charges: 0,
+          customer_order_status: 'Ordered', // NEW FIELD
           repeatedData: [productData]
         })
       });
@@ -394,10 +416,8 @@ const OrderCartCatalog = () => {
           console.warn('Error removing from order cart:', removeError);
         }
         
-        // Update local state
         setOrderCartItems(prev => prev.filter(i => i.order_cart_id !== item.order_cart_id));
         
-        // Update counts
         const currentOrderCount = parseInt(localStorage.getItem('orderCount') || '0');
         localStorage.setItem('orderCount', (currentOrderCount + 1).toString());
         window.dispatchEvent(new Event('orderCountChanged'));
@@ -409,8 +429,6 @@ const OrderCartCatalog = () => {
         localStorage.setItem('lastEstimateNumber', data.estimate_number || estimateNumber);
         
         alert('Order placed successfully!');
-        
-        // Navigate to customer estimates page
         navigate('/customer-estimates');
       } else {
         alert(data.message || 'Failed to place order');

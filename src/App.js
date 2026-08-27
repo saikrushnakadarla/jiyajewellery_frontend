@@ -91,9 +91,9 @@ const AppContent = () => {
   const isLoginPage = location.pathname === '/';
   
   return (
-    <>
-
-    {/* <ScreenshotProtection> */}
+    <div>
+    {/* <ScreenshotProtection>   */}
+     
       {/* Only show watermark if NOT on login page */}
       {!isLoginPage && <WaterMark />}
       
@@ -195,8 +195,11 @@ const AppContent = () => {
 
       </Routes>
       <Footer />
+      
       {/* </ScreenshotProtection> */}
-    </>
+
+
+    </div>
   );
 };
 

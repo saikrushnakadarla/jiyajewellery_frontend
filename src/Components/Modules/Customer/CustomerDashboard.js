@@ -207,18 +207,52 @@ const resolveCustomerAccountId = async (user) => {
   };
 
   // Connect to SSE for real-time notifications - FIXED to handle 404 errors gracefully
-  useEffect(() => {
-    const setupNotifications = async () => {
+ useEffect(() => {
+  const setupNotifications = async () => {
+    try {
       const userData = localStorage.getItem("user");
-      if (!userData) return;
+      if (!userData) {
+        console.warn('⚠️ No user data found in localStorage');
+        return;
+      }
 
       const user = JSON.parse(userData);
+      console.log('👤 Current user:', { 
+        id: user.id, 
+        customer_id: user.customer_id,
+        email: user.email_id || user.email,
+        name: user.full_name || user.name 
+      });
+
       const accountId = await resolveCustomerAccountId(user);
 
-      if (!accountId) return;
+      if (!accountId) {
+        console.warn('⚠️ Could not resolve customer account_id, skipping push setup');
+        return;
+      }
 
       customerAccountIdRef.current = accountId;
-      setupPushNotifications(accountId, 'customer'); // 👈 ADDED: registers service worker + push subscription
+      userEmailRef.current = user.email_id || user.email;
+
+      console.log(`🔔 Setting up push for customer account_id: ${accountId}`);
+      
+      // ===== IMPROVED PUSH SETUP WITH ERROR HANDLING =====
+      try {
+        const result = await setupPushNotifications(accountId, 'customer');
+        console.log('📝 Push setup result:', result);
+        
+        if (result.success) {
+          console.log('✅ Push notifications successfully set up!');
+        } else {
+          console.warn('⚠️ Push setup not complete:', result.reason || 'Unknown reason');
+          if (result.error) {
+            console.error('   Error details:', result.error);
+          }
+        }
+      } catch (pushError) {
+        console.error('❌ Push setup error:', pushError);
+        // Don't block the rest of the setup if push fails
+      }
 
       // Pre-fetch salespersons for quick lookup
       const salespersons = await fetchAllSalespersons();
@@ -235,7 +269,6 @@ const resolveCustomerAccountId = async (user) => {
       });
       console.log('📦 Salesperson cache built with', Object.keys(salespersonCacheRef.current).length, 'entries');
 
-    
       // Connect to SSE from Jiya Jewellery (port 5000) - MAIN SERVER
       const connectSSE = () => {
         try {
@@ -255,6 +288,7 @@ const resolveCustomerAccountId = async (user) => {
               }
 
               if (data.title && data.message) {
+                console.log('📨 SSE notification received:', data.title);
                 handleNewNotification(data);
               }
             } catch (error) {
@@ -278,7 +312,6 @@ const resolveCustomerAccountId = async (user) => {
       };
 
       // Connect to SSE from Jiya Jewellery (port 5000) - SECONDARY CONNECTION with fallback
-      // FIXED: Changed baseURL2 to baseURL for port 5000
       const connectSSE2 = () => {
         try {
           fetch(`${baseURL}/api/customer-notifications/${accountId}`, { 
@@ -303,6 +336,7 @@ const resolveCustomerAccountId = async (user) => {
                   }
 
                   if (data.title && data.message) {
+                    console.log('📨 SSE notification received (secondary):', data.title);
                     handleNewNotification(data);
                   }
                 } catch (error) {
@@ -342,22 +376,29 @@ const resolveCustomerAccountId = async (user) => {
       pollingIntervalRef.current = setInterval(() => {
         fetchNotifications(accountId, true);
       }, 30000);
-    };
 
-    setupNotifications();
+    } catch (error) {
+      console.error('❌ Error in setupNotifications:', error);
+    }
+  };
 
-    return () => {
-      if (sseRef.current) {
-        sseRef.current.close();
-      }
-      if (sseRef2.current) {
-        sseRef2.current.close();
-      }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
+  setupNotifications();
+
+  return () => {
+    if (sseRef.current) {
+      sseRef.current.close();
+      console.log('🔌 SSE connection closed (main)');
+    }
+    if (sseRef2.current) {
+      sseRef2.current.close();
+      console.log('🔌 SSE connection closed (secondary)');
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      console.log('⏹️ Polling interval cleared');
+    }
+  };
+}, []);
 
   // Fetch dashboard data
   useEffect(() => {

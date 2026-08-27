@@ -18,6 +18,7 @@ const CartCatalog = () => {
   
   // Removal state
   const [isRemovingFromCart, setIsRemovingFromCart] = useState({});
+  const [isOrdering, setIsOrdering] = useState({});
   
   const navigate = useNavigate();
 
@@ -44,10 +45,8 @@ const CartCatalog = () => {
       const data = await response.json();
       
       if (data.success) {
-        // Log the full cart item structure so you can see exactly what fields are returned
-        console.log('Full cart_items response:', JSON.stringify(data.cart_items, null, 2));
+        console.log('Cart items:', data.cart_items);
 
-        // Initialize current image index for each product with images
         const initialIndexes = {};
         data.cart_items.forEach(item => {
           if (item.product.images && item.product.images.length > 0) {
@@ -80,6 +79,26 @@ const CartCatalog = () => {
     return `${baseURL}/uploads/products/${imageFilename}`;
   };
 
+  // Update product status via API
+  const updateProductStatus = async (productId, status) => {
+    try {
+      const response = await fetch(`${baseURL}/update-product-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          status: status
+        })
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Error updating product status:', error)
+      return null
+    }
+  }
+
   // Remove from cart function
   const handleRemoveFromCart = async (cartId, productId) => {
     setIsRemovingFromCart(prev => ({ ...prev, [cartId]: true }));
@@ -92,12 +111,8 @@ const CartCatalog = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Remove item from local state
         setCartItems(prev => prev.filter(item => item.cart_id !== cartId));
-        
-        // Update cart count in localStorage to trigger navbar update
         updateCartCountInLocalStorage(-1);
-        
         alert('Product removed from cart successfully!');
       } else {
         alert(data.message || 'Failed to remove from cart');
@@ -114,138 +129,162 @@ const CartCatalog = () => {
     const currentCount = parseInt(localStorage.getItem('cartCount') || '0');
     const newCount = Math.max(0, currentCount + change);
     localStorage.setItem('cartCount', newCount.toString());
-    // Dispatch custom event to notify navbar
     window.dispatchEvent(new Event('cartCountChanged'));
   };
 
-  // ---------------------------------------------------------------
-  // FIX: handleOrderNow now reads from item.product correctly and
-  // also fetches the full product from the /get/products endpoint
-  // as a fallback so that fields like rate, stone_wt, metal_type,
-  // design, purity are always included — matching ProductCatalog.
-  // ---------------------------------------------------------------
- 
+  const handleOrderNow = async (cartItem) => {
+    const userString = localStorage.getItem('user');
+    if (!userString) {
+      alert('Please login to place an order');
+      return;
+    }
+    
+    const user = JSON.parse(userString);
+    
+    if (user.role !== 'Customer') {
+      alert('Only customers can place orders');
+      return;
+    }
 
+    setIsOrdering(prev => ({ ...prev, [cartItem.cart_id]: true }));
 
-  // Fixed handleOrderNow function in CartCatalog.js
-const handleOrderNow = async (cartItem) => {
-  const userString = localStorage.getItem('user');
-  if (!userString) {
-    alert('Please login to place an order');
-    return;
-  }
-  
-  const user = JSON.parse(userString);
-  
-  if (user.role !== 'Customer') {
-    alert('Only customers can place orders');
-    return;
-  }
-
-  try {
-    // cartItem here is the full cart row
-    const product = cartItem.product;
-
-    // Fallback: fetch the full product details
-    let fullProduct = product;
     try {
-      const res = await fetch(`${baseURL}/get/products`);
-      if (res.ok) {
-        const allProducts = await res.json();
-        const found = allProducts.find(p => p.product_id === cartItem.product_id);
-        if (found) {
-          fullProduct = found;
+      // Update product status to Ordered
+      await updateProductStatus(cartItem.product_id, 'Ordered')
+
+      const product = cartItem.product;
+
+      // Fetch full product details
+      let fullProduct = product;
+      try {
+        const res = await fetch(`${baseURL}/get/products`);
+        if (res.ok) {
+          const allProducts = await res.json();
+          const found = allProducts.find(p => p.product_id === cartItem.product_id);
+          if (found) {
+            fullProduct = found;
+          }
         }
+      } catch (err) {
+        console.warn('Could not fetch full product details, using cart data:', err);
       }
-    } catch (err) {
-      console.warn('Could not fetch full product details, using cart data:', err);
+
+      // Generate estimate number
+      const estResponse = await fetch(`${baseURL}/lastEstimateNumber`)
+      const estData = await estResponse.json()
+      const estimateNumber = estData.lastEstimateNumber || `EST${Date.now().toString().slice(-6)}`
+
+      const today = new Date().toISOString().split('T')[0]
+      const itemTotal = parseFloat(fullProduct.total_price) * (cartItem.quantity || 1)
+
+      const productData = {
+        product_id: fullProduct.product_id,
+        product_name: fullProduct.product_name,
+        barcode: fullProduct.barcode || '',
+        metal_type: fullProduct.metal_type || 'Gold',
+        design: fullProduct.design || '',
+        design_name: fullProduct.design || fullProduct.design_name || '',
+        purity: fullProduct.purity || '22K',
+        gross_weight: parseFloat(fullProduct.gross_wt) || 0,
+        net_wt: parseFloat(fullProduct.net_wt) || 0,
+        stone_weight: parseFloat(fullProduct.stone_wt) || 0,
+        stone_price: parseFloat(fullProduct.stone_price) || 0,
+        making_charges: parseFloat(fullProduct.making_charges) || 0,
+        tax_percent: parseFloat(fullProduct.tax_percent) || 0,
+        tax_amt: parseFloat(fullProduct.tax_amt) || 0,
+        rate: parseFloat(fullProduct.rate) || 0,
+        total_price: parseFloat(fullProduct.total_price) || 0,
+        images: fullProduct.images || [],
+        customer_id: user.id,
+        customer_name: user.name,
+        quantity: cartItem.quantity || 1,
+        estimate_status: 'Ordered',
+        source_by: 'customer',
+        date: today,
+        order_date: today,
+        pcode: fullProduct.pcode || '',
+        category: fullProduct.category || '',
+        sub_category: fullProduct.sub_category || '',
+        salesperson_id: '',
+        weight_bw: 0,
+        va_on: '',
+        va_percent: 0,
+        wastage_weight: 0,
+        msp_va_percent: 0,
+        msp_wastage_weight: 0,
+        total_weight_av: parseFloat(fullProduct.gross_wt) || 0,
+        mc_on: '',
+        mc_per_gram: 0,
+        rate_amt: parseFloat(fullProduct.total_price) || 0,
+        pricing: 'standard',
+        pieace_cost: parseFloat(fullProduct.total_price) || 0,
+        disscount_percentage: 0,
+        disscount: 0,
+        hm_charges: 0,
+        total_amount: itemTotal,
+        taxable_amount: itemTotal,
+        tax_amount: 0,
+        net_amount: itemTotal,
+        original_total_price: parseFloat(fullProduct.total_price) || 0,
+        opentag_id: 0,
+        qty: cartItem.quantity || 1,
+        customer_order_status: 'Ordered' // NEW FIELD
+      };
+
+      const response = await fetch(`${baseURL}/add/estimate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          force_insert: true,
+          estimate_number: estimateNumber,
+          date: today,
+          source_by: 'customer',
+          customer_id: user.id,
+          customer_name: user.name,
+          total_amount: itemTotal,
+          net_amount: itemTotal,
+          taxable_amount: itemTotal,
+          tax_amount: 0,
+          disscount: 0,
+          disscount_percentage: 0,
+          hm_charges: 0,
+          customer_order_status: 'Ordered', // NEW FIELD
+          repeatedData: [productData]
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Remove item from cart
+        const removeResponse = await fetch(`${baseURL}/api/cart/remove/${cartItem.cart_id}`, {
+          method: 'DELETE'
+        });
+        
+        if (removeResponse.ok) {
+          setCartItems(prev => prev.filter(item => item.cart_id !== cartItem.cart_id));
+          updateCartCountInLocalStorage(-1);
+        }
+        
+        const currentCount = parseInt(localStorage.getItem('orderCount') || '0');
+        localStorage.setItem('orderCount', (currentCount + 1).toString());
+        window.dispatchEvent(new Event('orderCountChanged'));
+        localStorage.setItem('lastEstimateNumber', data.estimate_number);
+        
+        alert('Order placed successfully! Redirecting to estimates page...');
+        navigate('/customer-estimates');
+      } else {
+        alert(data.message || 'Failed to create order');
+      }
+    } catch (error) {
+      console.error('Error processing order from cart:', error);
+      alert('Error processing order. Please try again.');
+    } finally {
+      setIsOrdering(prev => ({ ...prev, [cartItem.cart_id]: false }));
     }
-
-    // Store product data in localStorage for the estimate form
-    const productData = {
-      product_id: fullProduct.product_id,
-      product_name: fullProduct.product_name,
-      barcode: fullProduct.barcode || '',
-      metal_type: fullProduct.metal_type || 'Gold',
-      design: fullProduct.design || '',
-      design_name: fullProduct.design || fullProduct.design_name || '', // Add design_name
-      purity: fullProduct.purity || '22K',
-      gross_weight: parseFloat(fullProduct.gross_wt) || 0, // Changed from gross_wt to gross_weight
-      net_wt: parseFloat(fullProduct.net_wt) || 0,
-      stone_weight: parseFloat(fullProduct.stone_wt) || 0, // Changed from stone_wt to stone_weight
-      stone_price: parseFloat(fullProduct.stone_price) || 0,
-      making_charges: parseFloat(fullProduct.making_charges) || 0,
-      tax_percent: parseFloat(fullProduct.tax_percent) || 0,
-      tax_amt: parseFloat(fullProduct.tax_amt) || 0,
-      rate: parseFloat(fullProduct.rate) || 0,
-      total_price: parseFloat(fullProduct.total_price) || 0,
-      images: fullProduct.images || [],
-      customer_id: user.id,
-      customer_name: user.name,
-      quantity: cartItem.quantity || 1,
-      
-      // CRITICAL: Add these fields for order number generation
-      estimate_status: 'Ordered',
-      source_by: 'customer',
-      date: new Date().toISOString().split('T')[0], // Today's date
-      
-      // Add other required fields for estimate creation
-      pcode: fullProduct.pcode || '',
-      category: fullProduct.category || '',
-      sub_category: fullProduct.sub_category || '',
-      salesperson_id: '', // Empty for customer orders
-      weight_bw: 0,
-      va_on: '',
-      va_percent: 0,
-      wastage_weight: 0,
-      msp_va_percent: 0,
-      msp_wastage_weight: 0,
-      total_weight_av: 0,
-      mc_on: '',
-      mc_per_gram: 0,
-      rate_amt: parseFloat(fullProduct.total_price) || 0,
-      pricing: 'standard',
-      pieace_cost: parseFloat(fullProduct.total_price) || 0,
-      disscount_percentage: 0,
-      disscount: 0,
-      hm_charges: 0,
-      total_amount: parseFloat(fullProduct.total_price) * (cartItem.quantity || 1),
-      taxable_amount: 0,
-      tax_amount: 0,
-      net_amount: parseFloat(fullProduct.total_price) * (cartItem.quantity || 1),
-      original_total_price: parseFloat(fullProduct.total_price) || 0,
-      opentag_id: 0,
-      qty: cartItem.quantity || 1
-    };
-
-    console.log('Storing cart product data for estimate form:', productData);
-
-    // Store in localStorage
-    localStorage.setItem('quickOrderProduct', JSON.stringify(productData));
-    
-    // Optionally remove item from cart after selecting for order
-    const removeResponse = await fetch(`${baseURL}/api/cart/remove/${cartItem.cart_id}`, {
-      method: 'DELETE'
-    });
-    
-    if (removeResponse.ok) {
-      // Update cart items list
-      setCartItems(prev => prev.filter(item => item.cart_id !== cartItem.cart_id));
-      updateCartCountInLocalStorage(-1);
-    }
-    
-    // Show message and navigate
-    alert('Product selected for ordering! Item removed from cart. Redirecting to estimate form...');
-    
-    // Navigate to customer estimates page
-    navigate('/customer-estimates');
-  } catch (error) {
-    console.error('Error processing order from cart:', error);
-    alert('Error processing order. Please try again.');
-  }
-};
-
-
+  };
 
   const nextImage = (productId, e) => {
     e?.stopPropagation();
@@ -377,20 +416,14 @@ const handleOrderNow = async (cartItem) => {
                 <span>Subtotal:</span>
                 <span className="cart-total-price">{formatPrice(calculateTotal())}</span>
               </div>
-              {/* <button 
-                className="product-catalog-buy-now-btn"
-                onClick={() => alert('Proceed to checkout functionality to be implemented')}
-              >
-                Proceed to Checkout
-              </button> */}
             </div>
 
-            
             <div className="product-catalog-grid">
               {cartItems.map((item) => {
                 const hasImages = item.product.images && item.product.images.length > 0;
                 const currentIndex = currentImageIndexes[item.product_id] || 0;
                 const isRemoving = isRemovingFromCart[item.cart_id] || false;
+                const isOrderingItem = isOrdering[item.cart_id] || false;
                 
                 return (
                   <div key={item.cart_id} className="product-catalog-card">
@@ -405,7 +438,6 @@ const handleOrderNow = async (cartItem) => {
                             onClick={() => openModal(item)}
                           />
                           
-                          {/* Navigation Arrows */}
                           {item.product.images.length > 1 && (
                             <>
                               <button 
@@ -425,14 +457,12 @@ const handleOrderNow = async (cartItem) => {
                             </>
                           )}
                           
-                          {/* Image Counter */}
                           {item.product.images.length > 1 && (
                             <div className="product-catalog-image-counter">
                               {currentIndex + 1} / {item.product.images.length}
                             </div>
                           )}
                           
-                          {/* Image Dots Indicator */}
                           {item.product.images.length > 1 && (
                             <div className="product-catalog-image-dots">
                               {item.product.images.map((_, index) => (
@@ -475,7 +505,6 @@ const handleOrderNow = async (cartItem) => {
                         </span>
                       </div>
 
-                      {/* Pricing Details */}
                       <div className="product-catalog-pricing-section">
                         {item.product.making_charges > 0 && (
                           <div className="product-catalog-price-row">
@@ -531,8 +560,9 @@ const handleOrderNow = async (cartItem) => {
                         <button 
                           className="product-catalog-buy-now-btn"
                           onClick={() => handleOrderNow(item)}
+                          disabled={isOrderingItem}
                         >
-                          Order Now
+                          {isOrderingItem ? 'Processing...' : 'Order Now'}
                         </button>
                       </div>
                     </div>
@@ -559,7 +589,6 @@ const handleOrderNow = async (cartItem) => {
                 className="product-catalog-modal-image"
               />
               
-              {/* Modal Navigation Arrows */}
               {modalProduct.product.images.length > 1 && (
                 <>
                   <button 
@@ -579,14 +608,12 @@ const handleOrderNow = async (cartItem) => {
                 </>
               )}
               
-              {/* Modal Image Counter */}
               {modalProduct.product.images.length > 1 && (
                 <div className="product-catalog-modal-image-counter">
                   {modalCurrentIndex + 1} / {modalProduct.product.images.length}
                 </div>
               )}
               
-              {/* Modal Image Dots */}
               {modalProduct.product.images.length > 1 && (
                 <div className="product-catalog-modal-image-dots">
                   {modalProduct.product.images.map((_, index) => (
@@ -601,7 +628,6 @@ const handleOrderNow = async (cartItem) => {
               )}
             </div>
             
-            {/* Product Info in Modal */}
             <div className="product-catalog-modal-product-info">
               <h3 className="product-catalog-modal-product-name">{modalProduct.product.product_name}</h3>
               <p className="product-catalog-modal-product-barcode">Barcode: {modalProduct.product.barcode}</p>
@@ -635,8 +661,9 @@ const handleOrderNow = async (cartItem) => {
                     handleOrderNow(modalProduct);
                     closeModal();
                   }}
+                  disabled={isOrdering[modalProduct.cart_id]}
                 >
-                  Order Now
+                  {isOrdering[modalProduct.cart_id] ? 'Processing...' : 'Order Now'}
                 </button>
               </div>
             </div>
