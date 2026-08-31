@@ -11,7 +11,44 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalespersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './SalespersonReports.css';
 
+// ---------------------------------------------------------------------------
+// Date validation helper (see LeaveManagement.js for the full rationale).
+// Native <input type="date"> always reports "YYYY-MM-DD", but some browsers
+// still allow a user to type more than 4 digits into the year segment or
+// leave the value malformed. We validate strictly before ever using the
+// value, and constrain the native picker with min/max as a first line of
+// defense.
+// ---------------------------------------------------------------------------
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+const MIN_DATE_ATTR = `${MIN_YEAR}-01-01`;
+const MAX_DATE_ATTR = `${MAX_YEAR}-12-31`;
 
+const isValidDateString = (value) => {
+  if (!value) return true; // empty/optional is fine
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  return true;
+};
 
 // PDF Styles
 const pdfStyles = StyleSheet.create({
@@ -212,6 +249,10 @@ const SalespersonReports = () => {
     fromDate: '',
     toDate: ''
   });
+  const [dateErrors, setDateErrors] = useState({
+    fromDate: '',
+    toDate: ''
+  });
 
   // Get logged-in user from localStorage on component mount
   useEffect(() => {
@@ -288,19 +329,24 @@ const SalespersonReports = () => {
   // Fetch Customer-wise data filtered by current salesperson
   const fetchCustomerWiseData = async () => {
     if (!currentUser) return;
-    
+
     setLoading(true);
     try {
       const response = await axios.get(`${baseURL}/get-unique-estimates`);
       const estimates = response.data || [];
-      
+
       // Filter estimates by current salesperson ID
-      let salespersonEstimates = estimates.filter(item => 
+      let salespersonEstimates = estimates.filter(item =>
         parseInt(item.salesperson_id) === parseInt(currentUser.id)
       );
-      
-      // Apply date filter if selected
-      if (dateRange.fromDate && dateRange.toDate) {
+
+      // Apply date filter if selected (and valid)
+      if (
+        dateRange.fromDate &&
+        dateRange.toDate &&
+        isValidDateString(dateRange.fromDate) &&
+        isValidDateString(dateRange.toDate)
+      ) {
         salespersonEstimates = salespersonEstimates.filter(item => {
           const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
           const from = new Date(dateRange.fromDate).setHours(0, 0, 0, 0);
@@ -311,11 +357,11 @@ const SalespersonReports = () => {
 
       // Group by customer
       const groupedData = {};
-      
+
       salespersonEstimates.forEach(estimate => {
         const customerId = estimate.customer_id;
         if (!customerId) return;
-        
+
         if (!groupedData[customerId]) {
           groupedData[customerId] = {
             customer_id: customerId,
@@ -325,7 +371,7 @@ const SalespersonReports = () => {
             estimates: []
           };
         }
-        
+
         groupedData[customerId].total_estimates += 1;
         groupedData[customerId].total_amount += parseFloat(estimate.net_amount || 0);
       });
@@ -343,19 +389,24 @@ const SalespersonReports = () => {
   // Fetch Product-wise data filtered by current salesperson
   const fetchProductWiseData = async () => {
     if (!currentUser) return;
-    
+
     setLoading(true);
     try {
       const response = await axios.get(`${baseURL}/get/estimates`);
       const estimates = response.data || [];
-      
+
       // Filter estimates by current salesperson ID
-      let salespersonEstimates = estimates.filter(item => 
+      let salespersonEstimates = estimates.filter(item =>
         parseInt(item.salesperson_id) === parseInt(currentUser.id)
       );
-      
-      // Apply date filter if selected
-      if (dateRange.fromDate && dateRange.toDate) {
+
+      // Apply date filter if selected (and valid)
+      if (
+        dateRange.fromDate &&
+        dateRange.toDate &&
+        isValidDateString(dateRange.fromDate) &&
+        isValidDateString(dateRange.toDate)
+      ) {
         salespersonEstimates = salespersonEstimates.filter(item => {
           const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
           const from = new Date(dateRange.fromDate).setHours(0, 0, 0, 0);
@@ -366,11 +417,11 @@ const SalespersonReports = () => {
 
       // Group by product
       const groupedData = {};
-      
+
       salespersonEstimates.forEach(estimate => {
         const productId = estimate.product_id;
         if (!productId) return;
-        
+
         if (!groupedData[productId]) {
           groupedData[productId] = {
             product_id: productId,
@@ -382,7 +433,7 @@ const SalespersonReports = () => {
             estimates: []
           };
         }
-        
+
         groupedData[productId].total_quantity += parseInt(estimate.qty || 1);
         groupedData[productId].total_amount += parseFloat(estimate.total_price || 0);
       });
@@ -400,26 +451,26 @@ const SalespersonReports = () => {
   // Handle view details
   const handleViewDetails = async (item) => {
     if (!currentUser) return;
-    
+
     setSelectedItem(item);
-    
+
     try {
       const response = await axios.get(`${baseURL}/get/estimates`);
       const allEstimates = response.data || [];
-      
+
       let filteredEstimates = [];
       if (activeTab === 'customer') {
-        filteredEstimates = allEstimates.filter(est => 
+        filteredEstimates = allEstimates.filter(est =>
           parseInt(est.customer_id) === parseInt(item.customer_id) &&
           parseInt(est.salesperson_id) === parseInt(currentUser.id)
         );
       } else if (activeTab === 'product') {
-        filteredEstimates = allEstimates.filter(est => 
+        filteredEstimates = allEstimates.filter(est =>
           parseInt(est.product_id) === parseInt(item.product_id) &&
           parseInt(est.salesperson_id) === parseInt(currentUser.id)
         );
       }
-      
+
       setDetailsData(filteredEstimates);
       setShowDetailsModal(true);
     } catch (error) {
@@ -428,8 +479,59 @@ const SalespersonReports = () => {
     }
   };
 
-  // Handle date filter
+  // Update freely as the user types/picks a date. A native date input
+  // reports an intermediate value on every keystroke (e.g. while typing
+  // the year one digit at a time it briefly reports something like
+  // "0002-01-01"), so validating on every change flagged normal in-progress
+  // typing as "invalid" and popped an alert mid-entry. We no longer do
+  // that — just store whatever the browser gives us.
+  const handleFromDateChange = (e) => {
+    const value = e.target.value;
+    setDateRange((prev) => ({ ...prev, fromDate: value }));
+    if (dateErrors.fromDate) setDateErrors((prev) => ({ ...prev, fromDate: '' }));
+  };
+
+  const handleToDateChange = (e) => {
+    const value = e.target.value;
+    setDateRange((prev) => ({ ...prev, toDate: value }));
+    if (dateErrors.toDate) setDateErrors((prev) => ({ ...prev, toDate: '' }));
+  };
+
+  // Only check once the field loses focus, i.e. the user is likely done
+  // typing that date — and only show a small inline hint, never a popup.
+  const handleFromDateBlur = () => {
+    setDateErrors((prev) => ({
+      ...prev,
+      fromDate: dateRange.fromDate && !isValidDateString(dateRange.fromDate) ? 'Enter a valid date.' : '',
+    }));
+  };
+
+  const handleToDateBlur = () => {
+    setDateErrors((prev) => ({
+      ...prev,
+      toDate: dateRange.toDate && !isValidDateString(dateRange.toDate) ? 'Enter a valid date.' : '',
+    }));
+  };
+
+  // Handle date filter — silently ignore any bound that isn't a complete,
+  // valid date rather than blocking the user with a popup.
   const handleDateFilter = () => {
+    const safeFrom = isValidDateString(dateRange.fromDate) ? dateRange.fromDate : '';
+    const safeTo = isValidDateString(dateRange.toDate) ? dateRange.toDate : '';
+    setDateErrors({
+      fromDate: dateRange.fromDate && !safeFrom ? 'Enter a valid date.' : '',
+      toDate: dateRange.toDate && !safeTo ? 'Enter a valid date.' : '',
+    });
+
+    if (safeFrom !== dateRange.fromDate || safeTo !== dateRange.toDate) {
+      setDateRange({ fromDate: safeFrom, toDate: safeTo });
+    }
+
+    if (safeFrom && safeTo && new Date(safeFrom) > new Date(safeTo)) {
+      // Swap silently instead of alerting, so the filter still runs.
+      setDateRange({ fromDate: safeTo, toDate: safeFrom });
+    }
+
     if (activeTab === 'customer') {
       fetchCustomerWiseData();
     } else if (activeTab === 'product') {
@@ -441,6 +543,7 @@ const SalespersonReports = () => {
   const formatDate = (date) => {
     if (!date) return 'N/A';
     const d = new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
     return d.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
@@ -553,8 +656,8 @@ const SalespersonReports = () => {
                   <td>{item.total_estimates}</td>
                   <td>₹{item.total_amount.toFixed(2)}</td>
                   <td>
-                    <FaEye 
-                      className="salesperson-reports-action-icon" 
+                    <FaEye
+                      className="salesperson-reports-action-icon"
                       size={18}
                       onClick={() => handleViewDetails(item)}
                       title="View Details"
@@ -600,8 +703,8 @@ const SalespersonReports = () => {
                   <td>{item.total_quantity}</td>
                   <td>₹{item.total_amount.toFixed(2)}</td>
                   <td>
-                    <FaEye 
-                      className="salesperson-reports-action-icon" 
+                    <FaEye
+                      className="salesperson-reports-action-icon"
                       size={18}
                       onClick={() => handleViewDetails(item)}
                       title="View Details"
@@ -638,30 +741,30 @@ const SalespersonReports = () => {
               </p>
             </Col>
             <Col md={4} className="salesperson-reports-actions">
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 className="salesperson-reports-action-btn"
                 onClick={handlePrint}
               >
                 <FaPrint /> Print
               </Button>
-              
+
               {/* PDF Download Buttons */}
               {reportData.length > 0 && (
                 <>
                   {activeTab === 'customer' && (
                     <PDFDownloadLink
-                      document={<SalespersonCustomerPDFDocument 
-                        data={reportData} 
-                        fromDate={dateRange.fromDate} 
+                      document={<SalespersonCustomerPDFDocument
+                        data={reportData}
+                        fromDate={dateRange.fromDate}
                         toDate={dateRange.toDate}
                         salespersonName={currentUser?.name || currentUser?.full_name || 'SalesPerson'}
                       />}
                       fileName="my_customer_report.pdf"
                     >
                       {({ loading }) => (
-                        <Button 
-                          variant="outline-secondary" 
+                        <Button
+                          variant="outline-secondary"
                           className="salesperson-reports-action-btn"
                           disabled={loading}
                         >
@@ -672,17 +775,17 @@ const SalespersonReports = () => {
                   )}
                   {activeTab === 'product' && (
                     <PDFDownloadLink
-                      document={<SalespersonProductPDFDocument 
-                        data={reportData} 
-                        fromDate={dateRange.fromDate} 
+                      document={<SalespersonProductPDFDocument
+                        data={reportData}
+                        fromDate={dateRange.fromDate}
                         toDate={dateRange.toDate}
                         salespersonName={currentUser?.name || currentUser?.full_name || 'SalesPerson'}
                       />}
                       fileName="my_product_report.pdf"
                     >
                       {({ loading }) => (
-                        <Button 
-                          variant="outline-secondary" 
+                        <Button
+                          variant="outline-secondary"
                           className="salesperson-reports-action-btn"
                           disabled={loading}
                         >
@@ -693,20 +796,20 @@ const SalespersonReports = () => {
                   )}
                 </>
               )}
-              
+
               {/* Show disabled button when no data */}
               {reportData.length === 0 && (
-                <Button 
-                  variant="outline-secondary" 
+                <Button
+                  variant="outline-secondary"
                   className="salesperson-reports-action-btn"
                   disabled
                 >
                   <FaFilePdf /> Export PDF
                 </Button>
               )}
-              
-              <Button 
-                variant="outline-secondary" 
+
+              <Button
+                variant="outline-secondary"
                 className="salesperson-reports-action-btn"
                 onClick={handleDownload}
                 disabled={reportData.length === 0}
@@ -733,53 +836,63 @@ const SalespersonReports = () => {
           </div>
 
           {/* Date Filter */}
-          {/* Date Filter */}
-<div className="salesperson-reports-filter-container">
-  <div className="salesperson-reports-filter-row">
-    <div className="salesperson-reports-filter-dates-group">
-      <div className="salesperson-reports-filter-group">
-        <label className="salesperson-reports-filter-label">From Date:</label>
-        <input
-          type="date"
-          className="salesperson-reports-date-input"
-          value={dateRange.fromDate}
-          onChange={(e) => setDateRange({...dateRange, fromDate: e.target.value})}
-        />
-      </div>
-      <div className="salesperson-reports-filter-group">
-        <label className="salesperson-reports-filter-label">To Date:</label>
-        <input
-          type="date"
-          className="salesperson-reports-date-input"
-          value={dateRange.toDate}
-          onChange={(e) => setDateRange({...dateRange, toDate: e.target.value})}
-        />
-      </div>
-    </div>
+          <div className="salesperson-reports-filter-container">
+            <div className="salesperson-reports-filter-row">
+              <div className="salesperson-reports-filter-dates-group">
+                <div className="salesperson-reports-filter-group">
+                  <label className="salesperson-reports-filter-label">From Date:</label>
+                  <input
+                    type="date"
+                    className={`salesperson-reports-date-input${dateErrors.fromDate ? ' is-invalid' : ''}`}
+                    value={dateRange.fromDate}
+                    min={MIN_DATE_ATTR}
+                    max={MAX_DATE_ATTR}
+                    onChange={handleFromDateChange}
+                    onBlur={handleFromDateBlur}
+                  />
+                  {dateErrors.fromDate && (
+                    <small style={{ color: '#dc3545', fontSize: '11px' }}>{dateErrors.fromDate}</small>
+                  )}
+                </div>
+                <div className="salesperson-reports-filter-group">
+                  <label className="salesperson-reports-filter-label">To Date:</label>
+                  <input
+                    type="date"
+                    className={`salesperson-reports-date-input${dateErrors.toDate ? ' is-invalid' : ''}`}
+                    value={dateRange.toDate}
+                    min={MIN_DATE_ATTR}
+                    max={MAX_DATE_ATTR}
+                    onChange={handleToDateChange}
+                    onBlur={handleToDateBlur}
+                  />
+                  {dateErrors.toDate && (
+                    <small style={{ color: '#dc3545', fontSize: '11px' }}>{dateErrors.toDate}</small>
+                  )}
+                </div>
+              </div>
 
-    <div className="salesperson-reports-filter-search-apply-group">
-      <div className="salesperson-reports-filter-group salesperson-reports-search-group">
-        <input
-          type="text"
-          className="salesperson-reports-search-input"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+              <div className="salesperson-reports-filter-search-apply-group">
+                <div className="salesperson-reports-filter-group salesperson-reports-search-group">
+                  <input
+                    type="text"
+                    className="salesperson-reports-search-input"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-      <div className="salesperson-reports-filter-group salesperson-reports-apply-group">
-        <button
-          className="salesperson-reports-filter-btn"
-          onClick={handleDateFilter}
-        >
-          Apply Filter
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-    
+                <div className="salesperson-reports-filter-group salesperson-reports-apply-group">
+                  <button
+                    className="salesperson-reports-filter-btn"
+                    onClick={handleDateFilter}
+                  >
+                    Apply Filter
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Table */}
           <div className="salesperson-reports-table-wrapper">
@@ -848,7 +961,7 @@ const SalespersonReports = () => {
                       Total Amount:
                     </td>
                     <td className="salesperson-reports-fw-bold" colSpan="2">
-                      ₹{detailsData.reduce((sum, item) => 
+                      ₹{detailsData.reduce((sum, item) =>
                         sum + parseFloat(item.net_amount || item.total_price || 0), 0
                       ).toFixed(2)}
                     </td>

@@ -23,7 +23,6 @@ import { Button, Dropdown, Badge, Toast, ToastContainer, Modal, Spinner, Form } 
 import baseURL from "../ApiUrl/NodeBaseURL";
 import baseURL2 from "../ApiUrl/NodeBaseURL2";
 import FaceCapture from "../../Modules/Admin/FaceCapture/FaceCapture";
-import ScreenshotProtection from "../../../utils/ScreenshotProtection";
 import { setupPushNotifications } from '../../../utils/pushSetup'; 
 
 ChartJS.register(
@@ -38,7 +37,6 @@ ChartJS.register(
 
 function Dashboard() {
   const navigate = useNavigate();
-  const protectionRef = useRef(null);
   const sseRef = useRef(null);
   const sseRef2 = useRef(null);
   const pollingIntervalRef = useRef(null);
@@ -92,13 +90,9 @@ function Dashboard() {
   // Cache for salesperson details to avoid repeated API calls
   const salespersonCacheRef = useRef({});
 
-  // Initialize screenshot protection
+  // Cleanup effects
   useEffect(() => {
-    protectionRef.current = new ScreenshotProtection();
     return () => {
-      if (protectionRef.current) {
-        protectionRef.current.destroy();
-      }
       if (sseRef.current) {
         sseRef.current.close();
       }
@@ -112,78 +106,76 @@ function Dashboard() {
   }, []);
 
   // Resolve the account_details.account_id for the logged-in customer
- // In CustomerDashboard.jsx - inside resolveCustomerAccountId function
+  const resolveCustomerAccountId = async (user) => {
+    try {
+      console.log('🔍 Resolving account_id for user:', { 
+        customer_id: user.customer_id, 
+        phone: user.phone, 
+        email: user.email_id || user.email 
+      });
 
-const resolveCustomerAccountId = async (user) => {
-  try {
-    console.log('🔍 Resolving account_id for user:', { 
-      customer_id: user.customer_id, 
-      phone: user.phone, 
-      email: user.email_id || user.email 
-    });
+      const response = await fetch(`${baseURL2}/get/account-details`);
+      if (!response.ok) return null;
 
-    const response = await fetch(`${baseURL2}/get/account-details`);
-    if (!response.ok) return null;
-
-    const accounts = await response.json();
-    const customerAccounts = accounts.filter(
-      (acc) => acc.account_group && acc.account_group.toUpperCase() === 'CUSTOMERS'
-    );
-
-    console.log(`📊 Found ${customerAccounts.length} customer accounts`);
-
-    let matched = null;
-
-    // Priority 1: customer_id match
-    if (user.customer_id) {
-      matched = customerAccounts.find(
-        (acc) => acc.customer_id && acc.customer_id === user.customer_id
+      const accounts = await response.json();
+      const customerAccounts = accounts.filter(
+        (acc) => acc.account_group && acc.account_group.toUpperCase() === 'CUSTOMERS'
       );
-      if (matched) {
-        console.log('✅ Matched by customer_id:', matched.account_id);
-      }
-    }
 
-    // Priority 2: phone / mobile match
-    if (!matched && user.phone) {
-      matched = customerAccounts.find(
-        (acc) => acc.mobile === user.phone || acc.phone === user.phone
-      );
-      if (matched) {
-        console.log('✅ Matched by phone:', matched.account_id);
-      }
-    }
+      console.log(`📊 Found ${customerAccounts.length} customer accounts`);
 
-    // Priority 3: email match
-    if (!matched) {
-      const email = user.email_id || user.email;
-      if (email) {
-        matched = customerAccounts.find((acc) => acc.email === email);
+      let matched = null;
+
+      // Priority 1: customer_id match
+      if (user.customer_id) {
+        matched = customerAccounts.find(
+          (acc) => acc.customer_id && acc.customer_id === user.customer_id
+        );
         if (matched) {
-          console.log('✅ Matched by email:', matched.account_id);
+          console.log('✅ Matched by customer_id:', matched.account_id);
         }
       }
-    }
 
-    if (!matched) {
-      console.warn('⚠️ Could not resolve account_details.account_id for this customer.');
-      console.log('📋 Available customer accounts:', customerAccounts.map(a => ({ 
-        id: a.account_id, 
-        name: a.account_name, 
-        customer_id: a.customer_id,
-        email: a.email,
-        phone: a.phone || a.mobile
-      })));
+      // Priority 2: phone / mobile match
+      if (!matched && user.phone) {
+        matched = customerAccounts.find(
+          (acc) => acc.mobile === user.phone || acc.phone === user.phone
+        );
+        if (matched) {
+          console.log('✅ Matched by phone:', matched.account_id);
+        }
+      }
+
+      // Priority 3: email match
+      if (!matched) {
+        const email = user.email_id || user.email;
+        if (email) {
+          matched = customerAccounts.find((acc) => acc.email === email);
+          if (matched) {
+            console.log('✅ Matched by email:', matched.account_id);
+          }
+        }
+      }
+
+      if (!matched) {
+        console.warn('⚠️ Could not resolve account_details.account_id for this customer.');
+        console.log('📋 Available customer accounts:', customerAccounts.map(a => ({ 
+          id: a.account_id, 
+          name: a.account_name, 
+          customer_id: a.customer_id,
+          email: a.email,
+          phone: a.phone || a.mobile
+        })));
+        return null;
+      }
+
+      console.log(`✅ Resolved customer account_id: ${matched.account_id}`);
+      return matched.account_id;
+    } catch (error) {
+      console.error('❌ Error resolving customer account_id:', error);
       return null;
     }
-
-    console.log(`✅ Resolved customer account_id: ${matched.account_id}`);
-    return matched.account_id;
-  } catch (error) {
-    console.error('❌ Error resolving customer account_id:', error);
-    return null;
-  }
-};
+  };
 
   // Fetch all salespersons from account_details
   const fetchAllSalespersons = async () => {
@@ -207,198 +199,198 @@ const resolveCustomerAccountId = async (user) => {
   };
 
   // Connect to SSE for real-time notifications - FIXED to handle 404 errors gracefully
- useEffect(() => {
-  const setupNotifications = async () => {
-    try {
-      const userData = localStorage.getItem("user");
-      if (!userData) {
-        console.warn('⚠️ No user data found in localStorage');
-        return;
-      }
-
-      const user = JSON.parse(userData);
-      console.log('👤 Current user:', { 
-        id: user.id, 
-        customer_id: user.customer_id,
-        email: user.email_id || user.email,
-        name: user.full_name || user.name 
-      });
-
-      const accountId = await resolveCustomerAccountId(user);
-
-      if (!accountId) {
-        console.warn('⚠️ Could not resolve customer account_id, skipping push setup');
-        return;
-      }
-
-      customerAccountIdRef.current = accountId;
-      userEmailRef.current = user.email_id || user.email;
-
-      console.log(`🔔 Setting up push for customer account_id: ${accountId}`);
-      
-      // ===== IMPROVED PUSH SETUP WITH ERROR HANDLING =====
+  useEffect(() => {
+    const setupNotifications = async () => {
       try {
-        const result = await setupPushNotifications(accountId, 'customer');
-        console.log('📝 Push setup result:', result);
+        const userData = localStorage.getItem("user");
+        if (!userData) {
+          console.warn('⚠️ No user data found in localStorage');
+          return;
+        }
+
+        const user = JSON.parse(userData);
+        console.log('👤 Current user:', { 
+          id: user.id, 
+          customer_id: user.customer_id,
+          email: user.email_id || user.email,
+          name: user.full_name || user.name 
+        });
+
+        const accountId = await resolveCustomerAccountId(user);
+
+        if (!accountId) {
+          console.warn('⚠️ Could not resolve customer account_id, skipping push setup');
+          return;
+        }
+
+        customerAccountIdRef.current = accountId;
+        userEmailRef.current = user.email_id || user.email;
+
+        console.log(`🔔 Setting up push for customer account_id: ${accountId}`);
         
-        if (result.success) {
-          console.log('✅ Push notifications successfully set up!');
-        } else {
-          console.warn('⚠️ Push setup not complete:', result.reason || 'Unknown reason');
-          if (result.error) {
-            console.error('   Error details:', result.error);
+        // ===== IMPROVED PUSH SETUP WITH ERROR HANDLING =====
+        try {
+          const result = await setupPushNotifications(accountId, 'customer');
+          console.log('📝 Push setup result:', result);
+          
+          if (result.success) {
+            console.log('✅ Push notifications successfully set up!');
+          } else {
+            console.warn('⚠️ Push setup not complete:', result.reason || 'Unknown reason');
+            if (result.error) {
+              console.error('   Error details:', result.error);
+            }
           }
+        } catch (pushError) {
+          console.error('❌ Push setup error:', pushError);
+          // Don't block the rest of the setup if push fails
         }
-      } catch (pushError) {
-        console.error('❌ Push setup error:', pushError);
-        // Don't block the rest of the setup if push fails
-      }
 
-      // Pre-fetch salespersons for quick lookup
-      const salespersons = await fetchAllSalespersons();
-      // Build cache for quick name-based lookup
-      salespersons.forEach(sp => {
-        if (sp.account_name) {
-          // Store multiple variations of the name for better matching
-          const normalizedName = sp.account_name.toLowerCase().trim();
-          salespersonCacheRef.current[normalizedName] = sp;
-          // Also store without extra spaces
-          const compactName = normalizedName.replace(/\s+/g, ' ');
-          salespersonCacheRef.current[compactName] = sp;
-        }
-      });
-      console.log('📦 Salesperson cache built with', Object.keys(salespersonCacheRef.current).length, 'entries');
+        // Pre-fetch salespersons for quick lookup
+        const salespersons = await fetchAllSalespersons();
+        // Build cache for quick name-based lookup
+        salespersons.forEach(sp => {
+          if (sp.account_name) {
+            // Store multiple variations of the name for better matching
+            const normalizedName = sp.account_name.toLowerCase().trim();
+            salespersonCacheRef.current[normalizedName] = sp;
+            // Also store without extra spaces
+            const compactName = normalizedName.replace(/\s+/g, ' ');
+            salespersonCacheRef.current[compactName] = sp;
+          }
+        });
+        console.log('📦 Salesperson cache built with', Object.keys(salespersonCacheRef.current).length, 'entries');
 
-      // Connect to SSE from Jiya Jewellery (port 5000) - MAIN SERVER
-      const connectSSE = () => {
-        try {
-          const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
+        // Connect to SSE from Jiya Jewellery (port 5000) - MAIN SERVER
+        const connectSSE = () => {
+          try {
+            const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
 
-          eventSource.onopen = () => {
-            console.log('✅ Customer SSE connection established (port 5000)');
-          };
+            eventSource.onopen = () => {
+              console.log('✅ Customer SSE connection established (port 5000)');
+            };
 
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
+            eventSource.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data);
 
-              if (data.type === 'connected') {
-                console.log('✅ Connected to customer notification stream (port 5000)');
-                return;
-              }
-
-              if (data.title && data.message) {
-                console.log('📨 SSE notification received:', data.title);
-                handleNewNotification(data);
-              }
-            } catch (error) {
-              console.error('Error parsing SSE message:', error);
-            }
-          };
-
-          eventSource.onerror = (error) => {
-            console.warn('⚠️ SSE connection error (port 5000):', error);
-            eventSource.close();
-            setTimeout(() => {
-              console.log('🔄 Reconnecting SSE (port 5000)...');
-              connectSSE();
-            }, 10000);
-          };
-
-          sseRef.current = eventSource;
-        } catch (error) {
-          console.error('Error setting up SSE (port 5000):', error);
-        }
-      };
-
-      // Connect to SSE from Jiya Jewellery (port 5000) - SECONDARY CONNECTION with fallback
-      const connectSSE2 = () => {
-        try {
-          fetch(`${baseURL}/api/customer-notifications/${accountId}`, { 
-            method: 'HEAD',
-            signal: AbortSignal.timeout(3000)
-          })
-          .then(response => {
-            if (response.ok) {
-              const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
-
-              eventSource.onopen = () => {
-                console.log('✅ Customer SSE connection established (port 5000) - secondary');
-              };
-
-              eventSource.onmessage = (event) => {
-                try {
-                  const data = JSON.parse(event.data);
-
-                  if (data.type === 'connected') {
-                    console.log('✅ Connected to customer notification stream (port 5000) - secondary');
-                    return;
-                  }
-
-                  if (data.title && data.message) {
-                    console.log('📨 SSE notification received (secondary):', data.title);
-                    handleNewNotification(data);
-                  }
-                } catch (error) {
-                  console.error('Error parsing SSE message (secondary):', error);
+                if (data.type === 'connected') {
+                  console.log('✅ Connected to customer notification stream (port 5000)');
+                  return;
                 }
-              };
 
-              eventSource.onerror = (error) => {
-                console.warn('⚠️ SSE connection error (secondary):', error);
-                eventSource.close();
-                setTimeout(() => {
-                  console.log('🔄 Reconnecting SSE (secondary)...');
-                  connectSSE2();
-                }, 15000);
-              };
+                if (data.title && data.message) {
+                  console.log('📨 SSE notification received:', data.title);
+                  handleNewNotification(data);
+                }
+              } catch (error) {
+                console.error('Error parsing SSE message:', error);
+              }
+            };
 
-              sseRef2.current = eventSource;
-            } else {
-              console.warn('⚠️ Server not responding, skipping secondary SSE connection');
-            }
-          })
-          .catch(() => {
-            console.warn('⚠️ Server unreachable, skipping secondary SSE connection');
-          });
-        } catch (error) {
-          console.warn('⚠️ Error setting up SSE (secondary):', error.message);
-        }
-      };
+            eventSource.onerror = (error) => {
+              console.warn('⚠️ SSE connection error (port 5000):', error);
+              eventSource.close();
+              setTimeout(() => {
+                console.log('🔄 Reconnecting SSE (port 5000)...');
+                connectSSE();
+              }, 10000);
+            };
 
-      connectSSE();
-      connectSSE2();
+            sseRef.current = eventSource;
+          } catch (error) {
+            console.error('Error setting up SSE (port 5000):', error);
+          }
+        };
 
-      // Fetch initial notifications
-      await fetchNotifications(accountId);
+        // Connect to SSE from Jiya Jewellery (port 5000) - SECONDARY CONNECTION with fallback
+        const connectSSE2 = () => {
+          try {
+            fetch(`${baseURL}/api/customer-notifications/${accountId}`, { 
+              method: 'HEAD',
+              signal: AbortSignal.timeout(3000)
+            })
+            .then(response => {
+              if (response.ok) {
+                const eventSource = new EventSource(`${baseURL}/api/customer-notifications/${accountId}`);
 
-      // Polling backup (every 30 seconds)
-      pollingIntervalRef.current = setInterval(() => {
-        fetchNotifications(accountId, true);
-      }, 30000);
+                eventSource.onopen = () => {
+                  console.log('✅ Customer SSE connection established (port 5000) - secondary');
+                };
 
-    } catch (error) {
-      console.error('❌ Error in setupNotifications:', error);
-    }
-  };
+                eventSource.onmessage = (event) => {
+                  try {
+                    const data = JSON.parse(event.data);
 
-  setupNotifications();
+                    if (data.type === 'connected') {
+                      console.log('✅ Connected to customer notification stream (port 5000) - secondary');
+                      return;
+                    }
 
-  return () => {
-    if (sseRef.current) {
-      sseRef.current.close();
-      console.log('🔌 SSE connection closed (main)');
-    }
-    if (sseRef2.current) {
-      sseRef2.current.close();
-      console.log('🔌 SSE connection closed (secondary)');
-    }
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      console.log('⏹️ Polling interval cleared');
-    }
-  };
-}, []);
+                    if (data.title && data.message) {
+                      console.log('📨 SSE notification received (secondary):', data.title);
+                      handleNewNotification(data);
+                    }
+                  } catch (error) {
+                    console.error('Error parsing SSE message (secondary):', error);
+                  }
+                };
+
+                eventSource.onerror = (error) => {
+                  console.warn('⚠️ SSE connection error (secondary):', error);
+                  eventSource.close();
+                  setTimeout(() => {
+                    console.log('🔄 Reconnecting SSE (secondary)...');
+                    connectSSE2();
+                  }, 15000);
+                };
+
+                sseRef2.current = eventSource;
+              } else {
+                console.warn('⚠️ Server not responding, skipping secondary SSE connection');
+              }
+            })
+            .catch(() => {
+              console.warn('⚠️ Server unreachable, skipping secondary SSE connection');
+            });
+          } catch (error) {
+            console.warn('⚠️ Error setting up SSE (secondary):', error.message);
+          }
+        };
+
+        connectSSE();
+        connectSSE2();
+
+        // Fetch initial notifications
+        await fetchNotifications(accountId);
+
+        // Polling backup (every 30 seconds)
+        pollingIntervalRef.current = setInterval(() => {
+          fetchNotifications(accountId, true);
+        }, 30000);
+
+      } catch (error) {
+        console.error('❌ Error in setupNotifications:', error);
+      }
+    };
+
+    setupNotifications();
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        console.log('🔌 SSE connection closed (main)');
+      }
+      if (sseRef2.current) {
+        sseRef2.current.close();
+        console.log('🔌 SSE connection closed (secondary)');
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        console.log('⏹️ Polling interval cleared');
+      }
+    };
+  }, []);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -890,10 +882,7 @@ const resolveCustomerAccountId = async (user) => {
     };
   };
 
-  // ============ COMBINED DETAILS MODAL FUNCTIONS ============
-
   // Handle click on notification to show combined details
-  // Handle click on notification to show combined details - FIXED
   const handleViewDetails = async (notification) => {
     setIsLoadingDetails(true);
     setShowDetailsModal(true);
@@ -1050,8 +1039,7 @@ const resolveCustomerAccountId = async (user) => {
     }
   };
 
-  // Handle customer status update (Available) - FIXED
-  // Handle customer status update (Available) - FIXED
+  // Handle customer status update (Available)
   const handleCustomerAvailable = async () => {
     if (!selectedDetails?.visit?.id) return;
     
@@ -1132,7 +1120,7 @@ const resolveCustomerAccountId = async (user) => {
     });
   };
 
-  // Submit reschedule request - FIXED
+  // Submit reschedule request
   const handleRescheduleSubmit = async () => {
     if (!selectedDetails?.visit?.id) return;
     
@@ -1228,8 +1216,6 @@ const resolveCustomerAccountId = async (user) => {
       setSubmittingReschedule(false);
     }
   };
-
-  // ============ END COMBINED DETAILS FUNCTIONS ============
 
   // Clean notification message (remove photo URL marker)
   const cleanNotificationMessage = (message) => {
@@ -1593,7 +1579,7 @@ const resolveCustomerAccountId = async (user) => {
         </Toast>
       </ToastContainer>
 
-      <div className="customer-dashboard-container screenshot-protected">
+      <div className="customer-dashboard-container">
         {/* Welcome Message with Notification Bell */}
         {currentUser && (
           <div className="welcome-section">
@@ -2366,36 +2352,9 @@ const resolveCustomerAccountId = async (user) => {
                     {selectedDetails.visit?.scheduled_time || 'N/A'}
                   </div>
                 </div>
-                {/* <div style={{
-                  padding: '14px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '10px',
-                  border: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
-                    🏢 Warehouse
-                  </div>
-                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937' }}>
-                    {selectedDetails.visit?.warehouse_name || 'N/A'}
-                  </div>
-                </div> */}
-                {/* <div style={{
-                  padding: '14px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '10px',
-                  border: '1px solid #e5e7eb'
-                }}> */}
-                  {/* <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginBottom: '2px' }}>
-                    🔢 Barcode
-                  </div>
-                  <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f2937', fontFamily: 'monospace' }}>
-                    {selectedDetails.visit?.barcode || 'N/A'}
-                  </div> */}
-                {/* </div> */}
               </div>
 
               {/* Customer Status Section */}
-              {/* Customer Status Section - FIXED to handle Pending status */}
               <div style={{
                 padding: '16px',
                 backgroundColor: '#f8fafc',
@@ -2433,7 +2392,7 @@ const resolveCustomerAccountId = async (user) => {
                   </span>
                 </div>
                 
-                {/* Show buttons when status is Pending OR Scheduled - FIXED */}
+                {/* Show buttons when status is Pending OR Scheduled */}
                 {(selectedDetails.visit?.customer_status === 'Pending' || 
                   selectedDetails.visit?.customer_status === 'Scheduled') && (
                   <div style={{ display: 'flex', gap: '12px' }}>

@@ -11,6 +11,51 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import CustomerNavbar from '../../../Pages/Navbar/CustomerNavbar';
 import './CustomerReports.css';
 
+// ---------------------------------------------------------------------------
+// Date validation helper
+// ---------------------------------------------------------------------------
+// Native <input type="date"> values are always emitted in the "YYYY-MM-DD"
+// format. Some browsers, however, will still let a user type more than four
+// digits into the year segment (e.g. "20256-01-01") or an otherwise
+// malformed value. This helper makes sure that whatever value we receive:
+//   1. Matches the strict YYYY-MM-DD shape (exactly 4 digit year).
+//   2. Represents a real calendar date (no Feb 30th, month 13, etc).
+//   3. Falls inside a sane year range (1900 - 2100).
+// An empty string is considered valid because that simply means "no date
+// selected" for these optional filter fields.
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+const MIN_DATE_ATTR = `${MIN_YEAR}-01-01`;
+const MAX_DATE_ATTR = `${MAX_YEAR}-12-31`;
+
+const isValidDateString = (value) => {
+  if (!value) return true; // empty/optional is fine
+
+  // Strictly enforce exactly 4 digits for the year, 2 for month, 2 for day.
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  // Confirm it is a real date (guards against 02/30, 04/31, etc.)
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 // PDF Styles
 const pdfStyles = StyleSheet.create({
   page: {
@@ -209,6 +254,12 @@ const CustomerReports = () => {
     fromDate: '',
     toDate: ''
   });
+  // Inline, non-blocking validation messages for the two date filter
+  // inputs below (mirrors the pattern used across the other modules).
+  const [dateErrors, setDateErrors] = useState({
+    fromDate: '',
+    toDate: ''
+  });
 
   // Get logged-in user from localStorage on component mount
   useEffect(() => {
@@ -296,12 +347,16 @@ const CustomerReports = () => {
         parseInt(item.customer_id) === parseInt(currentUser.id)
       );
       
-      // Apply date filter if selected
-      if (dateRange.fromDate && dateRange.toDate) {
+      // Apply date filter only when both bounds are complete, valid dates —
+      // an incomplete/invalid year (e.g. more than 4 digits) is treated as
+      // "no filter" instead of throwing off the comparison below.
+      const safeFromDate = isValidDateString(dateRange.fromDate) ? dateRange.fromDate : '';
+      const safeToDate = isValidDateString(dateRange.toDate) ? dateRange.toDate : '';
+      if (safeFromDate && safeToDate) {
         customerEstimates = customerEstimates.filter(item => {
           const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
-          const from = new Date(dateRange.fromDate).setHours(0, 0, 0, 0);
-          const to = new Date(dateRange.toDate).setHours(0, 0, 0, 0);
+          const from = new Date(safeFromDate).setHours(0, 0, 0, 0);
+          const to = new Date(safeToDate).setHours(0, 0, 0, 0);
           return itemDate >= from && itemDate <= to;
         });
       }
@@ -351,12 +406,16 @@ const CustomerReports = () => {
         parseInt(item.customer_id) === parseInt(currentUser.id)
       );
       
-      // Apply date filter if selected
-      if (dateRange.fromDate && dateRange.toDate) {
+      // Apply date filter only when both bounds are complete, valid dates —
+      // an incomplete/invalid year (e.g. more than 4 digits) is treated as
+      // "no filter" instead of throwing off the comparison below.
+      const safeFromDate = isValidDateString(dateRange.fromDate) ? dateRange.fromDate : '';
+      const safeToDate = isValidDateString(dateRange.toDate) ? dateRange.toDate : '';
+      if (safeFromDate && safeToDate) {
         customerEstimates = customerEstimates.filter(item => {
           const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
-          const from = new Date(dateRange.fromDate).setHours(0, 0, 0, 0);
-          const to = new Date(dateRange.toDate).setHours(0, 0, 0, 0);
+          const from = new Date(safeFromDate).setHours(0, 0, 0, 0);
+          const to = new Date(safeToDate).setHours(0, 0, 0, 0);
           return itemDate >= from && itemDate <= to;
         });
       }
@@ -425,8 +484,53 @@ const CustomerReports = () => {
     }
   };
 
-  // Handle date filter
+  // Handle date input changes — update freely as the user types/picks,
+  // and clear any stale error for that field. We don't validate here
+  // because a native date input reports intermediate values while the
+  // user is still typing (e.g. a partial year).
+  const handleFromDateChange = (e) => {
+    setDateRange({ ...dateRange, fromDate: e.target.value });
+    if (dateErrors.fromDate) setDateErrors({ ...dateErrors, fromDate: '' });
+  };
+
+  const handleToDateChange = (e) => {
+    setDateRange({ ...dateRange, toDate: e.target.value });
+    if (dateErrors.toDate) setDateErrors({ ...dateErrors, toDate: '' });
+  };
+
+  // Validate once the field loses focus — silent inline hint, no popup.
+  const handleFromDateBlur = () => {
+    setDateErrors(prev => ({
+      ...prev,
+      fromDate: dateRange.fromDate && !isValidDateString(dateRange.fromDate) ? 'Enter a valid date.' : ''
+    }));
+  };
+
+  const handleToDateBlur = () => {
+    setDateErrors(prev => ({
+      ...prev,
+      toDate: dateRange.toDate && !isValidDateString(dateRange.toDate) ? 'Enter a valid date.' : ''
+    }));
+  };
+
+  // Handle date filter (Apply Filter button)
   const handleDateFilter = () => {
+    // Silently ignore any bound that isn't a complete, valid date rather
+    // than blocking the user with a popup — treat it as "not set".
+    const safeFrom = isValidDateString(dateRange.fromDate) ? dateRange.fromDate : '';
+    const safeTo = isValidDateString(dateRange.toDate) ? dateRange.toDate : '';
+
+    setDateErrors({
+      fromDate: dateRange.fromDate && !safeFrom ? 'Enter a valid date.' : '',
+      toDate: dateRange.toDate && !safeTo ? 'Enter a valid date.' : ''
+    });
+
+    // If both bounds are valid but reversed, swap them silently so the
+    // filter still produces a sensible result instead of an empty set.
+    if (safeFrom && safeTo && new Date(safeFrom) > new Date(safeTo)) {
+      setDateRange({ fromDate: safeTo, toDate: safeFrom });
+    }
+
     if (activeTab === 'salesperson') {
       fetchSalesPersonWiseData();
     } else if (activeTab === 'product') {
@@ -736,19 +840,31 @@ const CustomerReports = () => {
                 <label className="customer-reports-filter-label">From Date:</label>
                 <input
                   type="date"
-                  className="customer-reports-date-input"
+                  className={`customer-reports-date-input${dateErrors.fromDate ? ' is-invalid' : ''}`}
                   value={dateRange.fromDate}
-                  onChange={(e) => setDateRange({...dateRange, fromDate: e.target.value})}
+                  min={MIN_DATE_ATTR}
+                  max={MAX_DATE_ATTR}
+                  onChange={handleFromDateChange}
+                  onBlur={handleFromDateBlur}
                 />
+                {dateErrors.fromDate && (
+                  <small style={{ color: '#dc3545', fontSize: '11px', display: 'block' }}>{dateErrors.fromDate}</small>
+                )}
               </div>
               <div className="customer-reports-filter-group">
                 <label className="customer-reports-filter-label">To Date:</label>
                 <input
                   type="date"
-                  className="customer-reports-date-input"
+                  className={`customer-reports-date-input${dateErrors.toDate ? ' is-invalid' : ''}`}
                   value={dateRange.toDate}
-                  onChange={(e) => setDateRange({...dateRange, toDate: e.target.value})}
+                  min={MIN_DATE_ATTR}
+                  max={MAX_DATE_ATTR}
+                  onChange={handleToDateChange}
+                  onBlur={handleToDateBlur}
                 />
+                {dateErrors.toDate && (
+                  <small style={{ color: '#dc3545', fontSize: '11px', display: 'block' }}>{dateErrors.toDate}</small>
+                )}
               </div>
               <div className="customer-reports-filter-group">
                 <button 

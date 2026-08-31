@@ -19,9 +19,10 @@ const Login = () => {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
 
-  // Advanced Anti-Screenshot Protection
+  // Anti-Screenshot Protection (blur-on-resize and blur-on-devtools-check removed —
+  // they caused false-positive blur flashes on normal zoom/DPI/toolbar changes)
   useEffect(() => {
-    // 1. Block all keyboard shortcuts that could lead to screenshots
+    // 1. Block keyboard shortcuts that could lead to screenshots/inspection
     const blockShortcuts = (e) => {
       // Print Screen key
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
@@ -127,11 +128,10 @@ const Login = () => {
       return false;
     };
 
-    // 5. Detect when page becomes invisible (screenshot tools)
+    // 5. Detect when page becomes invisible (possible screenshot tool switch)
     let blurTimeout;
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Page is hidden - possible screenshot being taken
         if (containerRef.current) {
           containerRef.current.style.opacity = '0';
           containerRef.current.style.transition = 'opacity 0.01s';
@@ -145,33 +145,20 @@ const Login = () => {
       }
     };
 
-    // 6. Detect window blur (screenshot tools often trigger this)
-    const handleWindowBlur = () => {
-      if (containerRef.current) {
-        containerRef.current.style.opacity = '0';
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.style.opacity = '1';
-          }
-        }, 200);
-      }
+    // 6. Show warning message
+    const showScreenshotWarning = () => {
+      Swal.fire({
+        icon: "error",
+        title: "⛔ Screenshot Blocked!",
+        text: "Screenshots are disabled on this page for security reasons.",
+        timer: 2000,
+        showConfirmButton: false,
+        background: '#000',
+        color: '#fff'
+      });
     };
 
-    // 7. Detect window resize (some screenshot tools trigger this)
-    let resizeTimeout;
-    const handleWindowResize = () => {
-      if (containerRef.current) {
-        containerRef.current.style.filter = 'blur(5px)';
-        if (resizeTimeout) clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.style.filter = 'blur(0px)';
-          }
-        }, 300);
-      }
-    };
-
-    // 8. Add invisible overlay that disrupts screenshots
+    // 7. Add invisible overlay (kept for future use, currently inert)
     const addScreenshotOverlay = () => {
       if (!document.getElementById('screenshot-overlay')) {
         const overlay = document.createElement('div');
@@ -191,66 +178,6 @@ const Login = () => {
       }
     };
 
-    // 9. Show warning message
-    const showScreenshotWarning = () => {
-      Swal.fire({
-        icon: "error",
-        title: "⛔ Screenshot Blocked!",
-        text: "Screenshots are disabled on this page for security reasons.",
-        timer: 2000,
-        showConfirmButton: false,
-        background: '#000',
-        color: '#fff'
-      });
-    };
-
-    // 10. Try to clear clipboard periodically (removes screenshot data)
-    const clearClipboard = () => {
-      try {
-        navigator.clipboard.readText().then(() => {
-          navigator.clipboard.writeText('');
-        }).catch(() => {});
-      } catch (e) {}
-    };
-
-    // 11. Detect if DevTools is open (common for screenshot tools)
-    let devtoolsOpen = false;
-    const checkDevTools = () => {
-      const threshold = 160;
-      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      
-      if (widthThreshold || heightThreshold) {
-        if (!devtoolsOpen) {
-          devtoolsOpen = true;
-          document.body.style.filter = 'blur(10px)';
-          setTimeout(() => {
-            document.body.style.filter = 'blur(0px)';
-            devtoolsOpen = false;
-          }, 500);
-        }
-      } else {
-        devtoolsOpen = false;
-      }
-    };
-
-    // 12. Monitor for screenshot software (like Lightshot, Greenshot)
-    const checkForScreenshotSoftware = () => {
-      // Detect common screenshot software hotkeys
-      const checkHotkey = (e) => {
-        // Lightshot: PrtSc, Ctrl+PrtSc
-        // Greenshot: Ctrl+PrtSc, Alt+PrtSc
-        // ShareX: Ctrl+PrtSc, Ctrl+Shift+PrtSc
-        if (e.key === 'PrintScreen' || e.keyCode === 44) {
-          e.preventDefault();
-          showScreenshotWarning();
-          return false;
-        }
-      };
-      window.addEventListener('keyup', checkHotkey);
-      return () => window.removeEventListener('keyup', checkHotkey);
-    };
-
     // Add all event listeners
     window.addEventListener('keydown', blockShortcuts);
     window.addEventListener('contextmenu', blockContextMenu);
@@ -260,17 +187,8 @@ const Login = () => {
     document.addEventListener('dragstart', blockDragDrop);
     document.addEventListener('drop', blockDragDrop);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('resize', handleWindowResize);
-    
-    addScreenshotOverlay();
-    
-    const interval = setInterval(() => {
-      clearClipboard();
-      checkDevTools();
-    }, 1000);
 
-    const cleanupHotkey = checkForScreenshotSoftware();
+    addScreenshotOverlay();
 
     // Cleanup
     return () => {
@@ -282,11 +200,7 @@ const Login = () => {
       document.removeEventListener('dragstart', blockDragDrop);
       document.removeEventListener('drop', blockDragDrop);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('resize', handleWindowResize);
-      clearInterval(interval);
-      cleanupHotkey();
-      
+
       const overlay = document.getElementById('screenshot-overlay');
       if (overlay) overlay.remove();
     };
@@ -296,12 +210,12 @@ const Login = () => {
     try {
       const response = await fetch(`${baseURL}/api/users/check-verification/${userId}`);
       const data = await response.json();
-      
+
       if (response.ok && data.needs_verification) {
         localStorage.setItem('needsEmailVerification', 'true');
         return true;
       }
-      
+
       localStorage.removeItem('needsEmailVerification');
       return false;
     } catch (error) {
@@ -311,65 +225,57 @@ const Login = () => {
   };
 
   // Function to check if current time is within duty hours
-  // Modified to work for both users table and account_details table
   const checkDutyHours = async (userId, role) => {
     try {
       let url;
-      // If role is salesman, use ERP API, otherwise use main app API
       if (role === 'salesman') {
         url = `${baseURL2}/salesman/check-duty-hours/${userId}`;
       } else {
         url = `${baseURL}/api/users/check-duty-hours/${userId}`;
       }
-      
+
       const response = await fetch(url);
       const data = await response.json();
-      
+
       if (!response.ok) {
         console.error('Error fetching duty hours:', data);
         return { allowed: false, message: "Unable to verify duty hours. Please contact administrator." };
       }
-      
-      // If no duty hours are set, allow login (for flexibility)
+
       if (!data.duty_start_time || !data.duty_end_time) {
         return { allowed: true, message: "" };
       }
-      
-      // Get current time
+
       const now = new Date();
-      const currentTime = now.getHours() * 60 + now.getMinutes(); // Convert to minutes for easier comparison
-      
-      // Parse duty start and end times
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+
       const [startHour, startMinute] = data.duty_start_time.split(':');
       const [endHour, endMinute] = data.duty_end_time.split(':');
-      
+
       const dutyStartMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
       const dutyEndMinutes = parseInt(endHour) * 60 + parseInt(endMinute);
-      
-      // Check if current time is within duty hours
+
       let isWithinDutyHours = false;
-      
+
       if (dutyEndMinutes > dutyStartMinutes) {
-        // Normal case: duty hours are within the same day
         isWithinDutyHours = currentTime >= dutyStartMinutes && currentTime <= dutyEndMinutes;
       } else {
-        // Overnight duty hours (e.g., 22:00 to 06:00 next day)
         isWithinDutyHours = currentTime >= dutyStartMinutes || currentTime <= dutyEndMinutes;
       }
-      
+
       if (!isWithinDutyHours) {
         const formatTime = (minutes) => {
           const hours = Math.floor(minutes / 60);
           const mins = minutes % 60;
           return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
         };
-        
-        return { 
-          allowed: false, 
-          message: `You can only login between ${formatTime(dutyStartMinutes)} and ${formatTime(dutyEndMinutes)}. Please try again during duty hours.` 
+
+        return {
+          allowed: false,
+          message: `You can only login between ${formatTime(dutyStartMinutes)} and ${formatTime(dutyEndMinutes)}. Please try again during duty hours.`
         };
       }
-      
+
       return { allowed: true, message: "" };
     } catch (error) {
       console.error('Error checking duty hours:', error);
@@ -431,9 +337,8 @@ const Login = () => {
 
       if (salesmanResponse.ok && salesmanData.success) {
         const userRole = salesmanData.user?.role?.toLowerCase();
-        
+
         if (userRole === "salesman") {
-          // Check if account is blocked
           if (salesmanData.user.account_status === 'inactive') {
             setIsLoading(false);
             Swal.fire({
@@ -445,10 +350,9 @@ const Login = () => {
             });
             return;
           }
-          
-          // CHECK DUTY HOURS FOR SALESMAN - Using ERP API with role parameter
+
           const dutyCheck = await checkDutyHours(salesmanData.user.id, 'salesman');
-          
+
           if (!dutyCheck.allowed) {
             setIsLoading(false);
             Swal.fire({
@@ -460,8 +364,7 @@ const Login = () => {
             });
             return;
           }
-          
-          // Salesman login successful
+
           localStorage.setItem("user", JSON.stringify(salesmanData.user));
 
           Swal.fire({
@@ -484,7 +387,7 @@ const Login = () => {
 
             navigate("/salesperson-dashboard");
           }, 1500);
-          
+
           setIsLoading(false);
           return;
         }
@@ -510,10 +413,8 @@ const Login = () => {
 
       if (response.ok) {
         const userRole = data.user?.role?.toLowerCase();
-        
-        // CHECK FOR CUSTOMER ACCOUNT STATUS FIRST
+
         if (userRole === "customer") {
-          // Check if account is approved
           if (data.user.status !== 'approved') {
             setIsLoading(false);
             Swal.fire({
@@ -523,13 +424,11 @@ const Login = () => {
               confirmButtonText: "OK",
               allowOutsideClick: false
             });
-            // DO NOT navigate - stay on login page
             return;
           }
-          
-          // For customers, check duty hours if they have any (using main app API)
+
           const dutyCheck = await checkDutyHours(data.user.id, 'customer');
-          
+
           if (!dutyCheck.allowed) {
             setIsLoading(false);
             Swal.fire({
@@ -542,10 +441,8 @@ const Login = () => {
             return;
           }
         }
-        
-        // CHECK FOR SALESMAN ACCOUNT STATUS (if somehow salesman is in users table)
+
         if (userRole === "salesman") {
-          // Check if account is blocked due to screenshot attempts
           if (data.user.account_status === 'inactive') {
             setIsLoading(false);
             Swal.fire({
@@ -557,10 +454,9 @@ const Login = () => {
             });
             return;
           }
-          
-          // CHECK DUTY HOURS FOR SALESMAN (from users table)
+
           const dutyCheck = await checkDutyHours(data.user.id, 'salesman');
-          
+
           if (!dutyCheck.allowed) {
             setIsLoading(false);
             Swal.fire({
@@ -573,8 +469,7 @@ const Login = () => {
             return;
           }
         }
-        
-        // If account is approved and not blocked, proceed with login
+
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -588,7 +483,6 @@ const Login = () => {
           setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
           setTimeout(async () => {
-            // For approved customers, check email verification
             const needsVerification = await checkEmailVerification(data.user.id);
             if (needsVerification) {
               navigate("/email-verification");
@@ -651,10 +545,8 @@ const Login = () => {
 
       if (response.ok && data.success) {
         const userRole = data.user?.role?.toLowerCase();
-        
-        // CHECK FOR CUSTOMER ACCOUNT STATUS FIRST
+
         if (userRole === "customer") {
-          // Check if account is approved
           if (data.user.status !== 'approved') {
             setIsLoading(false);
             setShowFaceLogin(false);
@@ -667,10 +559,9 @@ const Login = () => {
             });
             return;
           }
-          
-          // Check duty hours for customer
+
           const dutyCheck = await checkDutyHours(data.user.id, 'customer');
-          
+
           if (!dutyCheck.allowed) {
             setIsLoading(false);
             setShowFaceLogin(false);
@@ -684,10 +575,8 @@ const Login = () => {
             return;
           }
         }
-        
-        // CHECK FOR SALESMAN ACCOUNT STATUS FIRST
+
         if (userRole === "salesman") {
-          // Check if account is blocked due to screenshot attempts
           if (data.user.account_status === 'inactive') {
             setIsLoading(false);
             setShowFaceLogin(false);
@@ -700,10 +589,9 @@ const Login = () => {
             });
             return;
           }
-          
-          // CHECK DUTY HOURS FOR SALESMAN
+
           const dutyCheck = await checkDutyHours(data.user.id, 'salesman');
-          
+
           if (!dutyCheck.allowed) {
             setIsLoading(false);
             setShowFaceLogin(false);
@@ -717,8 +605,7 @@ const Login = () => {
             return;
           }
         }
-        
-        // If account is approved and not blocked, proceed with login
+
         localStorage.setItem("user", JSON.stringify(data.user));
 
         Swal.fire({
@@ -733,7 +620,6 @@ const Login = () => {
           setTimeout(() => navigate("/dashboard"), 1500);
         } else if (userRole === "customer") {
           setTimeout(() => {
-            // For approved customers, check email verification
             if (data.user.email_verified === "Verified") {
               navigate("/customer-dashboard");
             } else {
@@ -779,7 +665,7 @@ const Login = () => {
 
   return (
     <div>
-      <div className="saleslogin-container container-fluid">
+      <div className="saleslogin-container container-fluid" ref={containerRef}>
         <div className="row vh-100 d-flex align-items-center justify-content-center">
           <div className="col-12 col-md-6 d-flex justify-content-center align-items-center saleslogin-left">
             <img src={logo} alt="Logo" className="saleslogin-logo" />
@@ -841,15 +727,6 @@ const Login = () => {
                     </button>
                   </div>
 
-                  {/* <div className="saleslogin-guest-btn-wrapper mt-3">
-                    <button
-                      type="button"
-                      className="saleslogin-guest-btn"
-                      onClick={() => navigate("/")}
-                    >
-                      Guest
-                    </button>
-                  </div> */}
                   <div className="mt-3">
                     <p className="saleslogin-register-text">
                       Don't have an account?{" "}
@@ -884,7 +761,7 @@ const Login = () => {
               </div>
             </div>
           </div>
-        </div> 
+        </div>
 
         {showFaceLogin && (
           <FaceCapture

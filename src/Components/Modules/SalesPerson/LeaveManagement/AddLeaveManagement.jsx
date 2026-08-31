@@ -7,14 +7,57 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalesPersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './AddLeaveManagement.css';
 
+// ---------------------------------------------------------------------------
+// Date validation helper
+// ---------------------------------------------------------------------------
+// Native <input type="date"> always reports "YYYY-MM-DD", but some browsers
+// still let a user type more than 4 digits into the year segment, or leave
+// the value malformed. We validate strictly before ever using the value
+// (on submit), and constrain the native picker with min/max as a first
+// line of defense. Crucially, we never validate on every keystroke/onChange
+// — a native date input reports an *intermediate* value while you're still
+// typing (e.g. typing "2026" one digit at a time briefly reports something
+// like "0002-01-01"), so validating there would incorrectly flag normal
+// in-progress typing as invalid.
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+const MIN_DATE_ATTR = `${MIN_YEAR}-01-01`;
+const MAX_DATE_ATTR = `${MAX_YEAR}-12-31`;
+
+const isValidDateString = (value) => {
+  if (!value) return true; // empty is handled separately by required-field checks
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 const AddLeaveRequest = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.leaveData;
   const isEditing = location.state?.isEditing || false;
-  
+
   const today = new Date().toISOString().split('T')[0];
-  
+
   const [formData, setFormData] = useState({
     start_date: today,
     end_date: today,
@@ -22,7 +65,12 @@ const AddLeaveRequest = () => {
     description: '',
     attachment: null
   });
-  
+
+  const [dateErrors, setDateErrors] = useState({
+    start_date: '',
+    end_date: ''
+  });
+
   const [salespersonId, setSalespersonId] = useState(null);
   const [salespersonName, setSalespersonName] = useState('');
   const [fileName, setFileName] = useState('');
@@ -38,7 +86,7 @@ const AddLeaveRequest = () => {
           const parsedUser = JSON.parse(userData);
           const salespersonId = parsedUser.id || parsedUser._id || parsedUser.userId || 'SP001';
           const salespersonName = parsedUser.full_name || parsedUser.name || parsedUser.username || 'John Doe';
-          
+
           setSalespersonId(salespersonId);
           setSalespersonName(salespersonName);
         } else {
@@ -76,6 +124,16 @@ const AddLeaveRequest = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // For the two date fields: update freely as the user types/picks, with
+    // no validation and no alert here — see the comment on isValidDateString
+    // above for why. Any inline error is just cleared as soon as they edit.
+    if (name === 'start_date' || name === 'end_date') {
+      if (dateErrors[name]) {
+        setDateErrors((prev) => ({ ...prev, [name]: '' }));
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -88,6 +146,16 @@ const AddLeaveRequest = () => {
         end_date: value
       }));
     }
+  };
+
+  // Only check once the field loses focus, i.e. the user is likely done
+  // typing that date. This is a silent inline hint, never a popup.
+  const handleDateBlur = (e) => {
+    const { name, value } = e.target;
+    setDateErrors((prev) => ({
+      ...prev,
+      [name]: value && !isValidDateString(value) ? 'Enter a valid date.' : ''
+    }));
   };
 
   const handleFileChange = (e) => {
@@ -106,8 +174,16 @@ const AddLeaveRequest = () => {
       Swal.fire('Error', 'Please select start date', 'error');
       return false;
     }
+    if (!isValidDateString(formData.start_date)) {
+      Swal.fire('Error', 'Start date is not a valid date. Please re-select it.', 'error');
+      return false;
+    }
     if (!formData.end_date) {
       Swal.fire('Error', 'Please select end date', 'error');
+      return false;
+    }
+    if (!isValidDateString(formData.end_date)) {
+      Swal.fire('Error', 'End date is not a valid date. Please re-select it.', 'error');
       return false;
     }
     if (formData.end_date < formData.start_date) {
@@ -123,7 +199,7 @@ const AddLeaveRequest = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -150,7 +226,7 @@ const AddLeaveRequest = () => {
       formDataToSend.append('end_date', formData.end_date);
       formDataToSend.append('leave_type', formData.leave_type);
       formDataToSend.append('description', formData.description);
-      
+
       if (formData.attachment) {
         formDataToSend.append('attachment', formData.attachment);
       }
@@ -179,7 +255,7 @@ const AddLeaveRequest = () => {
       }
     } catch (error) {
       console.error('Error submitting leave request:', error);
-      
+
       // If API fails, treat as demo mode
       if (!useDummyData) {
         Swal.fire({
@@ -211,19 +287,19 @@ const AddLeaveRequest = () => {
             <h2 className="form-title">
               {isEditing ? 'Edit Leave Request' : 'Create Leave Request'}
               {useDummyData && (
-                <span style={{ 
-                  marginLeft: '15px', 
-                  fontSize: '14px', 
-                  backgroundColor: '#17a2b8', 
-                  color: 'white', 
-                  padding: '4px 12px', 
-                  borderRadius: '20px' 
+                <span style={{
+                  marginLeft: '15px',
+                  fontSize: '14px',
+                  backgroundColor: '#17a2b8',
+                  color: 'white',
+                  padding: '4px 12px',
+                  borderRadius: '20px'
                 }}>
                   Demo Mode
                 </span>
               )}
             </h2>
-            
+
             <Form onSubmit={handleSubmit}>
               <Row className="mb-4">
                 <Col md={6}>
@@ -236,12 +312,18 @@ const AddLeaveRequest = () => {
                       name="start_date"
                       value={formData.start_date}
                       onChange={handleInputChange}
-                      min={today}
+                      onBlur={handleDateBlur}
+                      min={MIN_DATE_ATTR}
+                      max={MAX_DATE_ATTR}
+                      isInvalid={!!dateErrors.start_date}
                       required
                     />
+                    {dateErrors.start_date && (
+                      <Form.Text style={{ color: '#dc3545' }}>{dateErrors.start_date}</Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
-                
+
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -252,9 +334,15 @@ const AddLeaveRequest = () => {
                       name="end_date"
                       value={formData.end_date}
                       onChange={handleInputChange}
-                      min={formData.start_date || today}
+                      onBlur={handleDateBlur}
+                      min={MIN_DATE_ATTR}
+                      max={MAX_DATE_ATTR}
+                      isInvalid={!!dateErrors.end_date}
                       required
                     />
+                    {dateErrors.end_date && (
+                      <Form.Text style={{ color: '#dc3545' }}>{dateErrors.end_date}</Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>

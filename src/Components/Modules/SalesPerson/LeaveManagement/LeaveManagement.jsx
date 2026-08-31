@@ -9,32 +9,133 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalesPersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './LeaveManagement.css';
 
+// ---------------------------------------------------------------------------
+// Date validation helper
+// ---------------------------------------------------------------------------
+// Native <input type="date"> values are always emitted in the "YYYY-MM-DD"
+// format. Some browsers, however, will still let a user type more than four
+// digits into the year segment (e.g. "20256-01-01") or an otherwise
+// malformed value. This helper makes sure that whatever value we receive:
+//   1. Matches the strict YYYY-MM-DD shape (exactly 4 digit year).
+//   2. Represents a real calendar date (no Feb 30th, month 13, etc).
+//   3. Falls inside a sane year range (1900 - 2100).
+// An empty string is considered valid because that simply means "no date
+// selected" for these optional filter fields.
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+export const MIN_DATE_ATTR = `${MIN_YEAR}-01-01`;
+export const MAX_DATE_ATTR = `${MAX_YEAR}-12-31`;
+
+export const isValidDateString = (value) => {
+  if (!value) return true; // empty/optional is fine
+
+  // Strictly enforce exactly 4 digits for the year, 2 for month, 2 for day.
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  // Confirm it is a real date (guards against 02/30, 04/31, etc.)
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 // Global Search Filter Component
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [fromDateError, setFromDateError] = useState('');
+  const [toDateError, setToDateError] = useState('');
+
+  // Update freely as the user types/picks — a native date input reports an
+  // intermediate value on every keystroke (e.g. while typing the year one
+  // digit at a time), so we must NOT validate here or we'd flag perfectly
+  // normal in-progress input as "invalid". Just store whatever the browser
+  // gives us; validation only happens once the user is done (on blur / on
+  // Apply), and it's silent — no popup, just a subtle inline hint.
+  const handleFromDateChange = (e) => {
+    setFromDate(e.target.value);
+    if (fromDateError) setFromDateError('');
+  };
+
+  const handleToDateChange = (e) => {
+    setToDate(e.target.value);
+    if (toDateError) setToDateError('');
+  };
+
+  // Only check once the field loses focus, i.e. the user is likely done
+  // typing that date. Still no alert — just a small inline message.
+  const handleFromDateBlur = () => {
+    setFromDateError(fromDate && !isValidDateString(fromDate) ? 'Enter a valid date.' : '');
+  };
+
+  const handleToDateBlur = () => {
+    setToDateError(toDate && !isValidDateString(toDate) ? 'Enter a valid date.' : '');
+  };
 
   const applyDateFilter = () => {
-    handleDateFilter(fromDate, toDate);
+    // Silently ignore any bound that isn't a complete, valid date rather
+    // than blocking the user with a popup — treat it as "not set".
+    const safeFrom = isValidDateString(fromDate) ? fromDate : '';
+    const safeTo = isValidDateString(toDate) ? toDate : '';
+    setFromDateError(fromDate && !safeFrom ? 'Enter a valid date.' : '');
+    setToDateError(toDate && !safeTo ? 'Enter a valid date.' : '');
+
+    if (safeFrom && safeTo && new Date(safeFrom) > new Date(safeTo)) {
+      // Swap silently instead of alerting, so the filter still works.
+      handleDateFilter(safeTo, safeFrom);
+      return;
+    }
+    handleDateFilter(safeFrom, safeTo);
   };
 
   return (
     <div className="dataTable_search mb-3">
       <div className="date-row">
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          className="form-control date-from"
-          style={{ maxWidth: '150px' }}
-        />
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          className="form-control date-to"
-          style={{ maxWidth: '150px' }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <input
+            type="date"
+            value={fromDate}
+            min={MIN_DATE_ATTR}
+            max={MAX_DATE_ATTR}
+            onChange={handleFromDateChange}
+            onBlur={handleFromDateBlur}
+            className={`form-control date-from${fromDateError ? ' is-invalid' : ''}`}
+            style={{ maxWidth: '150px' }}
+          />
+          {fromDateError && (
+            <small style={{ color: '#dc3545', fontSize: '11px' }}>{fromDateError}</small>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <input
+            type="date"
+            value={toDate}
+            min={MIN_DATE_ATTR}
+            max={MAX_DATE_ATTR}
+            onChange={handleToDateChange}
+            onBlur={handleToDateBlur}
+            className={`form-control date-to${toDateError ? ' is-invalid' : ''}`}
+            style={{ maxWidth: '150px' }}
+          />
+          {toDateError && (
+            <small style={{ color: '#dc3545', fontSize: '11px' }}>{toDateError}</small>
+          )}
+        </div>
       </div>
       <div className="search-row">
         <input
@@ -72,7 +173,7 @@ const LeaveManagement = () => {
           const parsedUser = JSON.parse(userData);
           const salespersonId = parsedUser.id || parsedUser._id || parsedUser.userId;
           const salespersonName = parsedUser.full_name || parsedUser.name || parsedUser.username;
-          
+
           setSalespersonId(salespersonId);
           setSalespersonName(salespersonName);
           return salespersonId;
@@ -89,16 +190,16 @@ const LeaveManagement = () => {
 
   const fetchLeaveData = useCallback(async (showLoading = true) => {
     if (!salespersonId) return;
-    
+
     if (showLoading) {
       setLoading(true);
     } else {
       setRefreshing(true);
     }
-    
+
     try {
       const response = await axios.get(`${baseURL}/api/leave-requests/${salespersonId}`);
-      
+
       if (response.data && Array.isArray(response.data)) {
         setData(response.data);
         setFilteredData(response.data);
@@ -133,20 +234,25 @@ const LeaveManagement = () => {
   // Auto-refresh data every 30 seconds to check for status updates
   useEffect(() => {
     if (!salespersonId) return;
-    
+
     const intervalId = setInterval(() => {
       fetchLeaveData(false); // Silent refresh
     }, 30000); // 30 seconds
-    
+
     return () => clearInterval(intervalId);
   }, [salespersonId, fetchLeaveData]);
 
   // Handle date filter
   const handleDateFilter = useCallback((fromDate, toDate) => {
+    // Defensive re-validation in case this is ever called from elsewhere —
+    // silently treat an invalid bound as "not set" rather than alerting.
+    fromDate = isValidDateString(fromDate) ? fromDate : '';
+    toDate = isValidDateString(toDate) ? toDate : '';
+
     if (fromDate || toDate) {
       const filtered = data.filter((item) => {
         if (!item.start_date) return false;
-        
+
         const itemDate = new Date(item.start_date).setHours(0, 0, 0, 0);
         const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
         const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
@@ -162,6 +268,7 @@ const LeaveManagement = () => {
   const formatDate = useCallback((date) => {
     if (!date) return '';
     const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
@@ -174,19 +281,19 @@ const LeaveManagement = () => {
       'Approved': { backgroundColor: '#28a745', color: 'white' },
       'Rejected': { backgroundColor: '#dc3545', color: 'white' }
     };
-    
+
     const style = statusStyles[status] || { backgroundColor: '#6c757d', color: 'white' };
-    
+
     return (
       <span style={{
         ...style,
-        padding: '4px 12px',
-        borderRadius: '20px',
+        padding: '7px',
+        borderRadius: '15px',
         fontSize: '0.85rem',
         fontWeight: '600',
         display: 'inline-block',
-        minWidth: '90px',
-        textAlign: 'center'
+        textAlign: 'center',
+        width: "100px"
       }}>
         {status}
       </span>
@@ -272,14 +379,14 @@ const LeaveManagement = () => {
       Cell: ({ value, row }) => {
         const status = value || 'Pending';
         const remarks = row.original.remarks;
-        
+
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {getStatusBadge(status)}
             {remarks && status !== 'Pending' && (
-              <small style={{ 
-                fontSize: '11px', 
-                color: '#6c757d', 
+              <small style={{
+                fontSize: '11px',
+                color: '#6c757d',
                 maxWidth: '120px',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -302,7 +409,7 @@ const LeaveManagement = () => {
       id: 'actions',
       Cell: ({ row }) => {
         const canEdit = row.original.status === 'Pending';
-        
+
         return (
           <div style={{ display: 'flex', gap: '10px' }}>
             <FaEye
@@ -401,10 +508,10 @@ const LeaveManagement = () => {
   </Col>
 </Row>
 
-          <GlobalFilter 
-            globalFilter={globalFilter} 
-            setGlobalFilter={setGlobalFilter} 
-            handleDateFilter={handleDateFilter} 
+          <GlobalFilter
+            globalFilter={globalFilter}
+            setGlobalFilter={setGlobalFilter}
+            handleDateFilter={handleDateFilter}
           />
 
           <div className="dataTable_wrapper container-fluid">
@@ -552,9 +659,9 @@ const LeaveManagement = () => {
                     <tr>
                       <td style={{ fontWeight: 'bold' }}>Attachment</td>
                       <td>
-                        <a 
-                          href={`${baseURL}/uploads/leaves/${selectedLeave.attachment}`} 
-                          target="_blank" 
+                        <a
+                          href={`${baseURL}/uploads/leaves/${selectedLeave.attachment}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                         >
                           View Attachment

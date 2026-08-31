@@ -9,32 +9,124 @@ import baseURL from "../../ApiUrl/NodeBaseURL";
 import SalesPersonNavbar from '../../../Pages/Navbar/SalesNavbar';
 import './EstimateTable.css';
 
+// ---------------------------------------------------------------------------
+// Date validation helper (see LeaveManagement.js for the full rationale).
+// Native <input type="date"> always reports "YYYY-MM-DD", but some browsers
+// still allow a user to type more than 4 digits into the year segment or
+// leave the value malformed. We validate strictly before ever using the
+// value, and constrain the native picker with min/max as a first line of
+// defense.
+// ---------------------------------------------------------------------------
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+export const MIN_DATE_ATTR = `${MIN_YEAR}-01-01`;
+export const MAX_DATE_ATTR = `${MAX_YEAR}-12-31`;
+
+export const isValidDateString = (value) => {
+  if (!value) return true; // empty/optional is fine
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 // Global Search Filter Component
 function GlobalFilter({ globalFilter, setGlobalFilter, handleDateFilter }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [fromDateError, setFromDateError] = useState('');
+  const [toDateError, setToDateError] = useState('');
+
+  // Update freely as the user types/picks — a native date input reports an
+  // intermediate value on every keystroke (e.g. while typing the year one
+  // digit at a time), so we must NOT validate here or we'd flag perfectly
+  // normal in-progress input as "invalid". Just store whatever the browser
+  // gives us; validation only happens once the user is done (on blur / on
+  // Apply), and it's silent — no popup, just a subtle inline hint.
+  const handleFromDateChange = (e) => {
+    setFromDate(e.target.value);
+    if (fromDateError) setFromDateError('');
+  };
+
+  const handleToDateChange = (e) => {
+    setToDate(e.target.value);
+    if (toDateError) setToDateError('');
+  };
+
+  const handleFromDateBlur = () => {
+    setFromDateError(fromDate && !isValidDateString(fromDate) ? 'Enter a valid date.' : '');
+  };
+
+  const handleToDateBlur = () => {
+    setToDateError(toDate && !isValidDateString(toDate) ? 'Enter a valid date.' : '');
+  };
 
   const applyDateFilter = () => {
-    handleDateFilter(fromDate, toDate);
+    // Silently ignore any bound that isn't a complete, valid date rather
+    // than blocking the user with a popup — treat it as "not set".
+    const safeFrom = isValidDateString(fromDate) ? fromDate : '';
+    const safeTo = isValidDateString(toDate) ? toDate : '';
+    setFromDateError(fromDate && !safeFrom ? 'Enter a valid date.' : '');
+    setToDateError(toDate && !safeTo ? 'Enter a valid date.' : '');
+
+    if (safeFrom && safeTo && new Date(safeFrom) > new Date(safeTo)) {
+      handleDateFilter(safeTo, safeFrom);
+      return;
+    }
+    handleDateFilter(safeFrom, safeTo);
   };
 
   return (
     <div className="dataTable_search mb-3">
       <div className="dataTable_search_dates">
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          className="form-control"
-          style={{ maxWidth: '150px' }}
-        />
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          className="form-control"
-          style={{ maxWidth: '150px' }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <input
+            type="date"
+            value={fromDate}
+            min={MIN_DATE_ATTR}
+            max={MAX_DATE_ATTR}
+            onChange={handleFromDateChange}
+            onBlur={handleFromDateBlur}
+            className={`form-control${fromDateError ? ' is-invalid' : ''}`}
+            style={{ maxWidth: '150px' }}
+          />
+          {fromDateError && (
+            <small style={{ color: '#dc3545', fontSize: '11px' }}>{fromDateError}</small>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <input
+            type="date"
+            value={toDate}
+            min={MIN_DATE_ATTR}
+            max={MAX_DATE_ATTR}
+            onChange={handleToDateChange}
+            onBlur={handleToDateBlur}
+            className={`form-control${toDateError ? ' is-invalid' : ''}`}
+            style={{ maxWidth: '150px' }}
+          />
+          {toDateError && (
+            <small style={{ color: '#dc3545', fontSize: '11px' }}>{toDateError}</small>
+          )}
+        </div>
       </div>
       <div className="dataTable_search_query">
         <input
@@ -73,7 +165,7 @@ const EstimateTable = () => {
           const salespersonId = parsedUser.id || parsedUser._id || parsedUser.userId;
           const salespersonName = parsedUser.full_name || parsedUser.name || parsedUser.username;
           const role = parsedUser.role;
-          
+
           // Check if user is a salesperson
           if (role === 'salesman' || role === 'salesperson' || role === 'sales') {
             setSalespersonId(salespersonId);
@@ -116,19 +208,19 @@ const EstimateTable = () => {
     if (!salespersonId || !estimates || !Array.isArray(estimates)) {
       return [];
     }
-    
+
     // Filter estimates where salesperson_id matches the logged-in salesperson's ID
     const filtered = estimates.filter((estimate) => {
       const estimateSalespersonId = estimate.salesperson_id;
-      
+
       // Handle different data types - convert both to string for comparison
       if (estimateSalespersonId === undefined || estimateSalespersonId === null) {
         return false;
       }
-      
+
       return String(estimateSalespersonId) === String(salespersonId);
     });
-    
+
     return filtered;
   }, []);
 
@@ -137,23 +229,23 @@ const EstimateTable = () => {
     setLoading(true);
     // Fetch all estimates from the existing API
     const response = await axios.get(`${baseURL}/get-unique-estimates`);
-    
+
     const allEstimatesData = response.data || [];
-    
+
     // Ensure all estimates have an estimate_status field
     const estimatesWithStatus = allEstimatesData.map(estimate => ({
       ...estimate,
       estimate_status: estimate.estimate_status || estimate.status || 'Pending'
     }));
-    
+
     setAllEstimates(estimatesWithStatus);
-    
+
     // If we have a salespersonId, filter the data
     if (salespersonId) {
       const salespersonEstimates = filterEstimatesBySalespersonId(estimatesWithStatus, salespersonId);
       setData(salespersonEstimates);
       setFilteredData(salespersonEstimates);
-      
+
       // Optional: Show message if no estimates found for this salesperson
       if (salespersonEstimates.length === 0) {
         console.log(`No estimates found for salesperson ID: ${salespersonId}`);
@@ -163,7 +255,7 @@ const EstimateTable = () => {
       setData([]);
       setFilteredData([]);
     }
-    
+
     setLoading(false);
   } catch (error) {
     console.error('Error fetching estimate details:', error);
@@ -194,10 +286,14 @@ const EstimateTable = () => {
 
   // Handle date filter
   const handleDateFilter = useCallback((fromDate, toDate) => {
+    // Silently treat an invalid bound as "not set" rather than alerting.
+    fromDate = isValidDateString(fromDate) ? fromDate : '';
+    toDate = isValidDateString(toDate) ? toDate : '';
+
     if (fromDate || toDate) {
       const filtered = data.filter((item) => {
         if (!item.date) return false;
-        
+
         const itemDate = new Date(item.date).setHours(0, 0, 0, 0);
         const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
         const to = toDate ? new Date(toDate).setHours(0, 0, 0, 0) : null;
@@ -213,6 +309,7 @@ const EstimateTable = () => {
   const formatDate = useCallback((date) => {
     if (!date) return '';
     const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
@@ -239,7 +336,7 @@ const EstimateTable = () => {
           Swal.fire('Error', 'Estimate not found.', 'error');
           return;
         }
-        
+
         // Verify ownership - only allow editing own estimates
         if (estimateToEdit.salesperson_id !== salespersonId) {
           Swal.fire('Error', 'You can only edit estimates created by you.', 'error');
@@ -293,7 +390,7 @@ const EstimateTable = () => {
       Swal.fire('Error', 'Estimate not found.', 'error');
       return;
     }
-    
+
     // Verify ownership - only allow deleting own estimates
     if (estimateToDelete.salesperson_id !== salespersonId) {
       Swal.fire('Error', 'You can only delete estimates created by you.', 'error');
@@ -319,19 +416,19 @@ const EstimateTable = () => {
         if (!response.ok) {
           throw new Error('Failed to delete estimate');
         }
-        
+
         // Refresh data after delete
         const refreshResponse = await axios.get(`${baseURL}/get-unique-estimates`);
         const allEstimatesData = refreshResponse.data || [];
         setAllEstimates(allEstimatesData);
-        
+
         // Re-filter for current salesperson
         if (salespersonId) {
           const salespersonEstimates = filterEstimatesBySalespersonId(allEstimatesData, salespersonId);
           setData(salespersonEstimates);
           setFilteredData(salespersonEstimates);
         }
-        
+
         Swal.fire('Deleted!', 'The estimate has been deleted.', 'success');
       } catch (error) {
         console.error('Error deleting estimate:', error.message);
@@ -345,16 +442,16 @@ const EstimateTable = () => {
     try {
       const response = await axios.get(`${baseURL}/get-estimates/${estimate_number}`);
       const details = response.data;
-      
+
       // Fetch the latest estimate status from database
       const estimateResponse = await axios.get(`${baseURL}/get-unique-estimates`);
       const allEstimates = estimateResponse.data || [];
-      
+
       // Find the specific estimate with this estimate_number
       const currentEstimate = allEstimates.find(
         est => est.estimate_number === estimate_number
       );
-      
+
       // Update the repairDetails with the current status and order info
       if (currentEstimate) {
         if (details.uniqueData) {
@@ -363,7 +460,7 @@ const EstimateTable = () => {
           details.uniqueData.order_date = currentEstimate.order_date || details.uniqueData?.order_date;
         }
       }
-      
+
       setRepairDetails(details);
       setShowModal(true);
     } catch (error) {
@@ -395,6 +492,7 @@ const EstimateTable = () => {
       Cell: ({ value }) => {
         if (!value) return 'N/A';
         const date = new Date(value);
+        if (isNaN(date.getTime())) return 'N/A';
         return date.toLocaleDateString('en-GB', {
           day: '2-digit',
           month: 'short',
@@ -411,7 +509,7 @@ const EstimateTable = () => {
       accessor: 'order_number',
       Cell: ({ value, row }) => {
         const estimateStatus = row.original.estimate_status;
-        
+
         if (estimateStatus === 'Accepted' || estimateStatus === 'Ordered') {
           return value ? (
             <strong style={{ color: '#17a2b8' }}>{value}</strong>
@@ -421,7 +519,7 @@ const EstimateTable = () => {
             </span>
           );
         }
-        
+
         return (
           <span className="text-muted" style={{ fontStyle: 'italic' }}>
             N/A
@@ -433,18 +531,13 @@ const EstimateTable = () => {
       Header: 'Customer Name',
       accessor: 'customer_name',
     },
-    // {
-    //   Header: 'Total Amount',
-    //   accessor: 'net_amount',
-    //   Cell: ({ value }) => parseFloat(value || 0).toFixed(2),
-    // },
     {
       Header: 'Status',
       accessor: 'estimate_status',
       Cell: ({ value }) => {
         // Get current status with fallback
         const currentStatus = value || 'Pending';
-        
+
         // Define status colors and styles
         const getStatusStyle = (status) => {
           switch(status) {
@@ -511,40 +604,6 @@ const EstimateTable = () => {
       width: 150,
       disableSortBy: true,
     },
-    // {
-    //   Header: 'Actions',
-    //   id: 'actions',
-    //   Cell: ({ row }) => {
-    //     // Only show edit/delete if the estimate belongs to the current salesperson
-    //     const canEditDelete = row.original.salesperson_id === salespersonId;
-
-    //     return (
-    //       <div style={{ display: 'flex', gap: '10px' }}>
-    //         <FaEye
-    //           style={{ cursor: 'pointer', color: 'green' }}
-    //           onClick={() => handleViewDetails(row.original.estimate_number)}
-    //           title="View Details"
-    //         />
-    //         {canEditDelete && (
-    //           <>
-    //             <FaEdit
-    //               style={{ cursor: 'pointer', color: 'blue' }}
-    //               onClick={() => handleEdit(row.original.estimate_number, row.original.mobile)}
-    //               title="Edit"
-    //             />
-    //             <FaTrash
-    //               style={{ cursor: 'pointer', color: 'red' }}
-    //               onClick={() => handleDelete(row.original.estimate_number)}
-    //               title="Delete"
-    //             />
-    //           </>
-    //         )}
-    //       </div>
-    //     );
-    //   },
-    //   width: 120,
-    //   disableSortBy: true,
-    // },
   ], [handleEdit, handleDelete, handleViewDetails, salespersonId]);
 
   // Memoize table data
@@ -665,10 +724,10 @@ const EstimateTable = () => {
           </Row>
 
           {/* Global Search Filter */}
-          <GlobalFilter 
-            globalFilter={globalFilter} 
-            setGlobalFilter={setGlobalFilter} 
-            handleDateFilter={handleDateFilter} 
+          <GlobalFilter
+            globalFilter={globalFilter}
+            setGlobalFilter={setGlobalFilter}
+            handleDateFilter={handleDateFilter}
           />
 
           {/* Table */}
@@ -709,7 +768,6 @@ const EstimateTable = () => {
               </table>
             </div>
 
-            {/* Pagination Controls */}
             {/* Pagination Controls */}
             <div className="pagination-row mt-3">
               <div className="dataTable_pageInfo">
@@ -797,13 +855,13 @@ const EstimateTable = () => {
                     <tr>
                       <td>Status</td>
                       <td>
-                        <span 
+                        <span
                           className="badge px-3 py-2"
                           style={{
-                            backgroundColor: 
+                            backgroundColor:
                               repairDetails.uniqueData?.estimate_status === 'Accepted' || repairDetails.uniqueData?.estimate_status === 'Ordered' ? '#28a745' :
                               repairDetails.uniqueData?.estimate_status === 'Rejected' ? '#dc3545' : '#ffc107',
-                            color: 
+                            color:
                               repairDetails.uniqueData?.estimate_status === 'Pending' ? '#212529' : 'white',
                             fontSize: '0.9em'
                           }}
