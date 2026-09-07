@@ -247,28 +247,66 @@ const EstimateForm = () => {
   }, []);
 
   // Fetch customers
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch(`${baseURL}/api/users`);
-        if (response.ok) {
-          const data = await response.json();
-          const filteredCustomers = data.filter(u => u.role === 'Customer' && u.status === 'approved');
-          setCustomers(filteredCustomers);
-          const customerOpts = filteredCustomers.map(customer => ({
-            value: customer.full_name,
-            label: customer.full_name,
-            customerId: customer.id || customer._id || customer.user_id,
-            custId: customer.customer_id
-          }));
-          setCustomerOptions(customerOpts);
-        }
-      } catch (error) {
-        console.error('Error fetching customers:', error);
+// Fetch customers - ONLY those who have a visitLogsWarehouseSchedule entry
+// assigned to the CURRENT logged-in salesman
+useEffect(() => {
+  const fetchCustomers = async () => {
+    if (!salespersonId) return;
+
+    try {
+      const response = await axios.get(`${baseURL2}/api/visit-logs-warehouse-schedule`);
+
+      if (response.data && Array.isArray(response.data)) {
+        const currentSalesmanId = parseInt(salespersonId, 10);
+
+        // 1. Keep only visit logs belonging to the CURRENT logged-in salesman
+        const myVisitLogs = response.data.filter(
+          (log) => log.salesman_id === currentSalesmanId
+        );
+
+        // 2. De-duplicate customers (a customer can appear many times,
+        //    once per scanned barcode / product in a visit).
+        //    Key by customer_account_id.
+        const uniqueCustomersMap = new Map();
+        myVisitLogs.forEach((log) => {
+          if (!uniqueCustomersMap.has(log.customer_account_id)) {
+            uniqueCustomersMap.set(log.customer_account_id, {
+              id: log.customer_account_id,          // internal account id
+              customer_id: log.customer_id,          // code, e.g. "CUST-005"
+              full_name: (log.customer_name || "").trim(),
+              phone: log.customer_phone,
+              mobile: log.customer_mobile,
+              email: log.customer_email,
+            });
+          }
+        });
+
+        const uniqueCustomers = Array.from(uniqueCustomersMap.values());
+
+        setCustomers(uniqueCustomers);
+
+        const customerOpts = uniqueCustomers.map((customer) => ({
+          value: customer.full_name,
+          label: customer.full_name,
+          customerId: customer.id,        // -> maps to customer_account_id
+          custId: customer.customer_id,   // -> maps to "CUST-XXX" code
+        }));
+
+        setCustomerOptions(customerOpts);
       }
-    };
-    fetchCustomers();
-  }, []);
+    } catch (error) {
+      console.error('Error fetching customers from visit logs:', error);
+      Swal.fire({
+        icon: 'warning',
+        title: 'Could not load customers',
+        text: 'Failed to fetch your scheduled customer visits. Please try again.',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
+  fetchCustomers();
+}, [salespersonId]);
 
   // Fetch last estimate number
   useEffect(() => {
@@ -1197,67 +1235,87 @@ const EstimateForm = () => {
     });
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+ const handleInputChange = (e) => {
+  const { name, value } = e.target;
 
-    if (name === "customer_name") {
-      const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
-      if (selectedCustomerOption) {
-        setFormData(prev => {
-          const updated = {
-            ...prev,
-            customer_name: selectedCustomerOption.value,
-            customer_id: selectedCustomerOption.customerId,
-            cust_id: selectedCustomerOption.custId || selectedCustomerOption.customerId,
-          };
-          formDataRef.current = updated;
-          return updated;
-        });
+  if (name === "customer_name") {
+    const selectedCustomerOption = customerOptions.find(opt => opt.value === value);
 
-        setScannedProducts([]);
-        setTotalQuantity(0);
-        setIsPacketScanned(false);
-        setPacketDetails(null);
-        setSharedPacketBarcode(null);
-        setSharedPacketWt(null);
-        setCurrentEstimateNumber("");
-        setIsEstimateSaved(false);
-        setSavedEstimateNumber("");
-        setSuccessMessage("");
-        setPacketSuccessMessage("");
-        setLastAddedProduct("");
-        setPacketStatus(null);
-        setIsPacketUsed(false);
-        packetIdRef.current = null;
-        setExtractedWeight(null);
-        setExtractedGrams(null);
-        setExtractedMilligrams(null);
-        setExtractedTotalGrams(null);
-        setExtractedRawText(null);
-        setExtractedConfidence(null);
-        setWeightCaptureError(null);
+    // Common reset logic used whether a customer is selected OR cleared
+    const resetEstimateState = () => {
+      setScannedProducts([]);
+      setTotalQuantity(0);
+      setIsPacketScanned(false);
+      setPacketDetails(null);
+      setSharedPacketBarcode(null);
+      setSharedPacketWt(null);
+      setCurrentEstimateNumber("");
+      setIsEstimateSaved(false);
+      setSavedEstimateNumber("");
+      setSuccessMessage("");
+      setPacketSuccessMessage("");
+      setLastAddedProduct("");
+      setPacketStatus(null);
+      setIsPacketUsed(false);
+      packetIdRef.current = null;
+      setExtractedWeight(null);
+      setExtractedGrams(null);
+      setExtractedMilligrams(null);
+      setExtractedTotalGrams(null);
+      setExtractedRawText(null);
+      setExtractedConfidence(null);
+      setWeightCaptureError(null);
 
-        // Reset mandatory actions when customer changes
-        setMandatoryActions({
-          scanProduct: false,
-          scanPacket: false,
-          captureImage: false,
-          uploadWeight: false
-        });
+      setMandatoryActions({
+        scanProduct: false,
+        scanPacket: false,
+        captureImage: false,
+        uploadWeight: false
+      });
 
-        sharedPacketBarcodeRef.current = null;
-        sharedPacketWtRef.current = null;
-        isPacketScannedRef.current = false;
-        currentEstimateNumberRef.current = "";
-      }
-    } else {
+      sharedPacketBarcodeRef.current = null;
+      sharedPacketWtRef.current = null;
+      isPacketScannedRef.current = false;
+      currentEstimateNumberRef.current = "";
+    };
+
+    if (selectedCustomerOption) {
+      // Customer selected
       setFormData(prev => {
-        const updated = { ...prev, [name]: value };
+        const updated = {
+          ...prev,
+          customer_name: selectedCustomerOption.value,
+          customer_id: selectedCustomerOption.customerId,
+          cust_id: selectedCustomerOption.custId || selectedCustomerOption.customerId,
+        };
         formDataRef.current = updated;
         return updated;
       });
+
+      resetEstimateState();
+    } else {
+      // ✅ Cleared (value === "" from the × button, or a value that no longer matches any option)
+      setFormData(prev => {
+        const updated = {
+          ...prev,
+          customer_name: "",
+          customer_id: "",
+          cust_id: "",
+        };
+        formDataRef.current = updated;
+        return updated;
+      });
+
+      resetEstimateState();
     }
-  };
+  } else {
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      formDataRef.current = updated;
+      return updated;
+    });
+  }
+};
 
   const handleCancel = () => {
     Swal.fire({
