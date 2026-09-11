@@ -20,34 +20,34 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
   const safeToFixed2 = (value) => safeToFixed(value, 2);
 
   const extractTransferId = () => {
-  if (!notification) return null;
-  
-  // If related_id exists, use it directly
-  if (notification.related_id) return notification.related_id;
-  
-  // Check if this is a warehouse visit notification (no ASN number)
-  const message = notification.message || '';
-  const title = notification.title || '';
-  
-  // If it's a warehouse visit notification, return null
-  if (title.includes('Warehouse Visit Assignment') || 
-      message.includes('assigned to visit') && message.includes('item(s)')) {
+    if (!notification) return null;
+    
+    // If related_id exists, use it directly
+    if (notification.related_id) return notification.related_id;
+    
+    // Check if this is a warehouse visit notification (no ASN number)
+    const message = notification.message || '';
+    const title = notification.title || '';
+    
+    // If it's a warehouse visit notification, return null
+    if (title.includes('Warehouse Visit Assignment') || 
+        message.includes('assigned to visit') && message.includes('item(s)')) {
+      return null;
+    }
+    
+    // Try to extract from message
+    const asnMatch = message.match(/#(ASN\d+)/);
+    if (asnMatch) {
+      return asnMatch[1];
+    }
+    
+    // If it's an assignment notification with _assignmentData
+    if (notification._assignmentData && notification._assignmentData.assigned_id) {
+      return notification._assignmentData.assigned_id;
+    }
+    
     return null;
-  }
-  
-  // Try to extract from message
-  const asnMatch = message.match(/#(ASN\d+)/);
-  if (asnMatch) {
-    return asnMatch[1];
-  }
-  
-  // If it's an assignment notification with _assignmentData
-  if (notification._assignmentData && notification._assignmentData.assigned_id) {
-    return notification._assignmentData.assigned_id;
-  }
-  
-  return null;
-};
+  };
 
   useEffect(() => {
     if (show && notification) {
@@ -55,44 +55,39 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
     }
   }, [show, notification]);
 
- const fetchAssignmentDetails = async () => {
-  const transferId = extractTransferId();
-  if (!transferId) {
-    setLoading(false);
-    // Don't show error for warehouse visit notifications
-    // Just show a message that this is a warehouse visit
-    setAssignmentDetails(null);
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const response = await axios.get(`${baseURL}/api/assigned-salesman/get-assigned-transfers`);
-    const transfers = response.data || [];
-    
-    const matchedTransfer = transfers.find(t => 
-      t.assigned_number === transferId || 
-      t.assigned_id === parseInt(transferId)
-    );
-    
-    if (matchedTransfer) {
-      const detailResponse = await axios.get(
-        `${baseURL}/api/assigned-salesman/get-assigned-transfer/${matchedTransfer.assigned_id}`
-      );
-      setAssignmentDetails(detailResponse.data);
-    } else {
+  const fetchAssignmentDetails = async () => {
+    const transferId = extractTransferId();
+    if (!transferId) {
+      setLoading(false);
       setAssignmentDetails(null);
-      // Don't show error for warehouse visit notifications
-      // The parent component will handle it
+      return;
     }
-  } catch (error) {
-    console.error('Error fetching assignment details:', error);
-    setAssignmentDetails(null);
-    // Don't show error for warehouse visit notifications
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+    try {
+      const response = await axios.get(`${baseURL}/api/assigned-salesman/get-assigned-transfers`);
+      const transfers = response.data || [];
+      
+      const matchedTransfer = transfers.find(t => 
+        t.assigned_number === transferId || 
+        t.assigned_id === parseInt(transferId)
+      );
+      
+      if (matchedTransfer) {
+        const detailResponse = await axios.get(
+          `${baseURL}/api/assigned-salesman/get-assigned-transfer/${matchedTransfer.assigned_id}`
+        );
+        setAssignmentDetails(detailResponse.data);
+      } else {
+        setAssignmentDetails(null);
+      }
+    } catch (error) {
+      console.error('Error fetching assignment details:', error);
+      setAssignmentDetails(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAccept = async () => {
     if (!assignmentDetails || !assignmentDetails.transfer_details) return;
@@ -218,6 +213,9 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
   const transferDetails = assignmentDetails?.transfer_details;
   const items = assignmentDetails?.transfer_items || [];
 
+  // Calculate total weight from items
+  const calculatedTotalWeight = items.reduce((sum, item) => sum + (parseFloat(item.weight_machine_reading) || 0), 0).toFixed(3);
+
   return (
     <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton>
@@ -234,104 +232,41 @@ const SalesmanNotificationModal = ({ show, onHide, notification, onActionComplet
           </div>
         ) : assignmentDetails && transferDetails ? (
           <>
-            <Row className="mb-3">
-              <Col md={6}>
-                <div className="p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
-                  <h6 className="mb-2">Assignment Details</h6>
-                  <p className="mb-1"><strong>Assignment #:</strong> {transferDetails.assigned_number}</p>
-                  <p className="mb-1"><strong>Date:</strong> {formatDate(transferDetails.transfer_date)}</p>
-                  <p className="mb-1"><strong>From:</strong> {transferDetails.from_stock_point_name || 'Stock Room'}</p>
-                  <p className="mb-1"><strong>Status:</strong> {getStatusBadge(transferDetails.salesman_status || 'pending')}</p>
-                  <p className="mb-0"><strong>Total Items:</strong> {transferDetails.total_items}</p>
-                </div>
-              </Col>
-              <Col md={6}>
-                <div className="p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
-                  <h6 className="mb-2">Weight Summary</h6>
-                  <p className="mb-1"><strong>Item Gross Total:</strong> {safeToFixed(transferDetails.item_gross_total)} g</p>
-                  <p className="mb-1"><strong>Packet Gross Total:</strong> {safeToFixed(transferDetails.packet_gross_total)} g</p>
-                  <p className="mb-0"><strong>Total Weight with Bag:</strong> {safeToFixed(transferDetails.total_weight_with_bag)} g</p>
-                </div>
-              </Col>
-            </Row>
-
-            <h6 className="mb-2">Items</h6>
-            <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-              <Table bordered hover size="sm">
-                <thead style={{ position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
-                  <tr>
-                    <th>#</th>
-                    <th>Barcode</th>
-                    <th>Product</th>
-                    <th>Metal</th>
-                    <th>Purity</th>
-                    <th>Gross Wt</th>
-                    <th>Net Wt</th>
-                    <th>Qty</th>
-                    <th>Rate</th>
-                    <th>Total Price</th>
-                    <th>Weight</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.length > 0 ? (
-                    items.map((item, index) => {
-                      const hasWeight = item.weight_machine_reading && parseFloat(item.weight_machine_reading) > 0;
-                      return (
-                        <tr key={item.item_id || index}>
-                          <td>{index + 1}</td>
-                          <td><Badge bg="dark">{item.PCode_BarCode}</Badge></td>
-                          <td>{item.product_name || 'N/A'}</td>
-                          <td>{item.metal_type || 'N/A'}</td>
-                          <td>{item.purity || 'N/A'}</td>
-                          <td>{safeToFixed(item.gross_weight)}</td>
-                          <td>{safeToFixed(item.net_weight)}</td>
-                          <td>{safeToFixed(item.qty, 0)}</td>
-                          <td>{safeToFixed2(item.rate)}</td>
-                          <td>{safeToFixed2(item.total_price)}</td>
-                          <td>
-                            {hasWeight ? (
-                              <Badge bg="success" style={{ fontSize: '12px' }}>
-                                ✅ {safeToFixed(item.weight_machine_reading)} g
-                                <br />
-                                <small style={{ fontSize: '9px', opacity: 0.8 }}>
-                                  ({item.weight_machine_grams || 0}g / {item.weight_machine_milligrams || 0}mg)
-                                </small>
-                              </Badge>
-                            ) : (
-                              <Badge bg="secondary" style={{ fontSize: '12px' }}>
-                                ⏳ Pending
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan="11" className="text-center text-muted">No items found</td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-            </div>
+            <Row className="mb-3 align-items-stretch">
+                <Col md={6}>
+                  <div className="p-3 border rounded h-100" style={{ backgroundColor: '#f8f9fa' }}>
+                    <h6 className="mb-2">Assignment Details</h6>
+                    <p className="mb-1"><strong>Assignment #:</strong> {transferDetails.assigned_number}</p>
+                    <p className="mb-1"><strong>Date:</strong> {formatDate(transferDetails.transfer_date)}</p>
+                    <p className="mb-1"><strong>From:</strong> {transferDetails.from_stock_point_name || 'Stock Room'}</p>
+                    <p className="mb-1"><strong>Status:</strong> {getStatusBadge(transferDetails.salesman_status || 'pending')}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded h-100" style={{ backgroundColor: '#f8f9fa' }}>
+                    <h6 className="mb-2">Weight Summary</h6>
+                     <p className="mb-0"><strong>Total Items:</strong> {transferDetails.total_items}</p>
+                    <p className="mb-1"><strong>Item Gross Total:</strong> {safeToFixed(transferDetails.item_gross_total)} g</p>
+                    <p className="mb-1"><strong>Packet Gross Total:</strong> {safeToFixed(transferDetails.packet_gross_total)} g</p>
+                    <p className="mb-0"><strong>Total Weight with Bag:</strong> {safeToFixed(transferDetails.total_weight_with_bag)} g</p>
+                  </div>
+                </Col>
+              </Row>
 
             {/* Weight Captured Summary */}
             {hasWeights(items) && (
               <div className="mt-3">
                 <div className="p-3 border rounded" style={{ backgroundColor: '#e8f5e9' }}>
                   <h6 className="mb-2">✅ Weight Capture Summary</h6>
-                  <Row>
-                    <Col md={4}>
+                  <Row className="align-items-center justify-content-between">
+                    <Col xs={12} md={3} className="mb-2 mb-md-0">
                       <strong>Total Items:</strong> {items.length}
                     </Col>
-                    <Col md={4}>
+                    <Col xs={12} md={4} className="mb-2 mb-md-0">
                       <strong>Weights Captured:</strong> {items.filter(item => item.weight_machine_reading > 0).length} / {items.length}
                     </Col>
-                    <Col md={4}>
-                      <strong>Total Captured Weight:</strong> {
-                        items.reduce((sum, item) => sum + (parseFloat(item.weight_machine_reading) || 0), 0).toFixed(3)
-                      } g
+                    <Col xs={12} md="auto" className="d-flex align-items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
+                      <strong>Total Captured Weight:</strong> {safeToFixed(transferDetails.total_weight_with_bag)} g
                     </Col>
                   </Row>
                 </div>
