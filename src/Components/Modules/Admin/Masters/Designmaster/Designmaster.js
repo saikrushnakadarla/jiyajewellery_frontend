@@ -296,7 +296,7 @@ function Designmaster() {
                   className="btn btn-primary btn1"
                   onClick={() => nextPage()}
                   disabled={!canNextPage}
-                >
+                > 
                   Next
                 </button>
               </div>
