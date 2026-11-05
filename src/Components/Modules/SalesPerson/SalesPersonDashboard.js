@@ -202,8 +202,8 @@ function SalesPersonDashboard() {
     showToastNotification(notification);
   };
 
-  // Fetch notifications from both APIs
- // Fetch notifications from both APIs
+// Fetch notifications from both APIs
+// Fetch notifications from both APIs
 const fetchNotifications = async (userId, silent = false) => {
   try {
     // Fetch from Jiya Jewellery (port 5000)
@@ -227,23 +227,25 @@ const fetchNotifications = async (userId, silent = false) => {
     }
 
     // Fetch pending assignments from assigned-salesman API
-    // BUT skip if we already have notifications from the other endpoints
-    // to avoid duplicates
     const response3 = await fetch(`${baseURL2}/api/assigned-salesman/get-pending-assignments?salesman_id=${userId}`);
     let assignmentNotifications = [];
     if (response3.ok) {
       const data = await response3.json();
       if (Array.isArray(data) && data.length > 0) {
-        // Check if we already have these assignments in notifications1 or notifications2
-        // to avoid duplicates
+        // Look for ASN numbers in BOTH title and message (backend puts it in the title)
         const existingAssignmentNumbers = new Set();
         [...notifications1, ...notifications2].forEach(n => {
-          const match = n.message?.match(/#(ASN\d+)/);
+          const match = `${n.title || ''} ${n.message || ''}`.match(/#(ASN\d+)/);
           if (match) {
             existingAssignmentNumbers.add(match[1]);
+            // make sure the kept notification can open the assignment modal
+            if (!n.related_id) {
+              const a = data.find(x => x.assigned_number === match[1]);
+              if (a) n.related_id = a.assigned_id;
+            }
           }
         });
-        
+
         // Only add assignments that don't already have notifications
         assignmentNotifications = data
           .filter(assignment => !existingAssignmentNumbers.has(assignment.assigned_number))
@@ -265,30 +267,86 @@ const fetchNotifications = async (userId, silent = false) => {
 
     // Merge all notifications
     const allNotifications = [...notifications1, ...notifications2, ...assignmentNotifications];
-    
+
+    // ---- Merge "Reschedule Requested" into the original visit assignment ----
+    const clean = (s) => (s || '').replace(/[\u202f\u00a0]/g, ' ').replace(/\s+/g, ' ').trim();
+    const isResched = (n) =>
+      /reschedule requested/i.test(n.title || '') ||
+      /reschedule requested for:/i.test(n.message || '');
+
+    const reschedList = allNotifications
+      .filter(isResched)
+      .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)); // oldest first
+    const baseList = allNotifications.filter(n => !isResched(n)).map(n => ({ ...n }));
+    const usedResched = new Set();
+
+    reschedList.forEach(r => {
+      const msg = clean(r.message);
+      const newDate = (msg.match(/Reschedule requested for:\s*(.+?)\s*Barcode:/i) || [])[1];
+      const barcodeStr = (msg.match(/Barcode:\s*(.+?)\s*(?:Notes:|$)/i) || [])[1];
+      if (!newDate || !barcodeStr) return;
+      const barcodes = barcodeStr.split(',').map(s => s.trim()).filter(Boolean);
+
+      const target = baseList.find(o => {
+        const itemsStr = (clean(o.message).match(/item\(s\):\s*(.+?)\s*Customer:/i) || [])[1] || '';
+        const items = itemsStr.split(',').map(s => s.trim());
+        return barcodes.some(b => items.includes(b));
+      });
+      if (!target) return;
+
+      // swap the old visit date with the reschedule date
+      target.message = clean(target.message).replace(
+        /on [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4} at \d{1,2}:\d{2} ?[AP]M/i,
+        `on ${newDate}`
+      );
+      if (!/\(Rescheduled\)/i.test(target.title || '')) {
+        target.title = `${target.title} (Rescheduled)`;
+      }
+      target.created_at = r.created_at;
+      target.is_read = !!(target.is_read && r.is_read);
+      usedResched.add(r.id);
+    });
+
+    // reschedule notifications with no matching assignment stay as they are
+    const mergedList = [...baseList, ...reschedList.filter(r => !usedResched.has(r.id))];
+
     // Remove duplicates based on a unique key (title + message combination)
     const uniqueNotifications = [];
     const seenKeys = new Set();
-    for (const notif of allNotifications) {
-      // Create a unique key for each notification
+    for (const notif of mergedList) {
       const key = `${notif.title || ''}|${notif.message || ''}|${notif.type || ''}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
         uniqueNotifications.push(notif);
       }
     }
-    
-    // Sort by created_at (newest first)
-    uniqueNotifications.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0);
-      const dateB = new Date(b.created_at || 0);
-      return dateB - dateA;
+
+    // ---- Only today's notifications ----
+    // Visit notifications: use the VISIT date in the message (so a visit
+    // rescheduled to tomorrow is hidden today).
+    // Everything else (assignments etc.): use created_at.
+    const todayStr = new Date().toDateString();
+    const todaysNotifications = uniqueNotifications.filter(n => {
+      if (!isResched(n)) {
+        const visitDateStr = (clean(n.message).match(/ on [A-Za-z]+, ([A-Za-z]+ \d{1,2}, \d{4}) at \d{1,2}:\d{2} ?[AP]M/i) || [])[1];
+        if (visitDateStr) {
+          const vd = new Date(visitDateStr);
+          if (!isNaN(vd.getTime())) {
+            return vd.toDateString() === todayStr;
+          }
+        }
+      }
+      const d = new Date(n.created_at);
+      return !isNaN(d.getTime()) && d.toDateString() === todayStr;
     });
 
-    // Calculate total unread count
-    const totalUnread = uniqueNotifications.filter(n => !n.is_read).length;
+    // Sort by created_at (newest first)
+    todaysNotifications.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-    setNotifications(uniqueNotifications);
+    // Calculate total unread count (today only)
+    const totalUnread = todaysNotifications.filter(n => !n.is_read).length;
+
+    setNotifications(todaysNotifications);
     setUnreadCount(totalUnread);
   } catch (error) {
     if (!silent) {
